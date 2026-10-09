@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'chrome.dart';
 import 'session.dart';
+import 'setup_permissions.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -16,6 +17,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String _digits = '';
   var _accepted = false;
   var _busy = false;
+  var _askedPermissions = false;
 
   @override
   void initState() {
@@ -28,11 +30,19 @@ class _SetupScreenState extends State<SetupScreen> {
     });
   }
 
+  Future<void> _askPermissions({String? speak}) async {
+    final session = SessionHost.of(context);
+    if (speak != null) await Speaker.say(session.lang, speak);
+    await requestSetupPermissions();
+    _askedPermissions = true;
+  }
+
   Future<void> _go() async {
     if (_digits.length != 10 || !_accepted || _busy) return;
     final session = SessionHost.of(context);
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
+    if (!_askedPermissions) await requestSetupPermissions();
     final located = await session.locate();
     if (!located) {
       if (mounted) {
@@ -65,7 +75,10 @@ class _SetupScreenState extends State<SetupScreen> {
                 children: [
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Text('+91 $_digits', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      '+91 $_digits',
+                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700),
+                    ),
                   ),
                   BigIcon(
                     icon: Icons.check,
@@ -84,13 +97,27 @@ class _SetupScreenState extends State<SetupScreen> {
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                   children: [
-                    for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0'])
+                    for (final key in [
+                      '1',
+                      '2',
+                      '3',
+                      '4',
+                      '5',
+                      '6',
+                      '7',
+                      '8',
+                      '9',
+                      'del',
+                      '0',
+                    ])
                       if (key == 'del')
                         BigIcon(
                           icon: Icons.backspace,
                           onTap: () {
                             if (_digits.isEmpty) return;
-                            setState(() => _digits = _digits.substring(0, _digits.length - 1));
+                            setState(
+                              () => _digits = _digits.substring(0, _digits.length - 1),
+                            );
                           },
                         )
                       else
@@ -117,7 +144,11 @@ class _SetupScreenState extends State<SetupScreen> {
                     icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
                     label: l10n.accept,
                     color: _accepted ? const Color(0xFF0F6E56) : null,
-                    onTap: () => setState(() => _accepted = !_accepted),
+                    onTap: () async {
+                      final next = !_accepted;
+                      setState(() => _accepted = next);
+                      if (next) await _askPermissions();
+                    },
                   ),
                   BigIcon(
                     icon: Icons.description,
@@ -141,7 +172,10 @@ class _SetupScreenState extends State<SetupScreen> {
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.all(24),
-                                      child: Text(l10n.termsBody, style: const TextStyle(fontSize: 22)),
+                                      child: Text(
+                                        l10n.termsBody,
+                                        style: const TextStyle(fontSize: 22),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -159,10 +193,26 @@ class _SetupScreenState extends State<SetupScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    BigIcon(icon: Icons.place, label: l10n.location, onTap: () => Speaker.say(session.lang, l10n.location)),
-                    BigIcon(icon: Icons.photo_camera, label: l10n.camera, onTap: () => Speaker.say(session.lang, l10n.camera)),
-                    BigIcon(icon: Icons.mic, label: l10n.mic, onTap: () => Speaker.say(session.lang, l10n.mic)),
-                    BigIcon(icon: Icons.photo, label: l10n.photos, onTap: () => Speaker.say(session.lang, l10n.photos)),
+                    BigIcon(
+                      icon: Icons.place,
+                      label: l10n.location,
+                      onTap: () => _askPermissions(speak: l10n.location),
+                    ),
+                    BigIcon(
+                      icon: Icons.photo_camera,
+                      label: l10n.camera,
+                      onTap: () => _askPermissions(speak: l10n.camera),
+                    ),
+                    BigIcon(
+                      icon: Icons.mic,
+                      label: l10n.mic,
+                      onTap: () => _askPermissions(speak: l10n.mic),
+                    ),
+                    BigIcon(
+                      icon: Icons.photo,
+                      label: l10n.photos,
+                      onTap: () => _askPermissions(speak: l10n.photos),
+                    ),
                   ],
                 ),
               ),

@@ -32,6 +32,14 @@ Future<void> main() async {
           ? const AndroidDebugProvider()
           : const AndroidPlayIntegrityProvider(),
     );
+    if (kDebugMode) {
+      try {
+        final token = await FirebaseAppCheck.instance.getToken(true);
+        debugPrint('App Check token (register debug token in Firebase): $token');
+      } catch (error) {
+        debugPrint('App Check token unavailable: $error');
+      }
+    }
     await GoogleSignIn.instance.initialize();
   }
   try {
