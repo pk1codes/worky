@@ -559,35 +559,41 @@ class _MapPaneState extends State<_MapPane> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: MapLibreMap(
-            styleString: 'https://tiles.openfreemap.org/styles/liberty',
-            initialCameraPosition: CameraPosition(
-              target: LatLng(widget.lat, widget.lng),
-              zoom: _zoom,
+    final open = widget.open;
+    if (open != null) {
+      return Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: BigIcon(
+              icon: Icons.close,
+              onTap: () => widget.onTap(open.id),
             ),
-            onMapCreated: (controller) {
-              _controller = controller;
-              controller.onCircleTapped.add((circle) {
-                final id = circle.data?['id'];
-                if (id is String) widget.onTap(id);
-              });
-            },
-            onMapClick: (_, latLng) => _openNearest(latLng),
-            onStyleLoadedCallback: _onStyle,
-            myLocationEnabled: false,
           ),
-        ),
-        if (widget.open != null)
-          SizedBox(
-            height: 460,
+          Expanded(
             child: SingleChildScrollView(
-              child: Center(child: ExpandedCard(post: widget.open!)),
+              child: Center(child: ExpandedCard(post: open)),
             ),
           ),
-      ],
+        ],
+      );
+    }
+    return MapLibreMap(
+      styleString: 'https://tiles.openfreemap.org/styles/liberty',
+      initialCameraPosition: CameraPosition(
+        target: LatLng(widget.lat, widget.lng),
+        zoom: _zoom,
+      ),
+      onMapCreated: (controller) {
+        _controller = controller;
+        controller.onCircleTapped.add((circle) {
+          final id = circle.data?['id'];
+          if (id is String) widget.onTap(id);
+        });
+      },
+      onMapClick: (_, latLng) => _openNearest(latLng),
+      onStyleLoadedCallback: _onStyle,
+      myLocationEnabled: false,
     );
   }
 }
