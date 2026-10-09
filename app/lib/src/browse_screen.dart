@@ -181,8 +181,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         posts: posts,
                         lat: session.lat ?? 20.5,
                         lng: session.lng ?? 78.9,
-                        onTap: (id) =>
-                            setState(() => _openId = _openId == id ? null : id),
+                        onOpen: (id) => setState(() => _openId = id),
+                        onClose: () => setState(() => _openId = null),
                         open: _openPost(posts),
                       )
                     : RefreshIndicator(
@@ -481,14 +481,16 @@ class _MapPane extends StatefulWidget {
     required this.posts,
     required this.lat,
     required this.lng,
-    required this.onTap,
+    required this.onOpen,
+    required this.onClose,
     required this.open,
   });
 
   final List<FeedPost> posts;
   final double lat;
   final double lng;
-  final ValueChanged<String> onTap;
+  final ValueChanged<String> onOpen;
+  final VoidCallback onClose;
   final FeedPost? open;
 
   @override
@@ -525,7 +527,7 @@ class _MapPaneState extends State<_MapPane> {
         best = post;
       }
     }
-    if (best != null) widget.onTap(best.id);
+    if (best != null) widget.onOpen(best.id);
   }
 
   double _km(double aLat, double aLng, double bLat, double bLng) {
@@ -553,7 +555,7 @@ class _MapPaneState extends State<_MapPane> {
             circleColor: '#0F6E56',
             circleRadius: 18,
           ),
-          {'id': post.id},
+          {'postId': post.id},
         );
       }
     } catch (_) {}
@@ -591,7 +593,7 @@ class _MapPaneState extends State<_MapPane> {
             alignment: Alignment.centerLeft,
             child: BigIcon(
               icon: Icons.close,
-              onTap: () => widget.onTap(open.id),
+              onTap: widget.onClose,
             ),
           ),
           Expanded(
@@ -611,10 +613,11 @@ class _MapPaneState extends State<_MapPane> {
       onMapCreated: (controller) {
         _controller = controller;
         controller.onCircleTapped.add((circle) {
-          final id = circle.data?['id'];
-          if (id is String) widget.onTap(id);
+          final id = circle.data?['postId'];
+          if (id is String) widget.onOpen(id);
         });
       },
+      featureTapsTriggersMapClick: true,
       onMapClick: (_, latLng) => _openNearest(latLng),
       onStyleLoadedCallback: _onStyle,
       myLocationEnabled: false,
