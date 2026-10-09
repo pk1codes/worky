@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -41,6 +42,7 @@ class Session extends ChangeNotifier {
     notifyListeners();
     auth.authStateChanges().listen((next) async {
       user = next;
+      await _analyticsUser(next?.uid);
       if (next != null) {
         try {
           final me = await api.me();
@@ -74,10 +76,16 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> setWhatsapp(String value) async {
+    final first = whatsapp == null || whatsapp!.isEmpty;
     whatsapp = value;
     notifyListeners();
     await _prefs?.setString('whatsapp', value);
     await api.saveMe(lang: lang, whatsapp: value);
+    if (first && value.isNotEmpty) {
+      try {
+        await FirebaseAnalytics.instance.logEvent(name: 'sign_up');
+      } catch (_) {}
+    }
   }
 
   Future<bool> locate() async {
@@ -95,6 +103,11 @@ class Session extends ChangeNotifier {
     await _prefs?.setDouble('lat', lat!);
     await _prefs?.setDouble('lng', lng!);
     notifyListeners();
+    if (user != null) {
+      try {
+        await api.saveMe(lang: lang, whatsapp: whatsapp, lat: lat, lng: lng);
+      } catch (_) {}
+    }
     return true;
   }
 
@@ -141,8 +154,15 @@ class Session extends ChangeNotifier {
     whatsapp = null;
     admin = false;
     await _prefs?.remove('whatsapp');
+    await _analyticsUser(null);
     await auth.signOut();
     notifyListeners();
+  }
+
+  Future<void> _analyticsUser(String? uid) async {
+    try {
+      await FirebaseAnalytics.instance.setUserId(id: uid);
+    } catch (_) {}
   }
 
   String cacheKey(String parentId) => '$parentId|${lat?.toStringAsFixed(3)}|${lng?.toStringAsFixed(3)}|$lang';

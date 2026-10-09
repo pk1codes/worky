@@ -79,6 +79,17 @@ function send(res, status, body) {
   res.status(status).json(body);
 }
 
+function pairCoord(body) {
+  const hasLat = body != null && body.lat != null;
+  const hasLng = body != null && body.lng != null;
+  if (!hasLat && !hasLng) return { ok: true };
+  const { lat, lng } = body;
+  const latOk = typeof lat === 'number' && Number.isFinite(lat) && lat >= -90 && lat <= 90;
+  const lngOk = typeof lng === 'number' && Number.isFinite(lng) && lng >= -180 && lng <= 180;
+  if (!latOk || !lngOk) return { ok: false };
+  return { ok: true, lat, lng };
+}
+
 async function authed(req, res) {
   if (process.env.FUNCTIONS_EMULATOR !== 'true') {
     const appCheck = req.get('x-firebase-appcheck');
@@ -313,6 +324,11 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
+    const coords = pairCoord(req.body);
+    if (!coords.ok) {
+      send(res, 400, { error: 'try_again' });
+      return;
+    }
     const prev = await db.collection('users').doc(uid).get();
     const next = {
       lang: lang || (prev.exists ? prev.get('lang') : null),
@@ -320,6 +336,10 @@ async function handle(req, res) {
       email: user.email || '',
       updatedAt: Date.now(),
     };
+    if (coords.lat != null) {
+      next.lat = coords.lat;
+      next.lng = coords.lng;
+    }
     await db.collection('users').doc(uid).set(next, { merge: true });
     send(res, 200, { lang: next.lang, whatsapp: next.whatsapp, admin: user.admin === true });
     return;

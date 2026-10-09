@@ -151,8 +151,13 @@ class WorkyApi {
 
   Future<Map<String, dynamic>> me() async => (await _json('GET', '/v1/me'))!;
 
-  Future<void> saveMe({String? lang, String? whatsapp}) async {
-    await _json('PUT', '/v1/me', body: {'lang': lang, 'whatsapp': whatsapp});
+  Future<void> saveMe({String? lang, String? whatsapp, double? lat, double? lng}) async {
+    final body = <String, dynamic>{'lang': lang, 'whatsapp': whatsapp};
+    if (lat != null && lng != null) {
+      body['lat'] = lat;
+      body['lng'] = lng;
+    }
+    await _json('PUT', '/v1/me', body: body);
   }
 
   Future<void> deleteMe() async {
