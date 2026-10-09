@@ -11,6 +11,23 @@ class ApiException implements Exception {
   final int status;
 }
 
+class FinishException implements Exception {
+  FinishException(this.status);
+  final int status;
+}
+
+class UploadTicket {
+  UploadTicket({
+    required this.mediaId,
+    required this.uploadUrl,
+    required this.finishUrl,
+  });
+
+  final String mediaId;
+  final String uploadUrl;
+  final String finishUrl;
+}
+
 class FeedPost {
   FeedPost({
     required this.id,
@@ -79,7 +96,9 @@ class FeedCategory {
       coverUrl: (json['coverUrl'] as String?) ?? '',
       kind: json['kind'] == 'job' ? 'job' : 'parent',
       posts: ((json['posts'] as List?) ?? const [])
-          .map((row) => FeedPost.fromJson(Map<String, dynamic>.from(row as Map)))
+          .map(
+            (row) => FeedPost.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
           .toList(),
     );
   }
@@ -133,11 +152,23 @@ class WorkyApi {
     if (method == 'GET') {
       response = await http.get(uri, headers: headers);
     } else if (method == 'POST') {
-      response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {}));
+      response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(body ?? {}),
+      );
     } else if (method == 'PUT') {
-      response = await http.put(uri, headers: headers, body: jsonEncode(body ?? {}));
+      response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(body ?? {}),
+      );
     } else if (method == 'PATCH') {
-      response = await http.patch(uri, headers: headers, body: jsonEncode(body ?? {}));
+      response = await http.patch(
+        uri,
+        headers: headers,
+        body: jsonEncode(body ?? {}),
+      );
     } else {
       response = await http.delete(uri, headers: headers);
     }
@@ -151,7 +182,12 @@ class WorkyApi {
 
   Future<Map<String, dynamic>> me() async => (await _json('GET', '/v1/me'))!;
 
-  Future<void> saveMe({String? lang, String? whatsapp, double? lat, double? lng}) async {
+  Future<void> saveMe({
+    String? lang,
+    String? whatsapp,
+    double? lat,
+    double? lng,
+  }) async {
     final body = <String, dynamic>{'lang': lang, 'whatsapp': whatsapp};
     if (lat != null && lng != null) {
       body['lat'] = lat;
@@ -175,11 +211,15 @@ class WorkyApi {
     final json = await _json('GET', path, cache: true);
     if (json == null) return null;
     return ((json['categories'] as List?) ?? const [])
-        .map((row) => FeedCategory.fromJson(Map<String, dynamic>.from(row as Map)))
+        .map(
+          (row) => FeedCategory.fromJson(Map<String, dynamic>.from(row as Map)),
+        )
         .toList();
   }
 
-  Future<({List<MediaItem> media, bool mine, List<String> mediaIds})> post(String id) async {
+  Future<({List<MediaItem> media, bool mine, List<String> mediaIds})> post(
+    String id,
+  ) async {
     final json = (await _json('GET', '/v1/posts/$id'))!;
     final media = ((json['media'] as List?) ?? const [])
         .map((row) => MediaItem.fromJson(Map<String, dynamic>.from(row as Map)))
@@ -192,7 +232,11 @@ class WorkyApi {
   }
 
   Future<String> reveal(String id, String channel) async {
-    final json = (await _json('POST', '/v1/posts/$id/reveal', body: {'channel': channel}))!;
+    final json = (await _json(
+      'POST',
+      '/v1/posts/$id/reveal',
+      body: {'channel': channel},
+    ))!;
     return json['url'] as String;
   }
 
@@ -210,21 +254,76 @@ class WorkyApi {
         .toList();
   }
 
-  Future<String> upload(String kind, List<int> bytes, String contentType) async {
-    final ticket = (await _json('POST', '/v1/media/upload-url', body: {
-      'kind': kind,
-      'bytes': bytes.length,
-      'contentType': contentType,
-    }))!;
-    final headers = await _headers();
-    headers['content-type'] = 'application/octet-stream';
-    final response = await http.put(
-      Uri.parse(ticket['uploadUrl'] as String),
-      headers: headers,
-      body: bytes,
+  Future<UploadTicket> openUpload({
+    required String kind,
+    required int bytes,
+    required String contentType,
+  }) async {
+    final ticket = (await _json(
+      'POST',
+      '/v1/media/upload-url',
+      body: {'kind': kind, 'bytes': bytes, 'contentType': contentType},
+    ))!;
+    final uploadUrl = ticket['uploadUrl'] as String? ?? '';
+    final finishUrl = ticket['finishUrl'] as String? ?? '';
+    if (uploadUrl.isEmpty || finishUrl.isEmpty) throw ApiException(500);
+    return UploadTicket(
+      mediaId: ticket['mediaId'] as String,
+      uploadUrl: uploadUrl,
+      finishUrl: finishUrl,
     );
-    if (response.statusCode >= 300) throw ApiException(response.statusCode);
-    return ticket['mediaId'] as String;
+  }
+
+  Future<void> putStream(
+    String uploadUrl,
+    int length,
+    Stream<List<int>> Function(int start) open, {
+    bool resume = false,
+  }) async {
+    final uri = Uri.parse(uploadUrl);
+    final client = http.Client();
+    try {
+      var start = 0;
+      if (resume) start = await _uploaded(client, uri, length);
+      if (start >= length) return;
+      final request = http.StreamedRequest('PUT', uri);
+      request.contentLength = length - start;
+      request.headers['content-range'] = 'bytes $start-${length - 1}/$length';
+      final sent = client.send(request);
+      await request.sink.addStream(open(start));
+      await request.sink.close();
+      final response = await sent;
+      final code = response.statusCode;
+      await response.stream.drain();
+      if (code != 200 && code != 201) throw ApiException(code);
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<int> _uploaded(http.Client client, Uri uri, int length) async {
+    final probe = http.Request('PUT', uri);
+    probe.headers['content-range'] = 'bytes */$length';
+    probe.bodyBytes = const [];
+    final response = await client.send(probe);
+    final code = response.statusCode;
+    final range = response.headers['range'];
+    await response.stream.drain();
+    if (code == 200 || code == 201) return length;
+    if (code != 308) throw ApiException(code);
+    final match = RegExp(r'bytes=0-(\d+)').firstMatch(range ?? '');
+    if (match == null) return 0;
+    return int.parse(match.group(1)!) + 1;
+  }
+
+  Future<void> finishUpload(String finishUrl) async {
+    final headers = await _headers();
+    final response = await http.put(
+      Uri.parse(finishUrl),
+      headers: headers,
+      body: '{}',
+    );
+    if (response.statusCode >= 300) throw FinishException(response.statusCode);
   }
 
   Future<String> createPost({
@@ -234,13 +333,17 @@ class WorkyApi {
     required List<String> langs,
     required List<String> mediaIds,
   }) async {
-    final json = (await _json('POST', '/v1/posts', body: {
-      'categoryId': categoryId,
-      'lat': lat,
-      'lng': lng,
-      'langs': langs,
-      'mediaIds': mediaIds,
-    }))!;
+    final json = (await _json(
+      'POST',
+      '/v1/posts',
+      body: {
+        'categoryId': categoryId,
+        'lat': lat,
+        'lng': lng,
+        'langs': langs,
+        'mediaIds': mediaIds,
+      },
+    ))!;
     return json['id'] as String;
   }
 
@@ -252,13 +355,17 @@ class WorkyApi {
     required List<String> langs,
     required List<String> mediaIds,
   }) async {
-    await _json('PATCH', '/v1/posts/$id', body: {
-      'categoryId': categoryId,
-      'lat': lat,
-      'lng': lng,
-      'langs': langs,
-      'mediaIds': mediaIds,
-    });
+    await _json(
+      'PATCH',
+      '/v1/posts/$id',
+      body: {
+        'categoryId': categoryId,
+        'lat': lat,
+        'lng': lng,
+        'langs': langs,
+        'mediaIds': mediaIds,
+      },
+    );
   }
 
   Future<void> pause(String id, bool paused) async {
@@ -299,6 +406,10 @@ class WorkyApi {
   }
 
   Future<void> hideCategory(String id, {required bool active}) async {
-    await _json('POST', '/v1/admin/categories/$id/hide', body: {'active': active});
+    await _json(
+      'POST',
+      '/v1/admin/categories/$id/hide',
+      body: {'active': active},
+    );
   }
 }

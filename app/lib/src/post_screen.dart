@@ -12,6 +12,8 @@ import 'api.dart';
 import 'browse_screen.dart';
 import 'chrome.dart';
 import 'langs.dart';
+import 'local_thumb.dart' if (dart.library.io) 'local_thumb_io.dart';
+import 'media_queue.dart';
 import 'session.dart';
 
 class PostScreen extends StatefulWidget {
@@ -30,10 +32,12 @@ class _PostScreenState extends State<PostScreen> {
   double? _lng;
   late Set<String> _langs;
   final List<String> _mediaIds = [];
+  final List<String> _jobIds = [];
   final ImagePicker _picker = ImagePicker();
   final AudioRecorder _recorder = AudioRecorder();
   var _recording = false;
-  var _busy = false;
+  String? _micId;
+  MediaQueue? _box;
   List<MediaItem> _library = [];
   MapLibreMapController? _map;
 
@@ -68,23 +72,30 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final box = SessionHost.of(context).outbox;
+    if (_box == box) return;
+    _box?.removeListener(_onBox);
+    _box = box;
+    box.addListener(_onBox);
+  }
+
+  void _onBox() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _box?.removeListener(_onBox);
     unawaited(_recorder.dispose());
     super.dispose();
   }
 
-  Future<void> _upload(String kind, List<int> bytes, String type) async {
-    final session = SessionHost.of(context);
-    setState(() => _busy = true);
-    try {
-      final id = await session.api.upload(kind, bytes, type);
-      if (mounted) setState(() => _mediaIds.add(id));
-    } catch (_) {
-      if (mounted)
-        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  void _take(Session session, String kind, String path) {
+    final id = session.outbox.freshId();
+    session.outbox.addFile(id: id, kind: kind, path: path);
+    setState(() => _jobIds.add(id));
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -94,8 +105,8 @@ class _PostScreenState extends State<PostScreen> {
       maxHeight: 1600,
       imageQuality: 80,
     );
-    if (file == null) return;
-    await _upload('image', await file.readAsBytes(), 'image/jpeg');
+    if (file == null || !mounted) return;
+    _take(SessionHost.of(context), 'image', file.path);
   }
 
   Future<void> _pickVideo(ImageSource source) async {
@@ -103,25 +114,45 @@ class _PostScreenState extends State<PostScreen> {
       source: source,
       maxDuration: const Duration(seconds: 30),
     );
-    if (file == null) return;
-    await _upload('video', await file.readAsBytes(), 'video/mp4');
+    if (file == null || !mounted) return;
+    _take(SessionHost.of(context), 'video', file.path);
+  }
+
+  Future<void> _finishMic(Session session) async {
+    if (!_recording) return;
+    final path = await _recorder.stop();
+    final id = _micId;
+    _recording = false;
+    _micId = null;
+    if (path == null || id == null) return;
+    session.outbox.addFile(id: id, kind: 'audio', path: path, ownsPath: true);
+    _jobIds.add(id);
   }
 
   Future<void> _toggleMic() async {
+    final session = SessionHost.of(context);
     if (_recording) {
-      final path = await _recorder.stop();
-      setState(() => _recording = false);
-      if (path == null) return;
-      final bytes = await XFile(path).readAsBytes();
-      await _upload('audio', bytes, 'audio/wav');
+      await _finishMic(session);
+      if (mounted) setState(() {});
       return;
     }
     if (!await _recorder.hasPermission()) return;
+    final id = session.outbox.freshId();
+    final path = await session.outbox.localPath(id, 'm4a');
     await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.wav),
-      path: 'voice.wav',
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 32000,
+        sampleRate: 22050,
+        numChannels: 1,
+      ),
+      path: path,
     );
-    setState(() => _recording = true);
+    if (!mounted) return;
+    setState(() {
+      _recording = true;
+      _micId = id;
+    });
   }
 
   Future<void> _pickAudioFile() async {
@@ -129,51 +160,60 @@ class _PostScreenState extends State<PostScreen> {
       type: FileType.custom,
       allowedExtensions: ['mp3', 'wav', 'm4a'],
     );
-    if (files.isEmpty) return;
-    final file = files.first;
-    final bytes = await file.readAsBytes();
-    final type = (file.extension ?? '').toLowerCase() == 'wav'
-        ? 'audio/wav'
-        : 'audio/mpeg';
-    await _upload('audio', bytes, type);
+    if (files.isEmpty || !mounted) return;
+    final path = files.first.path;
+    if (path == null) return;
+    _take(SessionHost.of(context), 'audio', path);
+  }
+
+  int _count(Session session, String kind) {
+    var n = 0;
+    for (final id in _mediaIds) {
+      MediaItem? known;
+      for (final item in _library) {
+        if (item.id == id) known = item;
+      }
+      if (known == null) {
+        if (_library.isEmpty && kind == 'image') n += 1;
+      } else if (known.kind == kind) {
+        n += 1;
+      }
+    }
+    for (final id in _jobIds) {
+      final item = session.outbox.job(id);
+      if (item != null && item.kind == kind) n += 1;
+    }
+    return n;
   }
 
   Future<void> _save() async {
     final session = SessionHost.of(context);
+    final message = AppLocalizations.of(context).tryAgain;
+    await _finishMic(session);
+    if (!mounted) return;
+    final images = _count(session, 'image');
+    final videos = _count(session, 'video');
+    final audios = _count(session, 'audio');
     if (_categoryId == null ||
         _lat == null ||
         _lng == null ||
-        _mediaIds.isEmpty) {
-      await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+        images < 1 ||
+        images > 5 ||
+        videos > 5 ||
+        audios > 5) {
+      await Speaker.say(session.lang, message);
       return;
     }
-    setState(() => _busy = true);
-    try {
-      if (widget.edit == null) {
-        await session.api.createPost(
-          categoryId: _categoryId!,
-          lat: _lat!,
-          lng: _lng!,
-          langs: _langs.toList(),
-          mediaIds: _mediaIds,
-        );
-      } else {
-        await session.api.updatePost(
-          id: widget.edit!.id,
-          categoryId: _categoryId!,
-          lat: _lat!,
-          lng: _lng!,
-          langs: _langs.toList(),
-          mediaIds: _mediaIds,
-        );
-      }
-      if (mounted) Navigator.pop(context);
-    } catch (_) {
-      if (mounted)
-        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    session.outbox.saveDraft(
+      postId: widget.edit?.id,
+      categoryId: _categoryId!,
+      lat: _lat!,
+      lng: _lng!,
+      langs: _langs.toList(),
+      libraryIds: List<String>.of(_mediaIds),
+      jobIds: List<String>.of(_jobIds),
+    );
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -223,17 +263,16 @@ class _PostScreenState extends State<PostScreen> {
                       icon: Icons.check,
                       filled: true,
                       label: l10n.save,
-                      onTap: _busy ? null : _save,
+                      onTap: _save,
                     ),
                 ],
               ),
-              if (_busy) const LinearProgressIndicator(),
               Expanded(
                 child: _step == 0
                     ? _pickCategory()
                     : _step == 1
                     ? _place(session, l10n)
-                    : _media(l10n),
+                    : _media(session, l10n),
               ),
             ],
           ),
@@ -334,7 +373,7 @@ class _PostScreenState extends State<PostScreen> {
     );
   }
 
-  Widget _media(AppLocalizations l10n) {
+  Widget _media(Session session, AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -377,6 +416,46 @@ class _PostScreenState extends State<PostScreen> {
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final id in _jobIds)
+              if (session.outbox.job(id) case final item?)
+                Stack(
+                  children: [
+                    if (item.kind == 'image')
+                      LocalThumb(path: item.path, width: 72, height: 72)
+                    else
+                      SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: ColoredBox(
+                          color: const Color(0xFFE7F2EE),
+                          child: Icon(
+                            item.kind == 'video' ? Icons.videocam : Icons.mic,
+                          ),
+                        ),
+                      ),
+                    if (item.status == 'failed')
+                      Positioned.fill(
+                        child: Center(
+                          child: BigIcon(
+                            icon: Icons.refresh,
+                            label: l10n.tryAgain,
+                            onTap: () => session.outbox.retryJob(item.id),
+                          ),
+                        ),
+                      )
+                    else if (item.status != 'ready')
+                      const Positioned.fill(
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                  ],
+                ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
           children: [
             for (final item in _library.where((item) => item.kind == 'image'))
               GestureDetector(
@@ -394,6 +473,7 @@ class _PostScreenState extends State<PostScreen> {
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
+                      cacheWidth: imageCacheWidth(context, 72),
                     ),
                     if (_mediaIds.contains(item.id))
                       const Icon(Icons.check_circle, color: Colors.white),
@@ -404,7 +484,7 @@ class _PostScreenState extends State<PostScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          '${_mediaIds.length}',
+          '${_mediaIds.length + _jobIds.length}',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
         ),
       ],

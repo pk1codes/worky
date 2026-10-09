@@ -182,6 +182,22 @@ function limitsFor(kind, info) {
   return null;
 }
 
+function extFor(kind, contentType) {
+  if (kind === 'image' && contentType === 'image/webp') return 'webp';
+  if (kind === 'image' && contentType === 'image/jpeg') return 'jpg';
+  if (kind === 'image' && contentType === 'image/png') return 'png';
+  if (kind === 'video' && contentType === 'video/mp4') return 'mp4';
+  if (kind === 'audio' && (contentType === 'audio/mp4' || contentType === 'audio/aac')) return 'm4a';
+  if (kind === 'audio' && contentType === 'audio/mpeg') return 'mp3';
+  if (kind === 'audio' && contentType === 'audio/wav') return 'wav';
+  return null;
+}
+
+function publicUrl(bucketName, objectPath, token) {
+  const name = encodeURIComponent(objectPath);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${name}?alt=media&token=${token}`;
+}
+
 module.exports = {
   parseMp4,
   parseWav,
@@ -190,4 +206,6 @@ module.exports = {
   KIND_TYPE,
   SERVE_TYPE,
   limitsFor,
+  extFor,
+  publicUrl,
 };

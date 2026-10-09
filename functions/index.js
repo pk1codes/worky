@@ -4,7 +4,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
 const { LANGS, coarse, geohash, kmBetween, band, daysAgo } = require('./lib/geo');
-const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor } = require('./lib/media');
+const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl } = require('./lib/media');
 
 admin.initializeApp({
   projectId: 'worky-93fbc',
@@ -216,12 +216,13 @@ async function acceptUpload(kind, buf) {
       const meta = await img.metadata();
       const pixels = (meta.width || 0) * (meta.height || 0);
       if (!pixels || pixels > 12_000_000) return { error: 'pixels' };
+      if (sniffed === 'webp') return { buf, contentType: 'image/webp' };
       const out = await img
         .rotate()
         .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer();
-      return { buf: out, contentType: 'image/jpeg' };
+      return { buf: out, contentType: 'image/jpeg', rewrite: true };
     } catch (_) {
       return { error: 'type' };
     }
@@ -229,7 +230,10 @@ async function acceptUpload(kind, buf) {
   const info = sniffed === 'mp4' ? parseMp4(buf) : sniffed === 'wav' ? parseWav(buf) : parseMp3(buf);
   const problem = limitsFor(kind, info);
   if (problem) return { error: problem };
-  const contentType = kind === 'video' ? 'video/mp4' : sniffed === 'wav' ? 'audio/wav' : 'audio/mpeg';
+  let contentType = 'audio/mpeg';
+  if (kind === 'video') contentType = 'video/mp4';
+  else if (sniffed === 'wav') contentType = 'audio/wav';
+  else if (sniffed === 'mp4') contentType = 'audio/mp4';
   return { buf, contentType };
 }
 
@@ -237,7 +241,7 @@ function card(req, doc, distanceKm) {
   const data = doc.data();
   return {
     id: doc.id,
-    posterUrl: data.posterPath ? fileUrl(req, `poster:${doc.id}`) : '',
+    posterUrl: data.posterUrl || (data.posterPath ? fileUrl(req, `poster:${doc.id}`) : ''),
     daysAgo: daysAgo(data.createdAt || Date.now()),
     band: band(distanceKm),
     langs: data.langs || [],
@@ -379,7 +383,7 @@ async function handle(req, res) {
       .map((d) => ({
         id: d.id,
         kind: d.get('kind'),
-        url: fileUrl(req, d.id),
+        url: d.get('url') || fileUrl(req, d.id),
       }));
     send(res, 200, { media: rows });
     return;
@@ -478,7 +482,7 @@ async function handle(req, res) {
     for (const id of data.mediaIds || []) {
       const m = await db.collection('media').doc(id).get();
       if (!m.exists || m.get('status') !== 'ready') continue;
-      media.push({ id, kind: m.get('kind'), url: fileUrl(req, id) });
+      media.push({ id, kind: m.get('kind'), url: m.get('url') || fileUrl(req, id) });
     }
     send(res, 200, {
       id: doc.id,
@@ -558,21 +562,37 @@ async function handle(req, res) {
     }
     const kind = req.body?.kind;
     const bytes = Number(req.body?.bytes || 0);
-    if (!MAX_BYTES[kind] || bytes < 32 || bytes > MAX_BYTES[kind]) {
+    const contentType = String(req.body?.contentType || '');
+    const ext = extFor(kind, contentType);
+    if (!MAX_BYTES[kind] || bytes < 32 || bytes > MAX_BYTES[kind] || !ext) {
       send(res, 400, { error: 'try_again' });
       return;
     }
     const id = crypto.randomBytes(12).toString('hex');
+    const objectPath = `users/${uid}/${id}.${ext}`;
     await db.collection('media').doc(id).set({
       uid,
       kind,
       status: 'pending',
       bytes,
+      path: objectPath,
+      contentType,
       createdAt: Date.now(),
     });
+    let uploadUrl = '';
+    try {
+      const [uri] = await bucket.file(objectPath).createResumableUpload({
+        metadata: { contentType },
+      });
+      uploadUrl = uri;
+    } catch (err) {
+      await db.collection('media').doc(id).delete();
+      throw err;
+    }
     send(res, 200, {
       mediaId: id,
-      uploadUrl: `${apiRoot(req)}/v1/media/raw/${id}?t=${tokenFor(id, 600_000)}`,
+      uploadUrl,
+      finishUrl: `${apiRoot(req)}/v1/media/raw/${id}?t=${tokenFor(id, 86_400_000)}`,
     });
     return;
   }
@@ -588,36 +608,47 @@ async function handle(req, res) {
       send(res, 404, { error: 'try_again' });
       return;
     }
-    const buf = Buffer.isBuffer(req.rawBody) && req.rawBody.length
-      ? req.rawBody
-      : Buffer.isBuffer(req.body)
-        ? req.body
-        : Buffer.alloc(0);
+    const objectPath = doc.get('path');
+    const file = bucket.file(objectPath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      send(res, 400, { error: 'try_again' });
+      return;
+    }
+    const [buf] = await file.download();
     if (buf.length < 32 || buf.length > MAX_BYTES[doc.get('kind')]) {
+      await file.delete({ ignoreNotFound: true });
       await doc.ref.delete();
       send(res, 400, { error: 'try_again' });
       return;
     }
     const accepted = await acceptUpload(doc.get('kind'), buf);
     if (accepted.error) {
+      await file.delete({ ignoreNotFound: true });
       await doc.ref.delete();
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const ext = accepted.contentType === 'image/jpeg' ? 'jpg' : accepted.contentType === 'video/mp4' ? 'mp4' : accepted.contentType === 'audio/wav' ? 'wav' : 'mp3';
-    const path = `users/${uid}/${id}.${ext}`;
-    await bucket.file(path).save(accepted.buf, {
+    const token = crypto.randomUUID();
+    const cacheControl = 'public, max-age=31536000, immutable';
+    const metadata = {
       contentType: accepted.contentType,
-      resumable: false,
-      metadata: { contentType: accepted.contentType },
-    });
+      cacheControl,
+      metadata: { firebaseStorageDownloadTokens: token },
+    };
+    if (accepted.rewrite) {
+      await file.save(accepted.buf, { resumable: false, metadata });
+    } else {
+      await file.setMetadata(metadata);
+    }
+    const url = publicUrl(bucket.name, objectPath, token);
     await doc.ref.update({
       status: 'ready',
-      path,
       contentType: accepted.contentType,
-      bytes: accepted.buf.length,
+      bytes: accepted.rewrite ? accepted.buf.length : buf.length,
+      url,
     });
-    send(res, 200, { mediaId: id, url: fileUrl(req, id) });
+    send(res, 200, { mediaId: id, url });
     return;
   }
 
@@ -686,6 +717,7 @@ async function ownedMedia(uid, ids) {
   let videos = 0;
   let audios = 0;
   let posterPath = '';
+  let posterUrl = '';
   let hasVideo = false;
   for (const id of ids) {
     if (typeof id !== 'string') return null;
@@ -698,11 +730,14 @@ async function ownedMedia(uid, ids) {
       hasVideo = true;
     }
     if (kind === 'audio') audios += 1;
-    if (kind === 'image' && !posterPath) posterPath = doc.get('path');
+    if (kind === 'image' && !posterPath) {
+      posterPath = doc.get('path');
+      posterUrl = doc.get('url') || '';
+    }
     out.push(id);
   }
   if (images < 1 || images > 5 || videos > 5 || audios > 5) return null;
-  return { ids: out, posterPath, hasVideo };
+  return { ids: out, posterPath, posterUrl, hasVideo };
 }
 
 async function savePost(req, uid, existingId) {
@@ -729,6 +764,7 @@ async function savePost(req, uid, existingId) {
     langs,
     mediaIds: media.ids,
     posterPath: media.posterPath,
+    posterUrl: media.posterUrl || '',
     hasVideo: media.hasVideo,
     updatedAt: Date.now(),
   };

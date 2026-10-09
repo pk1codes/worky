@@ -28,6 +28,11 @@ class Speaker {
   }
 }
 
+int imageCacheWidth(BuildContext context, double logical) {
+  final width = (logical * MediaQuery.devicePixelRatioOf(context)).round();
+  return width < 1 ? 1 : width;
+}
+
 class Paged extends StatelessWidget {
   const Paged({required this.page, required this.child, super.key});
 
@@ -85,7 +90,9 @@ class BigIcon extends StatelessWidget {
       style: IconButton.styleFrom(
         minimumSize: const Size(72, 72),
         backgroundColor: filled ? (color ?? const Color(0xFF0F6E56)) : null,
-        foregroundColor: filled ? Colors.white : (color ?? const Color(0xFF16332C)),
+        foregroundColor: filled
+            ? Colors.white
+            : (color ?? const Color(0xFF16332C)),
       ),
       icon: Icon(icon),
     );

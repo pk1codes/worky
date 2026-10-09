@@ -10,12 +10,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'config.dart';
+import 'media_queue.dart';
 
 class Session extends ChangeNotifier {
-  Session(this.auth) : api = WorkyApi(auth);
+  Session(this.auth) : api = WorkyApi(auth) {
+    outbox = MediaQueue(api);
+  }
 
   final FirebaseAuth auth;
   final WorkyApi api;
+  late final MediaQueue outbox;
   SharedPreferences? _prefs;
 
   bool ready = false;
@@ -29,6 +33,7 @@ class Session extends ChangeNotifier {
 
   Future<void> boot() async {
     _prefs = await SharedPreferences.getInstance();
+    await outbox.attach(_prefs!);
     lang = _prefs!.getString('lang');
     whatsapp = _prefs!.getString('whatsapp');
     final cachedLat = _prefs!.getDouble('lat');
@@ -49,15 +54,18 @@ class Session extends ChangeNotifier {
     }
     ready = true;
     notifyListeners();
+    if (user != null) outbox.kick();
     auth.authStateChanges().listen((next) async {
       user = next;
       await _analyticsUser(next?.uid);
       if (next != null) {
+        outbox.kick();
         try {
           final me = await api.me();
           admin = me['admin'] == true;
           final serverWhatsapp = me['whatsapp'] as String?;
-          if ((whatsapp == null || whatsapp!.isEmpty) && serverWhatsapp != null) {
+          if ((whatsapp == null || whatsapp!.isEmpty) &&
+              serverWhatsapp != null) {
             whatsapp = serverWhatsapp;
             await _prefs!.setString('whatsapp', serverWhatsapp);
           }
@@ -109,7 +117,9 @@ class Session extends ChangeNotifier {
     late final Position position;
     try {
       position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(timeLimit: Duration(seconds: 10)),
+        locationSettings: const LocationSettings(
+          timeLimit: Duration(seconds: 10),
+        ),
       );
     } catch (_) {
       return false;
@@ -131,19 +141,26 @@ class Session extends ChangeNotifier {
     if (kUseEmulator) {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final payload = base64Url
-          .encode(utf8.encode(jsonEncode({
-            'sub': kDebugEmail,
-            'email': kDebugEmail,
-            'email_verified': true,
-            'aud': 'worky-93fbc',
-            'iss': 'https://accounts.google.com',
-            'iat': now,
-            'exp': now + 3600,
-          })))
+          .encode(
+            utf8.encode(
+              jsonEncode({
+                'sub': kDebugEmail,
+                'email': kDebugEmail,
+                'email_verified': true,
+                'aud': 'worky-93fbc',
+                'iss': 'https://accounts.google.com',
+                'iat': now,
+                'exp': now + 3600,
+              }),
+            ),
+          )
           .replaceAll('=', '');
       const header = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0';
       await auth.signInWithCredential(
-        GoogleAuthProvider.credential(idToken: '$header.$payload.', accessToken: 'debug'),
+        GoogleAuthProvider.credential(
+          idToken: '$header.$payload.',
+          accessToken: 'debug',
+        ),
       );
       return;
     }
@@ -156,18 +173,24 @@ class Session extends ChangeNotifier {
     final account = await GoogleSignIn.instance.authenticate();
     final idToken = account.authentication.idToken;
     if (idToken == null) return;
-    await auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+    await auth.signInWithCredential(
+      GoogleAuthProvider.credential(idToken: idToken),
+    );
   }
 
   Future<void> trySilent() async {
     if (kUseEmulator || kIsWeb || auth.currentUser != null) return;
-    final account = await GoogleSignIn.instance.attemptLightweightAuthentication();
+    final account = await GoogleSignIn.instance
+        .attemptLightweightAuthentication();
     final idToken = account?.authentication.idToken;
     if (idToken == null) return;
-    await auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+    await auth.signInWithCredential(
+      GoogleAuthProvider.credential(idToken: idToken),
+    );
   }
 
   Future<void> deleteAccount() async {
+    await outbox.clear();
     await api.deleteMe();
     whatsapp = null;
     admin = false;
@@ -183,7 +206,8 @@ class Session extends ChangeNotifier {
     } catch (_) {}
   }
 
-  String cacheKey(String parentId) => '$parentId|${lat?.toStringAsFixed(3)}|${lng?.toStringAsFixed(3)}|$lang';
+  String cacheKey(String parentId) =>
+      '$parentId|${lat?.toStringAsFixed(3)}|${lng?.toStringAsFixed(3)}|$lang';
 }
 
 class SessionHost extends InheritedWidget {
@@ -198,5 +222,6 @@ class SessionHost extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(SessionHost oldWidget) => session != oldWidget.session;
+  bool updateShouldNotify(SessionHost oldWidget) =>
+      session != oldWidget.session;
 }

@@ -66,7 +66,8 @@ class _AdminScreenState extends State<AdminScreen> {
       _coverId = null;
       await _load();
     } catch (_) {
-      if (mounted) await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+      if (mounted)
+        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,8 +83,18 @@ class _AdminScreenState extends State<AdminScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              BigIcon(icon: Icons.arrow_back, label: l10n.back, onTap: () => Navigator.pop(context)),
-              Text(l10n.admin, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              BigIcon(
+                icon: Icons.arrow_back,
+                label: l10n.back,
+                onTap: () => Navigator.pop(context),
+              ),
+              Text(
+                l10n.admin,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               TextField(
                 controller: _parent,
                 decoration: InputDecoration(labelText: l10n.nameLabel),
@@ -91,7 +102,9 @@ class _AdminScreenState extends State<AdminScreen> {
               for (final code in kLangs)
                 TextField(
                   controller: _names[code],
-                  decoration: InputDecoration(labelText: '${kAutonym[code]} · ${l10n.nameLabel}'),
+                  decoration: InputDecoration(
+                    labelText: '${kAutonym[code]} · ${l10n.nameLabel}',
+                  ),
                 ),
               Row(
                 children: [
@@ -122,29 +135,57 @@ class _AdminScreenState extends State<AdminScreen> {
                         imageQuality: 80,
                       );
                       if (file == null || !mounted) return;
-                      final id = await api.upload('image', await file.readAsBytes(), 'image/jpeg');
+                      final length = await file.length();
+                      final ticket = await api.openUpload(
+                        kind: 'image',
+                        bytes: length,
+                        contentType: 'image/jpeg',
+                      );
+                      await api.putStream(
+                        ticket.uploadUrl,
+                        length,
+                        (start) => file.openRead(start),
+                      );
+                      await api.finishUpload(ticket.finishUrl);
+                      final id = ticket.mediaId;
                       if (!mounted) return;
                       setState(() => _coverId = id);
                     },
                   ),
-                  BigIcon(icon: Icons.save, label: l10n.save, filled: true, onTap: _busy ? null : _save),
+                  BigIcon(
+                    icon: Icons.save,
+                    label: l10n.save,
+                    filled: true,
+                    onTap: _busy ? null : _save,
+                  ),
                 ],
               ),
               for (final row in _rows)
                 ListTile(
                   leading: row['coverUrl'] == null
                       ? null
-                      : Image.network('${row['coverUrl']}', width: 48, height: 48, fit: BoxFit.cover),
+                      : Image.network(
+                          '${row['coverUrl']}',
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                        ),
                   title: Text('${(row['names'] as Map?)?['en'] ?? row['id']}'),
-                  subtitle: Text('${row['kind'] ?? ''} ${row['parentId'] ?? ''}'),
+                  subtitle: Text(
+                    '${row['kind'] ?? ''} ${row['parentId'] ?? ''}',
+                  ),
                   trailing: IconButton(
-                    icon: Icon(row['active'] == false ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                      row['active'] == false
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
                     tooltip: row['active'] == false ? l10n.show : l10n.hide,
                     onPressed: () async {
                       await SessionHost.of(context).api.hideCategory(
-                            row['id'] as String,
-                            active: row['active'] == false,
-                          );
+                        row['id'] as String,
+                        active: row['active'] == false,
+                      );
                       await _load();
                     },
                   ),

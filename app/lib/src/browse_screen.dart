@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -256,6 +258,7 @@ class _CategoryRow extends StatelessWidget {
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
+                      cacheWidth: imageCacheWidth(context, 72),
                       errorBuilder: (_, _, _) => const SizedBox(
                         width: 72,
                         height: 72,
@@ -296,6 +299,7 @@ class _CategoryRow extends StatelessWidget {
                             width: 150,
                             height: 190,
                             fit: BoxFit.cover,
+                            cacheWidth: imageCacheWidth(context, 150),
                             errorBuilder: (_, _, _) => const SizedBox(
                               width: 150,
                               height: 190,
@@ -325,6 +329,7 @@ class ExpandedCard extends StatefulWidget {
 class _ExpandedCardState extends State<ExpandedCard> {
   List<MediaItem> _media = [];
   VideoPlayerController? _video;
+  final AudioPlayer _audio = AudioPlayer();
 
   @override
   void initState() {
@@ -343,7 +348,13 @@ class _ExpandedCardState extends State<ExpandedCard> {
   @override
   void dispose() {
     _video?.dispose();
+    unawaited(_audio.dispose());
     super.dispose();
+  }
+
+  Future<void> _playAudio(String url) async {
+    await _audio.stop();
+    await _audio.play(UrlSource(url));
   }
 
   Future<void> _play(String url) async {
@@ -380,8 +391,19 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           _video != null &&
                           _video!.dataSource == item.url)
                         VideoPlayer(_video!)
+                      else if ((item.kind == 'video'
+                              ? widget.post.posterUrl
+                              : item.url)
+                          .isEmpty)
+                        const ColoredBox(color: Color(0xFFE7F2EE))
                       else
-                        Image.network(item.url, fit: BoxFit.cover),
+                        Image.network(
+                          item.kind == 'video'
+                              ? widget.post.posterUrl
+                              : item.url,
+                          fit: BoxFit.cover,
+                          cacheWidth: imageCacheWidth(context, 280),
+                        ),
                       if (item.kind == 'video')
                         Center(
                           child: BigIcon(
@@ -395,6 +417,8 @@ class _ExpandedCardState extends State<ExpandedCard> {
               ],
             ),
           ),
+          for (final item in _media.where((item) => item.kind == 'audio'))
+            BigIcon(icon: Icons.play_arrow, onTap: () => _playAudio(item.url)),
           Row(
             children: [
               Text(
