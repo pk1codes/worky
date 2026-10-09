@@ -84,20 +84,39 @@ class BigIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = filled ? Colors.white : (color ?? const Color(0xFF16332C));
     final button = IconButton(
       onPressed: onTap,
       iconSize: 40,
       style: IconButton.styleFrom(
-        minimumSize: const Size(72, 72),
+        fixedSize: const Size(72, 72),
+        padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: filled ? (color ?? const Color(0xFF0F6E56)) : null,
-        foregroundColor: filled
-            ? Colors.white
-            : (color ?? const Color(0xFF16332C)),
+        foregroundColor: fg,
       ),
-      icon: Icon(icon),
+      icon: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40),
+          if (label != null)
+            Text(
+              label!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, height: 1, color: fg),
+            ),
+        ],
+      ),
     );
     if (label == null) return button;
-    return Semantics(button: true, label: label, child: button);
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: button,
+    );
   }
 }
 
@@ -107,6 +126,7 @@ class LangTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.compact = false,
+    this.extent,
     super.key,
   });
 
@@ -114,10 +134,12 @@ class LangTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool compact;
+  final double? extent;
 
   @override
   Widget build(BuildContext context) {
     final color = Color(kLangColor[code] ?? 0xFF0F6E56);
+    final side = extent ?? (compact ? 72.0 : null);
     return Semantics(
       button: true,
       label: kAutonym[code],
@@ -127,9 +149,10 @@ class LangTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: compact ? 72 : double.infinity,
-          height: compact ? 72 : 96,
+          width: side ?? double.infinity,
+          height: side ?? 96,
           alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: selected ? 1 : 0.16),
             borderRadius: BorderRadius.circular(20),
@@ -137,9 +160,11 @@ class LangTile extends StatelessWidget {
           ),
           child: Text(
             kAutonym[code] ?? code,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: compact ? 14 : 22,
+              fontSize: extent != null ? 11 : (compact ? 14 : 22),
               color: selected ? Colors.white : const Color(0xFF16332C),
               fontWeight: FontWeight.w700,
             ),

@@ -254,6 +254,7 @@ class _PostScreenState extends State<PostScreen> {
                   if (_step < 2)
                     BigIcon(
                       icon: Icons.arrow_forward,
+                      label: l10n.continueAction,
                       onTap: _step == 0 && _categoryId == null
                           ? null
                           : () => setState(() => _step += 1),
@@ -266,6 +267,14 @@ class _PostScreenState extends State<PostScreen> {
                       onTap: _save,
                     ),
                 ],
+              ),
+              Text(
+                _step == 0
+                    ? l10n.admin
+                    : _step == 1
+                    ? l10n.location
+                    : l10n.photos,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
               ),
               Expanded(
                 child: _step == 0
@@ -289,6 +298,21 @@ class _PostScreenState extends State<PostScreen> {
         _step = 1;
       }),
     );
+  }
+
+  Future<void> _pin(double lat, double lng) async {
+    final controller = _map;
+    if (controller == null) return;
+    try {
+      await controller.clearCircles();
+      await controller.addCircle(
+        CircleOptions(
+          geometry: LatLng(lat, lng),
+          circleColor: '#0F6E56',
+          circleRadius: 18,
+        ),
+      );
+    } catch (_) {}
   }
 
   Widget _place(Session session, AppLocalizations l10n) {
@@ -315,6 +339,7 @@ class _PostScreenState extends State<PostScreen> {
                 CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
                 duration: const Duration(milliseconds: 350),
               );
+              await _pin(lat, lng);
             }
           },
         ),
@@ -337,11 +362,15 @@ class _PostScreenState extends State<PostScreen> {
                 CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
                 duration: const Duration(milliseconds: 350),
               );
+              unawaited(_pin(lat, lng));
             },
-            onMapClick: (_, latLng) => setState(() {
-              _lat = latLng.latitude;
-              _lng = latLng.longitude;
-            }),
+            onMapClick: (_, latLng) {
+              setState(() {
+                _lat = latLng.latitude;
+                _lng = latLng.longitude;
+              });
+              unawaited(_pin(latLng.latitude, latLng.longitude));
+            },
           ),
         ),
         SizedBox(
@@ -483,9 +512,22 @@ class _PostScreenState extends State<PostScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          '${_mediaIds.length + _jobIds.length}',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+        Wrap(
+          spacing: 12,
+          children: [
+            Text(
+              '${l10n.addPhoto} ${_count(session, 'image')}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${l10n.addVideo} ${_count(session, 'video')}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${l10n.addAudio} ${_count(session, 'audio')}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
       ],
     );

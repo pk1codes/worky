@@ -128,8 +128,8 @@ class _MineScreenState extends State<MineScreen> {
                   ),
                   const Spacer(),
                   BigIcon(
-                    icon: Icons.volume_up,
-                    label: l10n.mine,
+                    icon: Icons.translate,
+                    label: kAutonym[session.lang] ?? session.lang,
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute<void>(

@@ -113,13 +113,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
       child: Scaffold(
         floatingActionButton: widget.picking
             ? null
-            : FloatingActionButton(
+            : FloatingActionButton.extended(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const PostScreen()),
                   );
                 },
-                child: const Icon(Icons.add_a_photo),
+                icon: const Icon(Icons.add_a_photo),
+                label: Text(l10n.post),
               ),
         body: SafeArea(
           child: Column(
@@ -185,6 +186,17 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         onClose: () => setState(() => _openId = null),
                         open: _openPost(posts),
                       )
+                    : !_failed && _rows.isEmpty
+                    ? Center(
+                        child: BigIcon(
+                          icon: Icons.refresh,
+                          label: l10n.tryAgain,
+                          onTap: () {
+                            setState(() => _loading = true);
+                            _load();
+                          },
+                        ),
+                      )
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView(
@@ -244,31 +256,41 @@ class _CategoryRow extends StatelessWidget {
       children: [
         Row(
           children: [
-            InkWell(
-              onTap: () {
-                Speaker.say(SessionHost.of(context).lang, row.name);
-                if (!job) onDrill();
-              },
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      row.coverUrl,
-                      width: 72,
-                      height: 72,
-                      fit: BoxFit.cover,
-                      cacheWidth: imageCacheWidth(context, 72),
-                      errorBuilder: (_, _, _) => const SizedBox(
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  Speaker.say(SessionHost.of(context).lang, row.name);
+                  if (!job) onDrill();
+                },
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        row.coverUrl,
                         width: 72,
                         height: 72,
-                        child: ColoredBox(color: Color(0xFFE7F2EE)),
+                        fit: BoxFit.cover,
+                        cacheWidth: imageCacheWidth(context, 72),
+                        errorBuilder: (_, _, _) => const SizedBox(
+                          width: 72,
+                          height: 72,
+                          child: ColoredBox(color: Color(0xFFE7F2EE)),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(row.name, style: const TextStyle(fontSize: 14)),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        row.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
+                    if (!job) const Icon(Icons.chevron_right, size: 28),
+                  ],
+                ),
               ),
             ),
             if (picking && job)
@@ -452,6 +474,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final videos = _media.where((item) => item.kind == 'video').toList();
     final wide = widget.wide;
     final cacheWidth = wide ? 360 : 280;
@@ -494,38 +517,60 @@ class _ExpandedCardState extends State<ExpandedCard> {
             ),
           ),
           for (final item in _media.where((item) => item.kind == 'audio'))
-            BigIcon(icon: Icons.play_arrow, onTap: () => _playAudio(item.url)),
+            BigIcon(icon: Icons.graphic_eq, onTap: () => _playAudio(item.url)),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${widget.post.daysAgo}',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  widget.post.band == 'near'
-                      ? Icons.place
-                      : widget.post.band == 'mid'
-                      ? Icons.directions_walk
-                      : Icons.public,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                for (final code in widget.post.langs)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: LangTile(
-                      code: code,
-                      compact: true,
-                      selected: false,
-                      onTap: () => Speaker.clip(code),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 22),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${widget.post.daysAgo}',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      widget.post.band == 'near'
+                          ? Icons.place
+                          : widget.post.band == 'mid'
+                          ? Icons.directions_walk
+                          : Icons.public,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.post.band == 'near'
+                          ? l10n.near
+                          : widget.post.band == 'mid'
+                          ? l10n.mid
+                          : l10n.far,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (final code in widget.post.langs)
+                      LangTile(
+                        code: code,
+                        compact: true,
+                        extent: 56,
+                        selected: false,
+                        onTap: () => Speaker.clip(code),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

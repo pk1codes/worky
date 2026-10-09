@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 
@@ -70,7 +72,16 @@ class _SetupScreenState extends State<SetupScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.only(left: 16, top: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'WhatsApp',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
               Row(
                 children: [
                   const SizedBox(width: 16),
@@ -83,6 +94,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   BigIcon(
                     icon: Icons.check,
                     filled: _digits.length == 10 && _accepted,
+                    label: l10n.continueAction,
                     onTap: _go,
                   ),
                   const SizedBox(width: 8),
@@ -136,11 +148,6 @@ class _SetupScreenState extends State<SetupScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   BigIcon(
-                    icon: Icons.volume_up,
-                    label: l10n.terms,
-                    onTap: () => Speaker.say(session.lang, l10n.termsBody),
-                  ),
-                  BigIcon(
                     icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
                     label: l10n.accept,
                     color: _accepted ? const Color(0xFF0F6E56) : null,
@@ -154,6 +161,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     icon: Icons.description,
                     label: l10n.terms,
                     onTap: () {
+                      unawaited(Speaker.say(session.lang, l10n.termsBody));
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (context) => Paged(
