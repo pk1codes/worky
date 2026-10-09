@@ -26,6 +26,7 @@ class MineScreen extends StatefulWidget {
 class _MineScreenState extends State<MineScreen> {
   List<FeedPost> _posts = [];
   var _loading = true;
+  var _failed = false;
   String? _armedDelete;
   var _armedAccount = false;
   MediaQueue? _box;
@@ -74,24 +75,31 @@ class _MineScreenState extends State<MineScreen> {
     final failed = draft.failed || jobs.any((item) => item.status == 'failed');
     final busy =
         !failed && (jobs.isEmpty || jobs.any((item) => item.status != 'ready'));
-    return Column(
-      children: [
-        if (image != null)
-          LocalThumb(path: image.path, height: 160, width: double.infinity)
-        else
-          const SizedBox(
-            height: 160,
-            width: double.infinity,
-            child: ColoredBox(color: Color(0xFFE7F2EE)),
-          ),
-        if (busy) const LinearProgressIndicator(),
-        if (failed)
-          BigIcon(
-            icon: Icons.refresh,
-            label: l10n.tryAgain,
-            onTap: () => session.outbox.retryDraft(draft.id),
-          ),
-      ],
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          if (image != null)
+            LocalThumb(path: image.path, height: 180, width: double.infinity)
+          else
+            const SizedBox(
+              height: 180,
+              width: double.infinity,
+              child: ColoredBox(color: Color(0xFFE7F2EE)),
+            ),
+          if (busy) const LinearProgressIndicator(),
+          if (failed)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: BigIcon(
+                icon: Icons.refresh,
+                label: l10n.tryAgain,
+                onTap: () => session.outbox.retryDraft(draft.id),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -102,10 +110,16 @@ class _MineScreenState extends State<MineScreen> {
         setState(() {
           _posts = posts;
           _loading = false;
+          _failed = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _failed = _posts.isEmpty;
+        });
+      }
     }
   }
 
@@ -124,12 +138,14 @@ class _MineScreenState extends State<MineScreen> {
                   BigIcon(
                     icon: Icons.arrow_back,
                     label: l10n.back,
+                    compact: true,
                     onTap: () => Navigator.pop(context),
                   ),
                   const Spacer(),
                   BigIcon(
                     icon: Icons.translate,
                     label: kAutonym[session.lang] ?? session.lang,
+                    compact: true,
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -143,6 +159,7 @@ class _MineScreenState extends State<MineScreen> {
                     BigIcon(
                       icon: Icons.category,
                       label: l10n.admin,
+                      compact: true,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => const AdminScreen(),
@@ -153,90 +170,140 @@ class _MineScreenState extends State<MineScreen> {
               ),
               Expanded(
                 child: ListView(
+                  padding: const EdgeInsets.only(bottom: 12),
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: Text(
+                        l10n.mine,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                      ),
+                    ),
                     for (final draft in session.outbox.drafts)
                       _draft(session, draft, l10n),
                     if (_loading) const LinearProgressIndicator(),
+                    if (_failed && _posts.isEmpty)
+                      BigIcon(
+                        icon: Icons.refresh,
+                        label: l10n.tryAgain,
+                        onTap: () {
+                          setState(() {
+                            _loading = true;
+                            _failed = false;
+                          });
+                          _load();
+                        },
+                      )
+                    else if (!_loading &&
+                        _posts.isEmpty &&
+                        session.outbox.drafts.isEmpty)
+                      BigIcon(
+                        icon: Icons.add_a_photo,
+                        label: l10n.post,
+                        filled: true,
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(builder: (_) => const PostScreen()),
+                          );
+                          await _load();
+                        },
+                      ),
                     for (final post in _posts)
-                      Column(
-                        children: [
-                          Image.network(
-                            post.posterUrl,
-                            height: 160,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            cacheWidth: imageCacheWidth(
-                              context,
-                              MediaQuery.sizeOf(context).width,
+                      Card(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Image.network(
+                              post.posterUrl,
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              cacheWidth: imageCacheWidth(
+                                context,
+                                MediaQuery.sizeOf(context).width,
+                              ),
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox(height: 80),
                             ),
-                            errorBuilder: (_, _, _) =>
-                                const SizedBox(height: 80),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              BigIcon(
-                                icon: Icons.edit,
-                                label: l10n.edit,
-                                onTap: () async {
-                                  await Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => PostScreen(edit: post),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  BigIcon(
+                                    icon: Icons.edit,
+                                    label: l10n.edit,
+                                    onTap: () async {
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => PostScreen(edit: post),
+                                        ),
+                                      );
+                                      await _load();
+                                    },
+                                  ),
+                                  BigIcon(
+                                    icon: post.status == 'paused'
+                                        ? Icons.play_arrow
+                                        : Icons.pause,
+                                    label: post.status == 'paused'
+                                        ? l10n.resume
+                                        : l10n.pause,
+                                    onTap: () async {
+                                      await session.api.pause(
+                                        post.id,
+                                        post.status != 'paused',
+                                      );
+                                      await _load();
+                                    },
+                                  ),
+                                  BigIcon(
+                                    icon: Icons.delete,
+                                    label: l10n.delete,
+                                    filled: _armedDelete == post.id,
+                                    color: _armedDelete == post.id
+                                        ? Colors.red
+                                        : null,
+                                    onTap: () async {
+                                      if (_armedDelete != post.id) {
+                                        setState(() => _armedDelete = post.id);
+                                        await Speaker.say(
+                                          session.lang,
+                                          l10n.delete,
+                                        );
+                                        return;
+                                      }
+                                      await session.api.deletePost(post.id);
+                                      await _load();
+                                    },
+                                  ),
+                                  BigIcon(
+                                    icon: Icons.share,
+                                    label: l10n.share,
+                                    onTap: () => SharePlus.instance.share(
+                                      ShareParams(
+                                        text: post.posterUrl.isNotEmpty
+                                            ? post.posterUrl
+                                            : post.categoryId,
+                                      ),
                                     ),
-                                  );
-                                  await _load();
-                                },
+                                  ),
+                                ],
                               ),
-                              BigIcon(
-                                icon: post.status == 'paused'
-                                    ? Icons.play_arrow
-                                    : Icons.pause,
-                                label: post.status == 'paused'
-                                    ? l10n.resume
-                                    : l10n.pause,
-                                onTap: () async {
-                                  await session.api.pause(
-                                    post.id,
-                                    post.status != 'paused',
-                                  );
-                                  await _load();
-                                },
-                              ),
-                              BigIcon(
-                                icon: Icons.delete,
-                                label: l10n.delete,
-                                color: _armedDelete == post.id
-                                    ? Colors.red
-                                    : null,
-                                onTap: () async {
-                                  if (_armedDelete != post.id) {
-                                    setState(() => _armedDelete = post.id);
-                                    await Speaker.say(
-                                      session.lang,
-                                      l10n.delete,
-                                    );
-                                    return;
-                                  }
-                                  await session.api.deletePost(post.id);
-                                  await _load();
-                                },
-                              ),
-                              BigIcon(
-                                icon: Icons.share,
-                                label: l10n.share,
-                                onTap: () => SharePlus.instance.share(
-                                  ShareParams(text: post.categoryId),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              Wrap(
+                alignment: WrapAlignment.spaceEvenly,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   BigIcon(
                     icon: Icons.description,
@@ -251,6 +318,7 @@ class _MineScreenState extends State<MineScreen> {
                   BigIcon(
                     icon: Icons.no_accounts,
                     label: l10n.deleteAccount,
+                    filled: _armedAccount,
                     color: _armedAccount ? Colors.red : null,
                     onTap: () async {
                       if (!_armedAccount) {

@@ -144,8 +144,10 @@ class _SetupScreenState extends State<SetupScreen> {
                   ],
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              Wrap(
+                alignment: WrapAlignment.spaceEvenly,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   BigIcon(
                     icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
@@ -198,8 +200,10 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceEvenly,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     BigIcon(
                       icon: Icons.place,

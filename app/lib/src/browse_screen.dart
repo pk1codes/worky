@@ -131,6 +131,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     BigIcon(
                       icon: Icons.arrow_back,
                       label: l10n.back,
+                      compact: true,
                       onTap: () {
                         if (_parents.length > 1) {
                           setState(() {
@@ -149,12 +150,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     BigIcon(
                       icon: _map ? Icons.view_agenda : Icons.map,
                       label: l10n.map,
+                      compact: true,
                       onTap: () => setState(() => _map = !_map),
                     ),
                   if (!widget.picking)
                     BigIcon(
                       icon: Icons.person,
                       label: l10n.mine,
+                      compact: true,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -200,6 +203,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           children: [
                             for (final row in _rows)
                               _CategoryRow(

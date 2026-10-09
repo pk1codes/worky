@@ -231,6 +231,7 @@ class _PostScreenState extends State<PostScreen> {
                   BigIcon(
                     icon: Icons.arrow_back,
                     label: l10n.back,
+                    compact: true,
                     onTap: () {
                       if (_step == 0) {
                         Navigator.pop(context);
@@ -255,6 +256,7 @@ class _PostScreenState extends State<PostScreen> {
                     BigIcon(
                       icon: Icons.arrow_forward,
                       label: l10n.continueAction,
+                      compact: true,
                       onTap: _step == 0 && _categoryId == null
                           ? null
                           : () => setState(() => _step += 1),
@@ -264,6 +266,7 @@ class _PostScreenState extends State<PostScreen> {
                       icon: Icons.check,
                       filled: true,
                       label: l10n.save,
+                      compact: true,
                       onTap: _save,
                     ),
                 ],

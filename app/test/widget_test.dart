@@ -25,8 +25,26 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    final size = tester.getSize(find.byType(IconButton));
-    expect(size, const Size(72, 72));
+    expect(tester.getSize(find.byType(IconButton)).height, greaterThanOrEqualTo(64));
     expect(find.text('Delete account'), findsOneWidget);
+  });
+
+  testWidgets('header icon stays within 72px', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BigIcon(
+            icon: Icons.map,
+            label: 'Map',
+            compact: true,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final size = tester.getSize(find.byType(IconButton));
+    expect(size.width, 72);
+    expect(size.height, lessThanOrEqualTo(64));
   });
 }

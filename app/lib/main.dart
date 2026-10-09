@@ -70,6 +70,15 @@ class WorkyApp extends StatelessWidget {
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F6E56)),
+              scaffoldBackgroundColor: const Color(0xFFF6F4EE),
+              cardTheme: const CardThemeData(
+                color: Colors.white,
+                elevation: 0,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                ),
+              ),
               iconTheme: const IconThemeData(size: 32),
             ),
             home: Gate(

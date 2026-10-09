@@ -73,6 +73,7 @@ class BigIcon extends StatelessWidget {
     this.label,
     this.color,
     this.filled = false,
+    this.compact = false,
     super.key,
   });
 
@@ -81,34 +82,50 @@ class BigIcon extends StatelessWidget {
   final String? label;
   final Color? color;
   final bool filled;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final fg = filled ? Colors.white : (color ?? const Color(0xFF16332C));
+    final tight = compact || label == null;
     final button = IconButton(
       onPressed: onTap,
       iconSize: 40,
       style: IconButton.styleFrom(
-        fixedSize: const Size(72, 72),
-        padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+        minimumSize: Size(tight ? 72 : 64, 64),
+        fixedSize: tight ? const Size(72, 64) : null,
+        padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 10, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: filled ? (color ?? const Color(0xFF0F6E56)) : null,
+        backgroundColor: filled ? (color ?? const Color(0xFF0F6E56)) : const Color(0xFFE7F2EE),
         foregroundColor: fg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
-      icon: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 40),
-          if (label != null)
-            Text(
-              label!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, height: 1, color: fg),
+      icon: tight
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 40),
+                if (label != null)
+                  Text(
+                    label!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, height: 1, color: fg),
+                  ),
+              ],
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 40),
+                const SizedBox(width: 6),
+                Text(
+                  label!,
+                  style: TextStyle(fontSize: 15, height: 1, color: fg),
+                ),
+              ],
             ),
-        ],
-      ),
     );
     if (label == null) return button;
     return Semantics(
