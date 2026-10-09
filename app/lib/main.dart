@@ -23,7 +23,7 @@ Future<void> main() async {
   } else if (kIsWeb) {
     if (kAppCheckSiteKey.isNotEmpty) {
       await FirebaseAppCheck.instance.activate(
-        webProvider: ReCaptchaEnterpriseProvider(kAppCheckSiteKey),
+        providerWeb: ReCaptchaEnterpriseProvider(kAppCheckSiteKey),
       );
     }
   } else {

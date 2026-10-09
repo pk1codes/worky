@@ -10,4 +10,7 @@ String get kApiBase => kUseEmulator
     ? 'http://$kHost:5001/worky-93fbc/us-central1/api'
     : 'https://us-central1-worky-93fbc.cloudfunctions.net/api';
 
-const String kAppCheckSiteKey = String.fromEnvironment('APP_CHECK_SITE_KEY');
+const String kAppCheckSiteKey = String.fromEnvironment(
+  'APP_CHECK_SITE_KEY',
+  defaultValue: '6LfjIeYtAAAAAF9JygDy-bNodugeWFdU8ico4s07',
+);
