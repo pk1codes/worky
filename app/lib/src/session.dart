@@ -100,7 +100,7 @@ class Session extends ChangeNotifier {
     await api.saveMe(lang: lang, whatsapp: value);
     if (first && value.isNotEmpty) {
       try {
-        await FirebaseAnalytics.instance.logEvent(name: 'sign_up');
+        await FirebaseAnalytics.instance.logSignUp(signUpMethod: 'whatsapp');
       } catch (_) {}
     }
   }
