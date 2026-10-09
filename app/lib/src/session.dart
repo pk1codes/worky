@@ -37,7 +37,16 @@ class Session extends ChangeNotifier {
       lat = cachedLat;
       lng = cachedLng;
     }
-    user = auth.currentUser;
+    if (kIsWeb && !kUseEmulator) {
+      try {
+        final result = await auth.getRedirectResult();
+        user = result.user ?? auth.currentUser;
+      } catch (_) {
+        user = auth.currentUser;
+      }
+    } else {
+      user = auth.currentUser;
+    }
     ready = true;
     notifyListeners();
     auth.authStateChanges().listen((next) async {
@@ -97,7 +106,14 @@ class Session extends ChangeNotifier {
         permission == LocationPermission.deniedForever) {
       return false;
     }
-    final position = await Geolocator.getCurrentPosition();
+    late final Position position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(timeLimit: Duration(seconds: 10)),
+      );
+    } catch (_) {
+      return false;
+    }
     lat = position.latitude;
     lng = position.longitude;
     await _prefs?.setDouble('lat', lat!);
@@ -116,8 +132,8 @@ class Session extends ChangeNotifier {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final payload = base64Url
           .encode(utf8.encode(jsonEncode({
-            'sub': 'worky-debug-worker',
-            'email': 'worker@worky.test',
+            'sub': kDebugEmail,
+            'email': kDebugEmail,
             'email_verified': true,
             'aud': 'worky-93fbc',
             'iss': 'https://accounts.google.com',
@@ -132,7 +148,9 @@ class Session extends ChangeNotifier {
       return;
     }
     if (kIsWeb) {
-      await auth.signInWithPopup(GoogleAuthProvider());
+      final provider = GoogleAuthProvider()
+        ..setCustomParameters({'prompt': 'select_account'});
+      await auth.signInWithPopup(provider);
       return;
     }
     final account = await GoogleSignIn.instance.authenticate();

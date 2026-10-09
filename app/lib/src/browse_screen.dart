@@ -175,7 +175,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                             posts: posts,
                             lat: session.lat ?? 20.5,
                             lng: session.lng ?? 78.9,
-                            onTap: (id) => setState(() => _openId = id),
+                            onTap: (id) => setState(() => _openId = _openId == id ? null : id),
                             open: _openPost(posts),
                           )
                         : RefreshIndicator(
@@ -457,20 +457,54 @@ class _MapPane extends StatefulWidget {
 class _MapPaneState extends State<_MapPane> {
   MapLibreMapController? _controller;
 
+  Future<void> _center() async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.moveCamera(
+        CameraUpdate.newLatLngZoom(LatLng(widget.lat, widget.lng), 15),
+      );
+    } catch (_) {}
+  }
+
   Future<void> _draw() async {
     final controller = _controller;
     if (controller == null) return;
-    await controller.clearCircles();
-    for (final post in widget.posts) {
-      await controller.addCircle(
-        CircleOptions(
-          geometry: LatLng(post.lat, post.lng),
-          circleColor: '#0F6E56',
-          circleRadius: 12,
-        ),
-        {'id': post.id},
-      );
+    try {
+      await controller.clearCircles();
+      for (final post in widget.posts) {
+        await controller.addCircle(
+          CircleOptions(
+            geometry: LatLng(post.lat, post.lng),
+            circleColor: '#0F6E56',
+            circleRadius: 18,
+          ),
+          {'id': post.id},
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _onStyle() async {
+    await _center();
+    await _draw();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MapPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.lat != widget.lat || oldWidget.lng != widget.lng) {
+      _center();
     }
+    if (!_samePosts(oldWidget.posts, widget.posts)) _draw();
+  }
+
+  bool _samePosts(List<FeedPost> a, List<FeedPost> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
   }
 
   @override
@@ -480,7 +514,7 @@ class _MapPaneState extends State<_MapPane> {
         Expanded(
           child: MapLibreMap(
             styleString: 'https://tiles.openfreemap.org/styles/liberty',
-            initialCameraPosition: CameraPosition(target: LatLng(widget.lat, widget.lng), zoom: 11),
+            initialCameraPosition: CameraPosition(target: LatLng(widget.lat, widget.lng), zoom: 15),
             onMapCreated: (controller) {
               _controller = controller;
               controller.onCircleTapped.add((circle) {
@@ -488,12 +522,17 @@ class _MapPaneState extends State<_MapPane> {
                 if (id is String) widget.onTap(id);
               });
             },
-            onStyleLoadedCallback: _draw,
+            onStyleLoadedCallback: _onStyle,
             myLocationEnabled: false,
           ),
         ),
         if (widget.open != null)
-          SizedBox(height: 280, child: ExpandedCard(post: widget.open!)),
+          SizedBox(
+            height: 460,
+            child: SingleChildScrollView(
+              child: Center(child: ExpandedCard(post: widget.open!)),
+            ),
+          ),
       ],
     );
   }

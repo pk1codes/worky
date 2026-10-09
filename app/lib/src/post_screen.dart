@@ -35,6 +35,7 @@ class _PostScreenState extends State<PostScreen> {
   var _recording = false;
   var _busy = false;
   List<MediaItem> _library = [];
+  MapLibreMapController? _map;
 
   @override
   void initState() {
@@ -231,6 +232,11 @@ class _PostScreenState extends State<PostScreen> {
               _lat = session.lat;
               _lng = session.lng;
             });
+            final lat = session.lat;
+            final lng = session.lng;
+            if (lat != null && lng != null) {
+              await _map?.moveCamera(CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15));
+            }
           },
         ),
         Expanded(
@@ -238,8 +244,15 @@ class _PostScreenState extends State<PostScreen> {
             styleString: 'https://tiles.openfreemap.org/styles/liberty',
             initialCameraPosition: CameraPosition(
               target: LatLng(_lat ?? session.lat ?? 20.5, _lng ?? session.lng ?? 78.9),
-              zoom: 12,
+              zoom: 15,
             ),
+            onMapCreated: (controller) => _map = controller,
+            onStyleLoadedCallback: () {
+              final lat = _lat ?? session.lat;
+              final lng = _lng ?? session.lng;
+              if (lat == null || lng == null) return;
+              _map?.moveCamera(CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15));
+            },
             onMapClick: (_, latLng) => setState(() {
               _lat = latLng.latitude;
               _lng = latLng.longitude;

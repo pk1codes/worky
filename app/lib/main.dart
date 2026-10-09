@@ -20,7 +20,13 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (kUseEmulator) {
     await FirebaseAuth.instance.useAuthEmulator(kHost, 9099);
-  } else if (!kIsWeb) {
+  } else if (kIsWeb) {
+    if (kAppCheckSiteKey.isNotEmpty) {
+      await FirebaseAppCheck.instance.activate(
+        webProvider: ReCaptchaEnterpriseProvider(kAppCheckSiteKey),
+      );
+    }
+  } else {
     await FirebaseAppCheck.instance.activate(
       providerAndroid: kDebugMode
           ? const AndroidDebugProvider()

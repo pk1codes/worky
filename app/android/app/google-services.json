@@ -12,7 +12,12 @@
           "package_name": "com.pk1codes.worky"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "69334014512-9ldp8s43vq4jj22jhlk1j26f35dfpfap.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyADMOPKBm89MTfbPLG3zirL6U-l_-KYHKc"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "69334014512-9ldp8s43vq4jj22jhlk1j26f35dfpfap.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

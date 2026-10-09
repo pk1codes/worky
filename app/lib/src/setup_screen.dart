@@ -61,16 +61,30 @@ class _SetupScreenState extends State<SetupScreen> {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              Text('+91 $_digits', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+              Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text('+91 $_digits', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+                  ),
+                  BigIcon(
+                    icon: Icons.check,
+                    filled: _digits.length == 10 && _accepted,
+                    onTap: _go,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
               const SizedBox(height: 8),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 3,
+                  childAspectRatio: 1.8,
                   padding: const EdgeInsets.all(24),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                   children: [
-                    for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'])
+                    for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0'])
                       if (key == 'del')
                         BigIcon(
                           icon: Icons.backspace,
@@ -78,12 +92,6 @@ class _SetupScreenState extends State<SetupScreen> {
                             if (_digits.isEmpty) return;
                             setState(() => _digits = _digits.substring(0, _digits.length - 1));
                           },
-                        )
-                      else if (key == 'ok')
-                        BigIcon(
-                          icon: Icons.check,
-                          filled: _digits.length == 10 && _accepted,
-                          onTap: _go,
                         )
                       else
                         _Digit(

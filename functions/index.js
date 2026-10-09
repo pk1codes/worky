@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const { onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
 const { LANGS, coarse, geohash, kmBetween, band, daysAgo } = require('./lib/geo');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor } = require('./lib/media');
@@ -12,38 +13,52 @@ admin.initializeApp({
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
-const FILE_KEY = process.env.FILE_TOKEN_KEY || 'worky-local-file-key';
+const fileTokenKey = defineSecret('FILE_TOKEN_KEY');
+
+function fileKey() {
+  return process.env.FILE_TOKEN_KEY || 'worky-local-file-key';
+}
 const MAX_BYTES = { image: 8_000_000, video: 20_000_000, audio: 8_000_000 };
 
 const NAMES = {
-  work: {
-    en: 'Work', hi: 'काम', ta: 'வேலை', te: 'పని', kn: 'ಕೆಲಸ', ml: 'ജോലി',
-    mr: 'काम', bn: 'কাজ', gu: 'કામ', pa: 'ਕੰਮ', ur: 'کام', or: 'କାମ',
-  },
-  home: {
-    en: 'Home', hi: 'घर', ta: 'வீடு', te: 'ఇల్లు', kn: 'ಮನೆ', ml: 'വീട്',
-    mr: 'घर', bn: 'বাড়ি', gu: 'ઘર', pa: 'ਘਰ', ur: 'گھر', or: 'ଘର',
-  },
-  paint: {
-    en: 'Paint', hi: 'रंग', ta: 'வண்ணம்', te: 'రంగు', kn: 'ಬಣ್ಣ', ml: 'ചായം',
-    mr: 'रंग', bn: 'রং', gu: 'રંગ', pa: 'ਰੰਗ', ur: 'رنگ', or: 'ରଙ୍ଗ',
-  },
-  carry: {
-    en: 'Carry', hi: 'ढोना', ta: 'சுமை', te: 'మోత', kn: 'ಹೊರೆ', ml: 'ചുമട്',
-    mr: 'ओझे', bn: 'বওয়া', gu: 'ઉપાડ', pa: 'ਭਾਰ', ur: 'بوجھ', or: 'ବୋଝ',
-  },
+  cook: { en: 'Cook' },
+  'car-driver': { en: 'Car driver' },
+  'house-maid': { en: 'House Maid' },
+  'security-guard': { en: 'Security Guard' },
+  'delivery-driver': { en: 'Delivery Driver' },
+  'sales-man': { en: 'Sales Man' },
+  'car-cleaner': { en: 'Car cleaner' },
+  loader: { en: 'Loader' },
+  'oil-field-rigs': { en: 'Oil Field Rigs' },
+  hospital: { en: 'Hospital' },
+  'asst-driller': { en: 'Asst Driller' },
+  driller: { en: 'Driller' },
+  medic: { en: 'Medic' },
+  'service-companies': { en: 'Service Companies Jobs' },
+  'oil-company-jobs': { en: 'Oil Company Jobs' },
 };
 
 const SEED = [
-  { id: 'work', parentId: '', sort: 0, color: '#E07A3D', kind: 'parent' },
-  { id: 'home', parentId: '', sort: 1, color: '#2F6FED', kind: 'parent' },
-  { id: 'paint', parentId: 'work', sort: 0, color: '#E03D7A', kind: 'job' },
-  { id: 'carry', parentId: 'work', sort: 1, color: '#1F9D62', kind: 'job' },
+  { id: 'cook', parentId: '', sort: 0, color: '#C2410C', kind: 'job' },
+  { id: 'car-driver', parentId: '', sort: 1, color: '#1D4ED8', kind: 'job' },
+  { id: 'house-maid', parentId: '', sort: 2, color: '#7C3AED', kind: 'job' },
+  { id: 'security-guard', parentId: '', sort: 3, color: '#0F766E', kind: 'job' },
+  { id: 'delivery-driver', parentId: '', sort: 4, color: '#B45309', kind: 'job' },
+  { id: 'sales-man', parentId: '', sort: 5, color: '#BE123C', kind: 'job' },
+  { id: 'car-cleaner', parentId: '', sort: 6, color: '#0369A1', kind: 'job' },
+  { id: 'loader', parentId: '', sort: 7, color: '#3F6212', kind: 'job' },
+  { id: 'oil-field-rigs', parentId: '', sort: 8, color: '#44403C', kind: 'parent' },
+  { id: 'hospital', parentId: '', sort: 9, color: '#0E7490', kind: 'parent' },
+  { id: 'asst-driller', parentId: 'oil-field-rigs', sort: 0, color: '#9A3412', kind: 'job' },
+  { id: 'driller', parentId: 'oil-field-rigs', sort: 1, color: '#7F1D1D', kind: 'job' },
+  { id: 'medic', parentId: 'oil-field-rigs', sort: 2, color: '#155E75', kind: 'job' },
+  { id: 'service-companies', parentId: 'oil-field-rigs', sort: 3, color: '#365314', kind: 'parent' },
+  { id: 'oil-company-jobs', parentId: 'oil-field-rigs', sort: 4, color: '#1E3A8A', kind: 'parent' },
 ];
 
 function tokenFor(id, ms = 3600_000) {
   const exp = Date.now() + ms;
-  const sig = crypto.createHmac('sha256', FILE_KEY).update(`${id}.${exp}`).digest('base64url');
+  const sig = crypto.createHmac('sha256', fileKey()).update(`${id}.${exp}`).digest('base64url');
   return `${exp}.${sig}`;
 }
 
@@ -52,7 +67,7 @@ function tokenOk(id, token) {
   if (parts.length !== 2) return false;
   const [exp, sig] = parts;
   if (!/^\d+$/.test(exp) || Number(exp) < Date.now()) return false;
-  const expect = crypto.createHmac('sha256', FILE_KEY).update(`${id}.${exp}`).digest('base64url');
+  const expect = crypto.createHmac('sha256', fileKey()).update(`${id}.${exp}`).digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expect);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -149,8 +164,6 @@ function nameIn(names, lang) {
 function resolvedKind(id, data) {
   const stored = data && data.kind;
   if (stored === 'parent' || stored === 'job') return stored;
-  if (id === 'home' || id === 'work') return 'parent';
-  if (id === 'paint' || id === 'carry') return 'job';
   return 'parent';
 }
 
@@ -777,6 +790,7 @@ exports.api = onRequest(
     timeoutSeconds: 60,
     invoker: 'public',
     region: 'us-central1',
+    secrets: [fileTokenKey],
   },
   async (req, res) => {
     try {
