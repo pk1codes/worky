@@ -343,21 +343,37 @@ class ExpandedCard extends StatefulWidget {
 class _ExpandedCardState extends State<ExpandedCard> {
   List<MediaItem> _media = [];
   VideoPlayerController? _video;
+  String? _playingUrl;
+  int _playToken = 0;
+  bool _ready = false;
+  Future<List<MediaItem>>? _detail;
   final AudioPlayer _audio = AudioPlayer();
   final PageController _pages = PageController();
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    unawaited(_ensureMedia().catchError((Object _) => <MediaItem>[]));
   }
 
-  Future<void> _load() async {
+  Future<List<MediaItem>> _ensureMedia() {
+    return _detail ??= _fetch();
+  }
+
+  Future<List<MediaItem>> _fetch() async {
+    final api = SessionHost.of(context).api;
     try {
-      final detail = await SessionHost.of(context).api.post(widget.post.id);
-      if (!mounted) return;
-      setState(() => _media = detail.media);
-    } catch (_) {}
+      final detail = await api.post(widget.post.id);
+      if (!mounted) return detail.media;
+      setState(() {
+        _media = detail.media;
+        _ready = true;
+      });
+      return detail.media;
+    } catch (_) {
+      _detail = null;
+      rethrow;
+    }
   }
 
   @override
@@ -374,12 +390,64 @@ class _ExpandedCardState extends State<ExpandedCard> {
   }
 
   Future<void> _play(String url) async {
-    await _video?.dispose();
+    final token = ++_playToken;
+    final previous = _video;
+    _video = null;
+    _playingUrl = null;
+    if (mounted) setState(() {});
+    await previous?.dispose();
+    if (!mounted || token != _playToken) return;
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
-    await controller.initialize();
-    await controller.play();
+    try {
+      await controller.initialize();
+      await controller.play();
+    } catch (_) {
+      await controller.dispose();
+      if (!mounted || token != _playToken) return;
+      final session = SessionHost.of(context);
+      await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+      return;
+    }
+    if (!mounted || token != _playToken) {
+      await controller.dispose();
+      return;
+    }
+    setState(() {
+      _video = controller;
+      _playingUrl = url;
+    });
+  }
+
+  Future<void> _openVideo() async {
+    final hadPage = _media.any((item) => item.kind == 'video');
+    List<MediaItem> media;
+    try {
+      media = await _ensureMedia();
+    } catch (_) {
+      if (!mounted) return;
+      final session = SessionHost.of(context);
+      await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+      return;
+    }
     if (!mounted) return;
-    setState(() => _video = controller);
+    final videos = media.where((item) => item.kind == 'video').toList();
+    if (videos.isEmpty) return;
+    final url = videos.first.url;
+    void start() {
+      if (!mounted) return;
+      _pages.animateToPage(
+        1,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+      unawaited(_play(url));
+    }
+
+    if (hadPage) {
+      start();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => start());
+    }
   }
 
   @override
@@ -408,19 +476,13 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           key: const ValueKey('poster'),
                           child: _poster(cacheWidth),
                         ),
-                        if (videos.isNotEmpty)
+                        if (videos.isNotEmpty ||
+                            (widget.post.hasVideo && !_ready))
                           Center(
                             child: BigIcon(
                               icon: Icons.play_arrow,
                               filled: true,
-                              onTap: () {
-                                _pages.animateToPage(
-                                  1,
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOut,
-                                );
-                                _play(videos.first.url);
-                              },
+                              onTap: _openVideo,
                             ),
                           ),
                       ],
@@ -509,7 +571,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   }
 
   Widget _videoPage(MediaItem item) {
-    final playing = _video != null && _video!.dataSource == item.url;
+    final playing = _video != null && _playingUrl == item.url;
     return Stack(
       fit: StackFit.expand,
       children: [
