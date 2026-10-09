@@ -291,19 +291,27 @@ class _CategoryRow extends StatelessWidget {
                 return GestureDetector(
                   onTap: () => onOpen(post.id),
                   child: open
-                      ? ExpandedCard(post: post)
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            post.posterUrl,
-                            width: 150,
-                            height: 190,
-                            fit: BoxFit.cover,
-                            cacheWidth: imageCacheWidth(context, 150),
-                            errorBuilder: (_, _, _) => const SizedBox(
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          widthFactor: 1,
+                          child: ExpandedCard(post: post),
+                        )
+                      : Align(
+                          alignment: Alignment.topCenter,
+                          widthFactor: 1,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              post.posterUrl,
                               width: 150,
                               height: 190,
-                              child: ColoredBox(color: Color(0xFFE7F2EE)),
+                              fit: BoxFit.cover,
+                              cacheWidth: imageCacheWidth(context, 150),
+                              errorBuilder: (_, _, _) => const SizedBox(
+                                width: 150,
+                                height: 190,
+                                child: ColoredBox(color: Color(0xFFE7F2EE)),
+                              ),
                             ),
                           ),
                         ),
@@ -317,10 +325,16 @@ class _CategoryRow extends StatelessWidget {
 }
 
 class ExpandedCard extends StatefulWidget {
-  const ExpandedCard({required this.post, this.mine = false, super.key});
+  const ExpandedCard({
+    required this.post,
+    this.mine = false,
+    this.wide = false,
+    super.key,
+  });
 
   final FeedPost post;
   final bool mine;
+  final bool wide;
 
   @override
   State<ExpandedCard> createState() => _ExpandedCardState();
@@ -330,6 +344,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   List<MediaItem> _media = [];
   VideoPlayerController? _video;
   final AudioPlayer _audio = AudioPlayer();
+  final PageController _pages = PageController();
 
   @override
   void initState() {
@@ -347,6 +362,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   @override
   void dispose() {
+    _pages.dispose();
     _video?.dispose();
     unawaited(_audio.dispose());
     super.dispose();
@@ -368,99 +384,144 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   @override
   Widget build(BuildContext context) {
-    final frames = _media
-        .where((item) => item.kind == 'image' || item.kind == 'video')
-        .toList();
-    final shown = frames.isEmpty
-        ? [MediaItem(id: '', kind: 'image', url: widget.post.posterUrl)]
-        : frames;
+    final videos = _media.where((item) => item.kind == 'video').toList();
+    final wide = widget.wide;
+    final cacheWidth = wide ? 360 : 280;
     return SizedBox(
-      width: 280,
+      width: wide ? double.infinity : 280,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 320,
-            child: PageView(
-              children: [
-                for (final item in shown)
-                  Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (item.kind == 'video' &&
-                          _video != null &&
-                          _video!.dataSource == item.url)
-                        VideoPlayer(_video!)
-                      else if ((item.kind == 'video'
-                              ? widget.post.posterUrl
-                              : item.url)
-                          .isEmpty)
-                        const ColoredBox(color: Color(0xFFE7F2EE))
-                      else
-                        Image.network(
-                          item.kind == 'video'
-                              ? widget.post.posterUrl
-                              : item.url,
-                          fit: BoxFit.cover,
-                          cacheWidth: imageCacheWidth(context, 280),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(wide ? 16 : 0),
+              child: SizedBox(
+                height: wide ? 220 : 320,
+                child: PageView(
+                  controller: _pages,
+                  children: [
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        KeyedSubtree(
+                          key: const ValueKey('poster'),
+                          child: _poster(cacheWidth),
                         ),
-                      if (item.kind == 'video')
-                        Center(
-                          child: BigIcon(
-                            icon: Icons.play_arrow,
-                            filled: true,
-                            onTap: () => _play(item.url),
+                        if (videos.isNotEmpty)
+                          Center(
+                            child: BigIcon(
+                              icon: Icons.play_arrow,
+                              filled: true,
+                              onTap: () {
+                                _pages.animateToPage(
+                                  1,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOut,
+                                );
+                                _play(videos.first.url);
+                              },
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-              ],
+                      ],
+                    ),
+                    for (final item in videos) _videoPage(item),
+                  ],
+                ),
+              ),
             ),
           ),
           for (final item in _media.where((item) => item.kind == 'audio'))
             BigIcon(icon: Icons.play_arrow, onTap: () => _playAudio(item.url)),
-          Row(
-            children: [
-              Text(
-                '${widget.post.daysAgo}',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                widget.post.band == 'near'
-                    ? Icons.place
-                    : widget.post.band == 'mid'
-                    ? Icons.directions_walk
-                    : Icons.public,
-                size: 22,
-              ),
-              const SizedBox(width: 8),
-              for (final code in widget.post.langs)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: LangTile(
-                    code: code,
-                    compact: true,
-                    selected: false,
-                    onTap: () => Speaker.clip(code),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
+            child: Row(
+              children: [
+                Text(
+                  '${widget.post.daysAgo}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  widget.post.band == 'near'
+                      ? Icons.place
+                      : widget.post.band == 'mid'
+                      ? Icons.directions_walk
+                      : Icons.public,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                for (final code in widget.post.langs)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: LangTile(
+                      code: code,
+                      compact: true,
+                      selected: false,
+                      onTap: () => Speaker.clip(code),
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (!widget.mine)
             Row(
+              mainAxisAlignment: wide
+                  ? MainAxisAlignment.spaceEvenly
+                  : MainAxisAlignment.start,
               children: [
                 BigIcon(
                   icon: Icons.chat,
                   label: 'WhatsApp',
+                  filled: wide,
                   onTap: () => _open('whatsapp'),
                 ),
-                BigIcon(icon: Icons.call, onTap: () => _open('phone')),
-                BigIcon(icon: Icons.mail, onTap: () => _open('gmail')),
+                BigIcon(
+                  icon: Icons.call,
+                  filled: wide,
+                  onTap: () => _open('phone'),
+                ),
+                BigIcon(
+                  icon: Icons.mail,
+                  filled: wide,
+                  onTap: () => _open('gmail'),
+                ),
               ],
             ),
         ],
       ),
+    );
+  }
+
+  Widget _poster(int cacheWidth) {
+    final poster = widget.post.posterUrl;
+    if (poster.isEmpty) return const ColoredBox(color: Color(0xFFE7F2EE));
+    return Image.network(
+      poster,
+      key: ValueKey(poster),
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      cacheWidth: imageCacheWidth(context, cacheWidth.toDouble()),
+    );
+  }
+
+  Widget _videoPage(MediaItem item) {
+    final playing = _video != null && _video!.dataSource == item.url;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (playing) VideoPlayer(_video!) else _poster(widget.wide ? 360 : 280),
+        Center(
+          child: BigIcon(
+            icon: Icons.play_arrow,
+            filled: true,
+            onTap: () => _play(item.url),
+          ),
+        ),
+      ],
     );
   }
 
@@ -573,6 +634,11 @@ class _MapPaneState extends State<_MapPane> {
       _center();
     }
     if (!_samePosts(oldWidget.posts, widget.posts)) _draw();
+    if (oldWidget.open?.id != widget.open?.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller?.forceResizeWebMap();
+      });
+    }
   }
 
   bool _samePosts(List<FeedPost> a, List<FeedPost> b) {
@@ -586,24 +652,63 @@ class _MapPaneState extends State<_MapPane> {
   @override
   Widget build(BuildContext context) {
     final open = widget.open;
-    if (open != null) {
-      return Column(
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: BigIcon(
-              icon: Icons.close,
-              onTap: widget.onClose,
-            ),
-          ),
+    return Column(
+      children: [
+        Expanded(flex: open == null ? 1 : 2, child: _map()),
+        if (open != null)
           Expanded(
-            child: SingleChildScrollView(
-              child: Center(child: ExpandedCard(post: open)),
+            flex: 3,
+            child: Material(
+              color: Colors.white,
+              elevation: 12,
+              shadowColor: const Color(0x291C2421),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 48,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5E0D5),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            onPressed: widget.onClose,
+                            icon: const Icon(Icons.close),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFF4F2EB),
+                              foregroundColor: const Color(0xFF1C2421),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: ExpandedCard(post: open, wide: true),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      );
-    }
+      ],
+    );
+  }
+
+  Widget _map() {
     return MapLibreMap(
       styleString: 'https://tiles.openfreemap.org/styles/liberty',
       initialCameraPosition: CameraPosition(
