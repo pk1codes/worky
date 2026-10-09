@@ -41,14 +41,21 @@ class _PostScreenState extends State<PostScreen> {
   void initState() {
     super.initState();
     FirebaseAnalytics.instance.logScreenView(screenName: 'post');
-    _langs = {widget.edit?.langs.isNotEmpty == true ? widget.edit!.langs.first : 'hi'};
+    _langs = {
+      widget.edit?.langs.isNotEmpty == true ? widget.edit!.langs.first : 'hi',
+    };
     _lat = widget.edit?.lat;
     _lng = widget.edit?.lng;
     _categoryId = widget.edit?.categoryId;
     _mediaIds.addAll(widget.edit?.mediaIds ?? const []);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final session = SessionHost.of(context);
-      _langs = {if (widget.edit != null) ...widget.edit!.langs else session.lang ?? 'hi'};
+      _langs = {
+        if (widget.edit != null)
+          ...widget.edit!.langs
+        else
+          session.lang ?? 'hi',
+      };
       _lat ??= session.lat;
       _lng ??= session.lng;
       if (mounted) setState(() {});
@@ -73,7 +80,8 @@ class _PostScreenState extends State<PostScreen> {
       final id = await session.api.upload(kind, bytes, type);
       if (mounted) setState(() => _mediaIds.add(id));
     } catch (_) {
-      if (mounted) await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+      if (mounted)
+        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,7 +99,10 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
-    final file = await _picker.pickVideo(source: source, maxDuration: const Duration(seconds: 30));
+    final file = await _picker.pickVideo(
+      source: source,
+      maxDuration: const Duration(seconds: 30),
+    );
     if (file == null) return;
     await _upload('video', await file.readAsBytes(), 'video/mp4');
   }
@@ -106,7 +117,10 @@ class _PostScreenState extends State<PostScreen> {
       return;
     }
     if (!await _recorder.hasPermission()) return;
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav), path: 'voice.wav');
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.wav),
+      path: 'voice.wav',
+    );
     setState(() => _recording = true);
   }
 
@@ -118,13 +132,18 @@ class _PostScreenState extends State<PostScreen> {
     if (files.isEmpty) return;
     final file = files.first;
     final bytes = await file.readAsBytes();
-    final type = (file.extension ?? '').toLowerCase() == 'wav' ? 'audio/wav' : 'audio/mpeg';
+    final type = (file.extension ?? '').toLowerCase() == 'wav'
+        ? 'audio/wav'
+        : 'audio/mpeg';
     await _upload('audio', bytes, type);
   }
 
   Future<void> _save() async {
     final session = SessionHost.of(context);
-    if (_categoryId == null || _lat == null || _lng == null || _mediaIds.isEmpty) {
+    if (_categoryId == null ||
+        _lat == null ||
+        _lng == null ||
+        _mediaIds.isEmpty) {
       await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
       return;
     }
@@ -150,7 +169,8 @@ class _PostScreenState extends State<PostScreen> {
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
+      if (mounted)
+        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -183,7 +203,13 @@ class _PostScreenState extends State<PostScreen> {
                   for (var i = 0; i < 3; i++)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.circle, size: 14, color: i == _step ? const Color(0xFF0F6E56) : const Color(0xFFD5E5DF)),
+                      child: Icon(
+                        Icons.circle,
+                        size: 14,
+                        color: i == _step
+                            ? const Color(0xFF0F6E56)
+                            : const Color(0xFFD5E5DF),
+                      ),
                     ),
                   if (_step < 2)
                     BigIcon(
@@ -193,11 +219,22 @@ class _PostScreenState extends State<PostScreen> {
                           : () => setState(() => _step += 1),
                     )
                   else
-                    BigIcon(icon: Icons.check, filled: true, label: l10n.save, onTap: _busy ? null : _save),
+                    BigIcon(
+                      icon: Icons.check,
+                      filled: true,
+                      label: l10n.save,
+                      onTap: _busy ? null : _save,
+                    ),
                 ],
               ),
               if (_busy) const LinearProgressIndicator(),
-              Expanded(child: _step == 0 ? _pickCategory() : _step == 1 ? _place(session, l10n) : _media(l10n)),
+              Expanded(
+                child: _step == 0
+                    ? _pickCategory()
+                    : _step == 1
+                    ? _place(session, l10n)
+                    : _media(l10n),
+              ),
             ],
           ),
         ),
@@ -235,7 +272,10 @@ class _PostScreenState extends State<PostScreen> {
             final lat = session.lat;
             final lng = session.lng;
             if (lat != null && lng != null) {
-              await _map?.moveCamera(CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15));
+              await _map?.animateCamera(
+                CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
+                duration: const Duration(milliseconds: 350),
+              );
             }
           },
         ),
@@ -243,15 +283,21 @@ class _PostScreenState extends State<PostScreen> {
           child: MapLibreMap(
             styleString: 'https://tiles.openfreemap.org/styles/liberty',
             initialCameraPosition: CameraPosition(
-              target: LatLng(_lat ?? session.lat ?? 20.5, _lng ?? session.lng ?? 78.9),
-              zoom: 15,
+              target: LatLng(
+                _lat ?? session.lat ?? 20.5,
+                _lng ?? session.lng ?? 78.9,
+              ),
+              zoom: 17,
             ),
             onMapCreated: (controller) => _map = controller,
             onStyleLoadedCallback: () {
               final lat = _lat ?? session.lat;
               final lng = _lng ?? session.lng;
               if (lat == null || lng == null) return;
-              _map?.moveCamera(CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15));
+              _map?.animateCamera(
+                CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
+                duration: const Duration(milliseconds: 350),
+              );
             },
             onMapClick: (_, latLng) => setState(() {
               _lat = latLng.latitude;
@@ -295,17 +341,37 @@ class _PostScreenState extends State<PostScreen> {
         Wrap(
           spacing: 8,
           children: [
-            BigIcon(icon: Icons.photo_camera, label: l10n.camera, onTap: () => _pickImage(ImageSource.camera)),
-            BigIcon(icon: Icons.photo, label: l10n.addPhoto, onTap: () => _pickImage(ImageSource.gallery)),
-            BigIcon(icon: Icons.videocam, label: l10n.addVideo, onTap: () => _pickVideo(ImageSource.camera)),
-            BigIcon(icon: Icons.video_library, label: l10n.addVideo, onTap: () => _pickVideo(ImageSource.gallery)),
+            BigIcon(
+              icon: Icons.photo_camera,
+              label: l10n.camera,
+              onTap: () => _pickImage(ImageSource.camera),
+            ),
+            BigIcon(
+              icon: Icons.photo,
+              label: l10n.addPhoto,
+              onTap: () => _pickImage(ImageSource.gallery),
+            ),
+            BigIcon(
+              icon: Icons.videocam,
+              label: l10n.addVideo,
+              onTap: () => _pickVideo(ImageSource.camera),
+            ),
+            BigIcon(
+              icon: Icons.video_library,
+              label: l10n.addVideo,
+              onTap: () => _pickVideo(ImageSource.gallery),
+            ),
             BigIcon(
               icon: _recording ? Icons.stop : Icons.mic,
               label: l10n.addAudio,
               filled: _recording,
               onTap: _toggleMic,
             ),
-            BigIcon(icon: Icons.audio_file, label: l10n.addAudio, onTap: _pickAudioFile),
+            BigIcon(
+              icon: Icons.audio_file,
+              label: l10n.addAudio,
+              onTap: _pickAudioFile,
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -323,7 +389,12 @@ class _PostScreenState extends State<PostScreen> {
                 }),
                 child: Stack(
                   children: [
-                    Image.network(item.url, width: 72, height: 72, fit: BoxFit.cover),
+                    Image.network(
+                      item.url,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                    ),
                     if (_mediaIds.contains(item.id))
                       const Icon(Icons.check_circle, color: Colors.white),
                   ],
@@ -332,7 +403,10 @@ class _PostScreenState extends State<PostScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Text('${_mediaIds.length}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+        Text(
+          '${_mediaIds.length}',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }

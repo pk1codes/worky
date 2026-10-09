@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -152,7 +154,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       label: l10n.mine,
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (_) => const MineScreen()),
+                          MaterialPageRoute<void>(
+                            builder: (_) => const MineScreen(),
+                          ),
                         );
                       },
                     ),
@@ -171,29 +175,32 @@ class _BrowseScreenState extends State<BrowseScreen> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _map
-                        ? _MapPane(
-                            posts: posts,
-                            lat: session.lat ?? 20.5,
-                            lng: session.lng ?? 78.9,
-                            onTap: (id) => setState(() => _openId = _openId == id ? null : id),
-                            open: _openPost(posts),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView(
-                              children: [
-                                for (final row in _rows)
-                                  _CategoryRow(
-                                    row: row,
-                                    picking: widget.picking,
-                                    openId: _openId,
-                                    onDrill: () => _drill(row.id),
-                                    onPick: () => widget.onPicked?.call(row.id),
-                                    onOpen: (id) => setState(() => _openId = _openId == id ? null : id),
-                                  ),
-                              ],
-                            ),
-                          ),
+                    ? _MapPane(
+                        posts: posts,
+                        lat: session.lat ?? 20.5,
+                        lng: session.lng ?? 78.9,
+                        onTap: (id) =>
+                            setState(() => _openId = _openId == id ? null : id),
+                        open: _openPost(posts),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: ListView(
+                          children: [
+                            for (final row in _rows)
+                              _CategoryRow(
+                                row: row,
+                                picking: widget.picking,
+                                openId: _openId,
+                                onDrill: () => _drill(row.id),
+                                onPick: () => widget.onPicked?.call(row.id),
+                                onOpen: (id) => setState(
+                                  () => _openId = _openId == id ? null : id,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -261,42 +268,45 @@ class _CategoryRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (picking && job) BigIcon(icon: Icons.check_circle, onTap: onPick),
+            if (picking && job)
+              BigIcon(icon: Icons.check_circle, onTap: onPick),
           ],
         ),
         if (job)
-        SizedBox(
-          height: openId != null && row.posts.any((post) => post.id == openId) ? 460 : 210,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            itemCount: row.posts.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final post = row.posts[index];
-              final open = post.id == openId;
-              return GestureDetector(
-                onTap: () => onOpen(post.id),
-                child: open
-                    ? ExpandedCard(post: post)
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          post.posterUrl,
-                          width: 150,
-                          height: 190,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox(
+          SizedBox(
+            height: openId != null && row.posts.any((post) => post.id == openId)
+                ? 460
+                : 210,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
+              itemCount: row.posts.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final post = row.posts[index];
+                final open = post.id == openId;
+                return GestureDetector(
+                  onTap: () => onOpen(post.id),
+                  child: open
+                      ? ExpandedCard(post: post)
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            post.posterUrl,
                             width: 150,
                             height: 190,
-                            child: ColoredBox(color: Color(0xFFE7F2EE)),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox(
+                              width: 150,
+                              height: 190,
+                              child: ColoredBox(color: Color(0xFFE7F2EE)),
+                            ),
                           ),
                         ),
-                      ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -347,7 +357,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   @override
   Widget build(BuildContext context) {
-    final frames = _media.where((item) => item.kind == 'image' || item.kind == 'video').toList();
+    final frames = _media
+        .where((item) => item.kind == 'image' || item.kind == 'video')
+        .toList();
     final shown = frames.isEmpty
         ? [MediaItem(id: '', kind: 'image', url: widget.post.posterUrl)]
         : frames;
@@ -364,7 +376,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
                   Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (item.kind == 'video' && _video != null && _video!.dataSource == item.url)
+                      if (item.kind == 'video' &&
+                          _video != null &&
+                          _video!.dataSource == item.url)
                         VideoPlayer(_video!)
                       else
                         Image.network(item.url, fit: BoxFit.cover),
@@ -383,14 +397,17 @@ class _ExpandedCardState extends State<ExpandedCard> {
           ),
           Row(
             children: [
-              Text('${widget.post.daysAgo}', style: const TextStyle(fontSize: 16)),
+              Text(
+                '${widget.post.daysAgo}',
+                style: const TextStyle(fontSize: 16),
+              ),
               const SizedBox(width: 8),
               Icon(
                 widget.post.band == 'near'
                     ? Icons.place
                     : widget.post.band == 'mid'
-                        ? Icons.directions_walk
-                        : Icons.public,
+                    ? Icons.directions_walk
+                    : Icons.public,
                 size: 22,
               ),
               const SizedBox(width: 8),
@@ -457,14 +474,47 @@ class _MapPane extends StatefulWidget {
 class _MapPaneState extends State<_MapPane> {
   MapLibreMapController? _controller;
 
+  static const _zoom = 17.0;
+
   Future<void> _center() async {
     final controller = _controller;
     if (controller == null) return;
     try {
-      await controller.moveCamera(
-        CameraUpdate.newLatLngZoom(LatLng(widget.lat, widget.lng), 15),
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(widget.lat, widget.lng), _zoom),
+        duration: const Duration(milliseconds: 350),
       );
     } catch (_) {}
+  }
+
+  void _openNearest(LatLng tap) {
+    final zoom = _controller?.cameraPosition?.zoom ?? _zoom;
+    final metersPerPixel =
+        156543.03392 * math.cos(widget.lat * math.pi / 180) / math.pow(2, zoom);
+    final slopKm = metersPerPixel * 40 / 1000;
+    FeedPost? best;
+    var bestKm = slopKm;
+    for (final post in widget.posts) {
+      final km = _km(tap.latitude, tap.longitude, post.lat, post.lng);
+      if (km <= bestKm) {
+        bestKm = km;
+        best = post;
+      }
+    }
+    if (best != null) widget.onTap(best.id);
+  }
+
+  double _km(double aLat, double aLng, double bLat, double bLng) {
+    const r = 6371.0;
+    final dLat = (bLat - aLat) * math.pi / 180;
+    final dLng = (bLng - aLng) * math.pi / 180;
+    final s =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(aLat * math.pi / 180) *
+            math.cos(bLat * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return 2 * r * math.asin(math.min(1, math.sqrt(s)));
   }
 
   Future<void> _draw() async {
@@ -514,7 +564,10 @@ class _MapPaneState extends State<_MapPane> {
         Expanded(
           child: MapLibreMap(
             styleString: 'https://tiles.openfreemap.org/styles/liberty',
-            initialCameraPosition: CameraPosition(target: LatLng(widget.lat, widget.lng), zoom: 15),
+            initialCameraPosition: CameraPosition(
+              target: LatLng(widget.lat, widget.lng),
+              zoom: _zoom,
+            ),
             onMapCreated: (controller) {
               _controller = controller;
               controller.onCircleTapped.add((circle) {
@@ -522,6 +575,7 @@ class _MapPaneState extends State<_MapPane> {
                 if (id is String) widget.onTap(id);
               });
             },
+            onMapClick: (_, latLng) => _openNearest(latLng),
             onStyleLoadedCallback: _onStyle,
             myLocationEnabled: false,
           ),
