@@ -1,0 +1,193 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
+import 'chrome.dart';
+import 'session.dart';
+
+class SetupScreen extends StatefulWidget {
+  const SetupScreen({super.key});
+
+  @override
+  State<SetupScreen> createState() => _SetupScreenState();
+}
+
+class _SetupScreenState extends State<SetupScreen> {
+  String _digits = '';
+  var _accepted = false;
+  var _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAnalytics.instance.logScreenView(screenName: 'setup');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final session = SessionHost.of(context);
+      final l10n = AppLocalizations.of(context);
+      Speaker.say(session.lang, l10n.continueAction);
+    });
+  }
+
+  Future<void> _go() async {
+    if (_digits.length != 10 || !_accepted || _busy) return;
+    final session = SessionHost.of(context);
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final located = await session.locate();
+    if (!located) {
+      if (mounted) {
+        setState(() => _busy = false);
+        await Speaker.say(session.lang, l10n.tryAgain);
+      }
+      return;
+    }
+    try {
+      await session.setWhatsapp('+91$_digits');
+    } catch (_) {
+      if (mounted) await Speaker.say(session.lang, l10n.tryAgain);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final session = SessionHost.of(context);
+    return Paged(
+      page: 3,
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Text('+91 $_digits', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  padding: const EdgeInsets.all(24),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  children: [
+                    for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'])
+                      if (key == 'del')
+                        BigIcon(
+                          icon: Icons.backspace,
+                          onTap: () {
+                            if (_digits.isEmpty) return;
+                            setState(() => _digits = _digits.substring(0, _digits.length - 1));
+                          },
+                        )
+                      else if (key == 'ok')
+                        BigIcon(
+                          icon: Icons.check,
+                          filled: _digits.length == 10 && _accepted,
+                          onTap: _go,
+                        )
+                      else
+                        _Digit(
+                          key: ValueKey(key),
+                          digit: key,
+                          onTap: () {
+                            if (_digits.length >= 10) return;
+                            setState(() => _digits += key);
+                          },
+                        ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  BigIcon(
+                    icon: Icons.volume_up,
+                    label: l10n.terms,
+                    onTap: () => Speaker.say(session.lang, l10n.termsBody),
+                  ),
+                  BigIcon(
+                    icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
+                    label: l10n.accept,
+                    color: _accepted ? const Color(0xFF0F6E56) : null,
+                    onTap: () => setState(() => _accepted = !_accepted),
+                  ),
+                  BigIcon(
+                    icon: Icons.description,
+                    label: l10n.terms,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => Paged(
+                            page: 3,
+                            child: Scaffold(
+                              body: SafeArea(
+                                child: Column(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: BigIcon(
+                                        icon: Icons.arrow_back,
+                                        label: l10n.back,
+                                        onTap: () => Navigator.pop(context),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Text(l10n.termsBody, style: const TextStyle(fontSize: 22)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    BigIcon(icon: Icons.place, label: l10n.location, onTap: () => Speaker.say(session.lang, l10n.location)),
+                    BigIcon(icon: Icons.photo_camera, label: l10n.camera, onTap: () => Speaker.say(session.lang, l10n.camera)),
+                    BigIcon(icon: Icons.mic, label: l10n.mic, onTap: () => Speaker.say(session.lang, l10n.mic)),
+                    BigIcon(icon: Icons.photo, label: l10n.photos, onTap: () => Speaker.say(session.lang, l10n.photos)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Digit extends StatelessWidget {
+  const _Digit({required this.digit, required this.onTap, super.key});
+
+  final String digit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: digit,
+      child: Material(
+        color: const Color(0xFFE7F2EE),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Center(
+            child: Text(digit, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ),
+    );
+  }
+}

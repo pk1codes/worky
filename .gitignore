@@ -1,0 +1,10 @@
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/node_modules/
+app/.dart_tool/
+app/build/
+app/.flutter-plugins-dependencies
+*.iml
+.DS_Store

@@ -1,0 +1,164 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'api.dart';
+import 'config.dart';
+
+class Session extends ChangeNotifier {
+  Session(this.auth) : api = WorkyApi(auth);
+
+  final FirebaseAuth auth;
+  final WorkyApi api;
+  SharedPreferences? _prefs;
+
+  bool ready = false;
+  String? lang;
+  String? whatsapp;
+  bool admin = false;
+  User? user;
+  double? lat;
+  double? lng;
+  final Map<String, List<FeedCategory>> feedCache = {};
+
+  Future<void> boot() async {
+    _prefs = await SharedPreferences.getInstance();
+    lang = _prefs!.getString('lang');
+    whatsapp = _prefs!.getString('whatsapp');
+    final cachedLat = _prefs!.getDouble('lat');
+    final cachedLng = _prefs!.getDouble('lng');
+    if (cachedLat != null && cachedLng != null) {
+      lat = cachedLat;
+      lng = cachedLng;
+    }
+    user = auth.currentUser;
+    ready = true;
+    notifyListeners();
+    auth.authStateChanges().listen((next) async {
+      user = next;
+      if (next != null) {
+        try {
+          final me = await api.me();
+          admin = me['admin'] == true;
+          final serverWhatsapp = me['whatsapp'] as String?;
+          if ((whatsapp == null || whatsapp!.isEmpty) && serverWhatsapp != null) {
+            whatsapp = serverWhatsapp;
+            await _prefs!.setString('whatsapp', serverWhatsapp);
+          }
+          if (lang != null) {
+            await api.saveMe(lang: lang, whatsapp: whatsapp);
+          }
+        } catch (_) {}
+      } else {
+        admin = false;
+      }
+      ready = true;
+      notifyListeners();
+    });
+  }
+
+  Future<void> setLang(String code) async {
+    lang = code;
+    notifyListeners();
+    await _prefs?.setString('lang', code);
+    if (user != null) {
+      try {
+        await api.saveMe(lang: code, whatsapp: whatsapp);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> setWhatsapp(String value) async {
+    whatsapp = value;
+    notifyListeners();
+    await _prefs?.setString('whatsapp', value);
+    await api.saveMe(lang: lang, whatsapp: value);
+  }
+
+  Future<bool> locate() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+    final position = await Geolocator.getCurrentPosition();
+    lat = position.latitude;
+    lng = position.longitude;
+    await _prefs?.setDouble('lat', lat!);
+    await _prefs?.setDouble('lng', lng!);
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> signIn() async {
+    if (kUseEmulator) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final payload = base64Url
+          .encode(utf8.encode(jsonEncode({
+            'sub': 'worky-debug-worker',
+            'email': 'worker@worky.test',
+            'email_verified': true,
+            'aud': 'worky-93fbc',
+            'iss': 'https://accounts.google.com',
+            'iat': now,
+            'exp': now + 3600,
+          })))
+          .replaceAll('=', '');
+      const header = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0';
+      await auth.signInWithCredential(
+        GoogleAuthProvider.credential(idToken: '$header.$payload.', accessToken: 'debug'),
+      );
+      return;
+    }
+    if (kIsWeb) {
+      await auth.signInWithPopup(GoogleAuthProvider());
+      return;
+    }
+    final account = await GoogleSignIn.instance.authenticate();
+    final idToken = account.authentication.idToken;
+    if (idToken == null) return;
+    await auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+  }
+
+  Future<void> trySilent() async {
+    if (kUseEmulator || kIsWeb || auth.currentUser != null) return;
+    final account = await GoogleSignIn.instance.attemptLightweightAuthentication();
+    final idToken = account?.authentication.idToken;
+    if (idToken == null) return;
+    await auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+  }
+
+  Future<void> deleteAccount() async {
+    await api.deleteMe();
+    whatsapp = null;
+    admin = false;
+    await _prefs?.remove('whatsapp');
+    await auth.signOut();
+    notifyListeners();
+  }
+
+  String cacheKey(String parentId) => '$parentId|${lat?.toStringAsFixed(3)}|${lng?.toStringAsFixed(3)}|$lang';
+}
+
+class SessionHost extends InheritedWidget {
+  const SessionHost({required this.session, required super.child, super.key});
+
+  final Session session;
+
+  static Session of(BuildContext context) {
+    final host = context.dependOnInheritedWidgetOfExactType<SessionHost>();
+    assert(host != null, 'SessionHost missing');
+    return host!.session;
+  }
+
+  @override
+  bool updateShouldNotify(SessionHost oldWidget) => session != oldWidget.session;
+}

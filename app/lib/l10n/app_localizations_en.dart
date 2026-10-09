@@ -1,0 +1,110 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for English (`en`).
+class AppLocalizationsEn extends AppLocalizations {
+  AppLocalizationsEn([String locale = 'en']) : super(locale);
+
+  @override
+  String get continueAction => 'Continue';
+
+  @override
+  String get terms => 'Terms';
+
+  @override
+  String get accept => 'Accept';
+
+  @override
+  String get location => 'Place';
+
+  @override
+  String get camera => 'Camera';
+
+  @override
+  String get mic => 'Mic';
+
+  @override
+  String get photos => 'Photos';
+
+  @override
+  String get useMyPlace => 'My place';
+
+  @override
+  String get post => 'Post';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
+  String get resume => 'Resume';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get share => 'Share';
+
+  @override
+  String get deleteAccount => 'Delete account';
+
+  @override
+  String get contact => 'Contact';
+
+  @override
+  String get near => 'Near';
+
+  @override
+  String get mid => 'Midway';
+
+  @override
+  String get far => 'Far';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get admin => 'Categories';
+
+  @override
+  String get google => 'Google';
+
+  @override
+  String get map => 'Map';
+
+  @override
+  String get mine => 'Mine';
+
+  @override
+  String get addPhoto => 'Photo';
+
+  @override
+  String get addVideo => 'Video';
+
+  @override
+  String get addAudio => 'Voice';
+
+  @override
+  String get tryAgain => 'Try again';
+
+  @override
+  String get termsBody =>
+      'Be kind. Post only your own photos and voice. You can delete your account any time.';
+
+  @override
+  String get hide => 'Hide';
+
+  @override
+  String get show => 'Show';
+
+  @override
+  String get nameLabel => 'Name';
+}

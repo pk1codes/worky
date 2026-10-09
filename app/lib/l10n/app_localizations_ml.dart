@@ -1,0 +1,110 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Malayalam (`ml`).
+class AppLocalizationsMl extends AppLocalizations {
+  AppLocalizationsMl([String locale = 'ml']) : super(locale);
+
+  @override
+  String get continueAction => 'തുടരുക';
+
+  @override
+  String get terms => 'നിയമം';
+
+  @override
+  String get accept => 'സമ്മതം';
+
+  @override
+  String get location => 'സ്ഥലം';
+
+  @override
+  String get camera => 'ക്യാമറ';
+
+  @override
+  String get mic => 'മൈക്ക്';
+
+  @override
+  String get photos => 'ഫോട്ടോ';
+
+  @override
+  String get useMyPlace => 'എന്റെ സ്ഥലം';
+
+  @override
+  String get post => 'ഇടുക';
+
+  @override
+  String get back => 'പുറകോട്ട്';
+
+  @override
+  String get pause => 'നിർത്തുക';
+
+  @override
+  String get resume => 'വീണ്ടും';
+
+  @override
+  String get delete => 'നീക്കം';
+
+  @override
+  String get edit => 'മാറ്റം';
+
+  @override
+  String get share => 'പങ്കിടുക';
+
+  @override
+  String get deleteAccount => 'അക്കൗണ്ട് നീക്കം';
+
+  @override
+  String get contact => 'ബന്ധം';
+
+  @override
+  String get near => 'അടുത്ത്';
+
+  @override
+  String get mid => 'നടുവിൽ';
+
+  @override
+  String get far => 'ദൂരെ';
+
+  @override
+  String get save => 'സേവ്';
+
+  @override
+  String get admin => 'വിഭാഗം';
+
+  @override
+  String get google => 'ഗൂഗിൾ';
+
+  @override
+  String get map => 'ഭൂപടം';
+
+  @override
+  String get mine => 'എന്റെ';
+
+  @override
+  String get addPhoto => 'ഫോട്ടോ';
+
+  @override
+  String get addVideo => 'വീഡിയോ';
+
+  @override
+  String get addAudio => 'ശബ്ദം';
+
+  @override
+  String get tryAgain => 'വീണ്ടും';
+
+  @override
+  String get termsBody =>
+      'ദയയോടെ ഇരിക്കുക. നിങ്ങളുടെ ഫോട്ടോയും ശബ്ദവും മാത്രം ഇടുക. അക്കൗണ്ട് എപ്പോൾ വേണമെങ്കിലും നീക്കാം.';
+
+  @override
+  String get hide => 'മറയ്ക്കുക';
+
+  @override
+  String get show => 'കാണിക്കുക';
+
+  @override
+  String get nameLabel => 'പേര്';
+}

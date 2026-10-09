@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "69334014512",
+    "project_id": "worky-93fbc",
+    "storage_bucket": "worky-93fbc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:69334014512:android:01d200740d8bbf03766bf5",
+        "android_client_info": {
+          "package_name": "com.pk1codes.worky"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADMOPKBm89MTfbPLG3zirL6U-l_-KYHKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
