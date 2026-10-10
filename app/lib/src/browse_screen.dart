@@ -329,7 +329,7 @@ class _CategoryRow extends StatelessWidget {
         if (job)
           SizedBox(
             height: openId != null && row.posts.any((post) => post.id == openId)
-                ? 540
+                ? 560
                 : 210,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -499,7 +499,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   Future<void> _toggle(String url) async {
     final controller = _video;
-    if (controller == null || _playingUrl != url || !controller.value.isInitialized) {
+    if (controller == null ||
+        _playingUrl != url ||
+        !controller.value.isInitialized) {
       await _play(url);
       return;
     }
@@ -568,145 +570,159 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final videos = _media.where((item) => item.kind == 'video').toList();
     final wide = widget.wide;
     final cacheWidth = wide ? 360 : 280;
-    return SizedBox(
-      width: wide ? double.infinity : 280,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(wide ? 16 : 0),
-              child: SizedBox(
-                height: wide ? 220 : 320,
-                child: PageView(
-                  controller: _pages,
-                  children: [
-                    Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        KeyedSubtree(
-                          key: const ValueKey('poster'),
-                          child: _poster(cacheWidth),
-                        ),
-                        if (videos.isNotEmpty ||
-                            (widget.post.hasVideo && !_ready))
-                          _videoButton(
-                            () => _onPlayTap(
-                              videos.isEmpty ? null : videos.first.url,
-                            ),
-                          ),
-                      ],
-                    ),
-                    for (final item in videos) _videoPage(item),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          for (final item in _media.where((item) => item.kind == 'audio'))
-            BigIcon(icon: Icons.graphic_eq, onTap: () => _playAudio(item.url)),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
+    return Padding(
+      padding: EdgeInsets.all(wide ? 12 : 0),
+      child: Material(
+        color: const Color(0xFFD5E5DF),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            width: wide ? double.infinity : 280,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if ((widget.categoryName ?? '').isNotEmpty)
-                  Text(
-                    widget.categoryName!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(wide ? 16 : 0),
+                    child: SizedBox(
+                      height: wide ? 220 : 320,
+                      child: PageView(
+                        controller: _pages,
+                        children: [
+                          Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              KeyedSubtree(
+                                key: const ValueKey('poster'),
+                                child: _poster(cacheWidth),
+                              ),
+                              if (videos.isNotEmpty ||
+                                  (widget.post.hasVideo && !_ready))
+                                _videoButton(
+                                  () => _onPlayTap(
+                                    videos.isEmpty ? null : videos.first.url,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          for (final item in videos) _videoPage(item),
+                        ],
+                      ),
                     ),
                   ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 22),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _when(context),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                ),
+                for (final item in _media.where((item) => item.kind == 'audio'))
+                  BigIcon(
+                    icon: Icons.graphic_eq,
+                    onTap: () => _playAudio(item.url),
+                  ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((widget.categoryName ?? '').isNotEmpty)
+                        Text(
+                          widget.categoryName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 22),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _when(context),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      widget.post.band == 'near'
-                          ? Icons.place
-                          : widget.post.band == 'mid'
-                          ? Icons.directions_walk
-                          : Icons.public,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.post.km == null
-                          ? _bandLabel(l10n)
-                          : '${widget.post.km} km',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            widget.post.band == 'near'
+                                ? Icons.place
+                                : widget.post.band == 'mid'
+                                ? Icons.directions_walk
+                                : Icons.public,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.post.km == null
+                                ? _bandLabel(l10n)
+                                : '${widget.post.km} km',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    for (final code in widget.post.langs)
-                      LangTile(
-                        code: code,
-                        compact: true,
-                        extent: 56,
-                        selected: false,
-                        onTap: () => Speaker.clip(code),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          for (final code in widget.post.langs)
+                            LangTile(
+                              code: code,
+                              compact: true,
+                              extent: 56,
+                              selected: false,
+                              onTap: () => Speaker.clip(code),
+                            ),
+                        ],
                       ),
-                  ],
+                    ],
+                  ),
                 ),
+                if (!widget.mine)
+                  Row(
+                    mainAxisAlignment: wide
+                        ? MainAxisAlignment.spaceEvenly
+                        : MainAxisAlignment.start,
+                    children: [
+                      BigIcon(
+                        icon: Icons.chat,
+                        label: 'WhatsApp',
+                        filled: true,
+                        color: const Color(0xFF25D366),
+                        onTap: () => _open('whatsapp'),
+                      ),
+                      BigIcon(
+                        icon: Icons.call,
+                        filled: true,
+                        color: const Color(0xFF1A73E8),
+                        onTap: () => _open('phone'),
+                      ),
+                      BigIcon(
+                        icon: Icons.mail,
+                        filled: true,
+                        color: const Color(0xFFC5221F),
+                        onTap: () => _open('gmail'),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
-          if (!widget.mine)
-            Row(
-              mainAxisAlignment: wide
-                  ? MainAxisAlignment.spaceEvenly
-                  : MainAxisAlignment.start,
-              children: [
-                BigIcon(
-                  icon: Icons.chat,
-                  label: 'WhatsApp',
-                  filled: true,
-                  color: const Color(0xFF25D366),
-                  onTap: () => _open('whatsapp'),
-                ),
-                BigIcon(
-                  icon: Icons.call,
-                  filled: true,
-                  color: const Color(0xFF1A73E8),
-                  onTap: () => _open('phone'),
-                ),
-                BigIcon(
-                  icon: Icons.mail,
-                  filled: true,
-                  color: const Color(0xFFC5221F),
-                  onTap: () => _open('gmail'),
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -715,9 +731,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final ms = widget.post.createdAt;
     if (ms == null) return '${widget.post.daysAgo}';
     final locale = Localizations.localeOf(context).toString();
-    return DateFormat.yMMMd(locale).format(
-      DateTime.fromMillisecondsSinceEpoch(ms),
-    );
+    return DateFormat.yMMMd(
+      locale,
+    ).format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
 
   String _bandLabel(AppLocalizations l10n) {
