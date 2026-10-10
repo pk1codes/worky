@@ -33,5 +33,9 @@
   "termsBody": "Be kind. Post only your own photos and voice. You can delete your account any time.",
   "hide": "Hide",
   "show": "Show",
-  "nameLabel": "Name"
+  "nameLabel": "Name",
+  "contactNotice": "People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you.",
+  "block": "Block",
+  "blocked": "Blocked",
+  "allowed": "Allowed"
 }

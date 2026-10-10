@@ -28,7 +28,7 @@ class _SetupScreenState extends State<SetupScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
       final l10n = AppLocalizations.of(context);
-      Speaker.say(session.lang, l10n.continueAction);
+      Speaker.say(session.lang, l10n.contactNotice);
     });
   }
 
@@ -101,6 +101,14 @@ class _SetupScreenState extends State<SetupScreen> {
                 ],
               ),
               const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  l10n.contactNotice,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 8),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 3,
@@ -163,7 +171,12 @@ class _SetupScreenState extends State<SetupScreen> {
                     icon: Icons.description,
                     label: l10n.terms,
                     onTap: () {
-                      unawaited(Speaker.say(session.lang, l10n.termsBody));
+                      unawaited(
+                        Speaker.say(
+                          session.lang,
+                          '${l10n.termsBody} ${l10n.contactNotice}',
+                        ),
+                      );
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (context) => Paged(
@@ -183,7 +196,7 @@ class _SetupScreenState extends State<SetupScreen> {
                                     Padding(
                                       padding: const EdgeInsets.all(24),
                                       child: Text(
-                                        l10n.termsBody,
+                                        '${l10n.termsBody} ${l10n.contactNotice}',
                                         style: const TextStyle(fontSize: 22),
                                       ),
                                     ),

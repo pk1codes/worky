@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -121,6 +122,14 @@ class _MineScreenState extends State<MineScreen> {
         });
       }
     }
+  }
+
+  String _reachWhen(BuildContext context, int at) {
+    if (at <= 0) return '';
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat.MMMd(locale).add_jm().format(
+      DateTime.fromMillisecondsSinceEpoch(at),
+    );
   }
 
   @override
@@ -272,6 +281,38 @@ class _MineScreenState extends State<MineScreen> {
                                     },
                                   ),
                                   BigIcon(
+                                    icon: Icons.block,
+                                    label: post.contactsOpen
+                                        ? l10n.block
+                                        : l10n.blocked,
+                                    filled: !post.contactsOpen,
+                                    onTap: () async {
+                                      final blocking = post.contactsOpen;
+                                      try {
+                                        await session.api.blockIncoming(
+                                          post.id,
+                                          blocking,
+                                        );
+                                        if (mounted) {
+                                          await Speaker.say(
+                                            session.lang,
+                                            blocking
+                                                ? l10n.blocked
+                                                : l10n.allowed,
+                                          );
+                                        }
+                                        await _load();
+                                      } catch (_) {
+                                        if (mounted) {
+                                          await Speaker.say(
+                                            session.lang,
+                                            l10n.tryAgain,
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                  BigIcon(
                                     icon: Icons.delete,
                                     label: l10n.delete,
                                     filled: _armedDelete == post.id,
@@ -306,6 +347,52 @@ class _MineScreenState extends State<MineScreen> {
                                 ],
                               ),
                             ),
+                            for (final reach in post.reaches)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${reach.number}\n${_reachWhen(context, reach.at)}',
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ),
+                                    BigIcon(
+                                      icon: Icons.block,
+                                      label: reach.blocked
+                                          ? l10n.blocked
+                                          : l10n.block,
+                                      filled: reach.blocked,
+                                      onTap: () async {
+                                        final blocking = !reach.blocked;
+                                        try {
+                                          await session.api.blockNumber(
+                                            reach.number,
+                                            blocking,
+                                          );
+                                          if (mounted) {
+                                            await Speaker.say(
+                                              session.lang,
+                                              blocking
+                                                  ? l10n.blocked
+                                                  : l10n.allowed,
+                                            );
+                                          }
+                                          await _load();
+                                        } catch (_) {
+                                          if (mounted) {
+                                            await Speaker.say(
+                                              session.lang,
+                                              l10n.tryAgain,
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -320,7 +407,10 @@ class _MineScreenState extends State<MineScreen> {
                   BigIcon(
                     icon: Icons.description,
                     label: l10n.terms,
-                    onTap: () => Speaker.say(session.lang, l10n.termsBody),
+                    onTap: () => Speaker.say(
+                      session.lang,
+                      '${l10n.termsBody} ${l10n.contactNotice}',
+                    ),
                   ),
                   BigIcon(
                     icon: Icons.mail_outline,
