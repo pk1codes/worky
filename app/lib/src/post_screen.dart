@@ -399,6 +399,18 @@ class _PostScreenState extends State<PostScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(8),
             children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Center(
+                  child: Text(
+                    l10n.speaks,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
               for (final code in kLangs)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

@@ -123,4 +123,7 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get allowed => 'അനുവദിച്ചു';
+
+  @override
+  String get speaks => 'സംസാരിക്കുന്നു';
 }

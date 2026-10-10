@@ -123,4 +123,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allowed => 'Allowed';
+
+  @override
+  String get speaks => 'Speaks';
 }

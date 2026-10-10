@@ -123,4 +123,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get allowed => 'விடு';
+
+  @override
+  String get speaks => 'பேசுகிறார்';
 }

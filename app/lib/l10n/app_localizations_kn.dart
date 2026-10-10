@@ -123,4 +123,7 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get allowed => 'ಬಿಟ್ಟಿದೆ';
+
+  @override
+  String get speaks => 'ಮಾತನಾಡುತ್ತಾರೆ';
 }

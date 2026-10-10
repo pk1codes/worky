@@ -123,4 +123,7 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get allowed => 'सुरू';
+
+  @override
+  String get speaks => 'बोलतात';
 }

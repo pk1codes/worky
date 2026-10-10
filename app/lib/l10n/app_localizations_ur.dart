@@ -123,4 +123,7 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get allowed => 'کھلا';
+
+  @override
+  String get speaks => 'بولتے ہیں';
 }

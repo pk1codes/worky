@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 import '../l10n/app_localizations.dart';
 import 'api.dart';
 import 'chrome.dart';
+import 'langs.dart';
 import 'mine_screen.dart';
 import 'post_screen.dart';
 import 'session.dart';
@@ -811,20 +812,25 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           ),
                         ],
                       ),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          for (final code in widget.post.langs)
-                            LangTile(
-                              code: code,
-                              compact: true,
-                              extent: 56,
-                              selected: false,
-                              onTap: () => Speaker.clip(code),
+                      if (widget.post.langs.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.translate, size: 22),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '${l10n.speaks} ${widget.post.langs.map((code) => kAutonym[code] ?? code).join(' · ')}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

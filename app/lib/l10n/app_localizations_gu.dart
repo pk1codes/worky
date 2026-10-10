@@ -123,4 +123,7 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get allowed => 'ચાલુ';
+
+  @override
+  String get speaks => 'બોલે છે';
 }

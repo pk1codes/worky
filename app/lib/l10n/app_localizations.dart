@@ -345,6 +345,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Allowed'**
   String get allowed;
+
+  /// No description provided for @speaks.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaks'**
+  String get speaks;
 }
 
 class _AppLocalizationsDelegate

@@ -123,4 +123,7 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get allowed => 'అనుమతి';
+
+  @override
+  String get speaks => 'మాట్లాడతారు';
 }

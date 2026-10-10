@@ -123,4 +123,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get allowed => 'चालू';
+
+  @override
+  String get speaks => 'बोलते हैं';
 }

@@ -123,4 +123,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get allowed => 'চালু';
+
+  @override
+  String get speaks => 'বলেন';
 }

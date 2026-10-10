@@ -123,4 +123,7 @@ class AppLocalizationsOr extends AppLocalizations {
 
   @override
   String get allowed => 'ଖୋଲା';
+
+  @override
+  String get speaks => 'କହନ୍ତି';
 }
