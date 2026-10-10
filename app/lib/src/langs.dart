@@ -58,4 +58,4 @@ const kVoice = {
   'or': 'or-IN',
 };
 
-const kSupportEmail = 'pk1codes@gmail.com';
+const kSupportEmail = 'customercare@kambazaar.org';

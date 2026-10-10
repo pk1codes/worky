@@ -327,10 +327,10 @@ class _MineScreenState extends State<MineScreen> {
                     onTap: () => launchUrl(Uri.parse('mailto:$kSupportEmail')),
                   ),
                   BigIcon(
-                    icon: Icons.no_accounts,
+                    icon: Icons.person_off,
                     label: l10n.deleteAccount,
                     filled: _armedAccount,
-                    color: _armedAccount ? Colors.red : null,
+                    color: Colors.red,
                     onTap: () async {
                       if (!_armedAccount) {
                         setState(() => _armedAccount = true);
