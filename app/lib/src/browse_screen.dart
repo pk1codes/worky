@@ -16,6 +16,8 @@ import 'langs.dart';
 import 'mine_screen.dart';
 import 'post_screen.dart';
 import 'session.dart';
+import 'talk_push.dart';
+import 'talk_screen.dart';
 
 class BrowseScreen extends StatefulWidget {
   const BrowseScreen({this.picking = false, this.onPicked, super.key});
@@ -32,6 +34,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   List<FeedCategory> _rows = [];
   var _loading = true;
   var _map = false;
+  String? _pinId;
   String? _openId;
   var _failed = false;
 
@@ -44,6 +47,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
       final l10n = AppLocalizations.of(context);
       unawaited(Speaker.say(session.lang, l10n.near));
       unawaited(_load());
+      TalkPush.flush();
     });
   }
 
@@ -113,6 +117,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
     final session = SessionHost.of(context);
     setState(() {
       _parents.add(id);
+      _pinId = null;
       _openId = null;
       _paintCached(session);
     });
@@ -155,6 +160,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                             final session = SessionHost.of(context);
                             setState(() {
                               _parents.removeLast();
+                              _pinId = null;
                               _openId = null;
                               _paintCached(session);
                             });
@@ -205,10 +211,16 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         posts: posts,
                         lat: session.lat ?? 20.5,
                         lng: session.lng ?? 78.9,
-                        onOpen: (id) => setState(() => _openId = id),
-                        onClose: () => setState(() => _openId = null),
-                        open: _openPost(posts),
-                        categoryName: _nameFor(_openPost(posts)),
+                        pinId: _pinId,
+                        openId: _openId,
+                        nameFor: _nameFor,
+                        onPin: _showPin,
+                        onOpen: (id) =>
+                            setState(() => _openId = _openId == id ? null : id),
+                        onClose: () => setState(() {
+                          _pinId = null;
+                          _openId = null;
+                        }),
                       )
                     : RefreshIndicator(
                         onRefresh: () => _load(force: true),
@@ -238,9 +250,25 @@ class _BrowseScreenState extends State<BrowseScreen> {
     );
   }
 
-  FeedPost? _openPost(List<FeedPost> posts) {
+  void _showPin(String id) {
+    final posts = [for (final row in _rows) ...row.posts];
+    final next = _postById(posts, id);
+    final current = _postById(posts, _pinId);
+    if (next == null) return;
+    if (current != null &&
+        pinCell(current.lat, current.lng) == pinCell(next.lat, next.lng)) {
+      return;
+    }
+    setState(() {
+      _pinId = id;
+      _openId = null;
+    });
+  }
+
+  FeedPost? _postById(List<FeedPost> posts, String? id) {
+    if (id == null) return null;
     for (final post in posts) {
-      if (post.id == _openId) return post;
+      if (post.id == id) return post;
     }
     return null;
   }
@@ -301,6 +329,9 @@ const _rowIcons = <String, IconData>{
 IconData _rowIcon(FeedCategory row) {
   return _rowIcons[row.id] ?? (row.isJob ? Icons.badge : Icons.folder);
 }
+
+(int, int) pinCell(double lat, double lng) =>
+    ((lat * 50).round(), (lng * 50).round());
 
 double stripRevealOffset({
   required int index,
@@ -411,12 +442,16 @@ class _JobStrip extends StatefulWidget {
     required this.categoryName,
     required this.openId,
     required this.onOpen,
+    this.nameOf,
+    this.scrollOpen = false,
   });
 
   final List<FeedPost> posts;
   final String categoryName;
+  final String? Function(FeedPost post)? nameOf;
   final String? openId;
   final ValueChanged<String> onOpen;
+  final bool scrollOpen;
 
   @override
   State<_JobStrip> createState() => _JobStripState();
@@ -478,24 +513,31 @@ class _JobStripState extends State<_JobStrip> {
       itemBuilder: (context, index) {
         final post = widget.posts[index];
         final open = post.id == openId;
+        final name = widget.nameOf?.call(post) ?? widget.categoryName;
         return GestureDetector(
           onTap: () => widget.onOpen(post.id),
           child: open
-              ? Align(
-                  alignment: Alignment.topCenter,
-                  widthFactor: 1,
-                  child: ExpandedCard(
-                    post: post,
-                    categoryName: widget.categoryName,
-                  ),
-                )
+              ? widget.scrollOpen
+                    ? SizedBox(
+                        width: _openOuterWidth,
+                        child: SingleChildScrollView(
+                          child: ExpandedCard(post: post, categoryName: name),
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.topCenter,
+                        widthFactor: 1,
+                        child: ExpandedCard(post: post, categoryName: name),
+                      )
               : Align(
                   alignment: Alignment.topCenter,
                   widthFactor: 1,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: NetImage(
-                      url: post.thumbUrl.isEmpty ? post.posterUrl : post.thumbUrl,
+                      url: post.thumbUrl.isEmpty
+                          ? post.posterUrl
+                          : post.thumbUrl,
                       width: _collapsedPoster,
                       height: 190,
                       cacheLogical: _collapsedPoster,
@@ -836,22 +878,45 @@ class _ExpandedCardState extends State<ExpandedCard> {
                 ),
                 if (!widget.mine)
                   Row(
-                    mainAxisAlignment: wide
-                        ? MainAxisAlignment.spaceEvenly
-                        : MainAxisAlignment.start,
                     children: [
-                      BigIcon(
-                        icon: Icons.chat,
-                        label: 'WhatsApp',
-                        filled: true,
-                        color: const Color(0xFF25D366),
-                        onTap: () => _open('whatsapp'),
+                      Expanded(
+                        child: BigIcon(
+                          icon: Icons.forum,
+                          label: l10n.workyTalk,
+                          filled: true,
+                          compact: true,
+                          stretch: true,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  TalkScreen(postId: widget.post.id),
+                            ),
+                          ),
+                        ),
                       ),
-                      BigIcon(
-                        icon: Icons.call,
-                        filled: true,
-                        color: const Color(0xFF1A73E8),
-                        onTap: () => _open('phone'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: BigIcon(
+                          icon: Icons.chat,
+                          label: 'WhatsApp',
+                          filled: true,
+                          compact: true,
+                          stretch: true,
+                          color: const Color(0xFF25D366),
+                          onTap: () => _open('whatsapp'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: BigIcon(
+                          icon: Icons.call,
+                          label: l10n.call,
+                          filled: true,
+                          compact: true,
+                          stretch: true,
+                          color: const Color(0xFF1A73E8),
+                          onTap: () => _open('phone'),
+                        ),
                       ),
                     ],
                   ),
@@ -980,19 +1045,23 @@ class _MapPane extends StatefulWidget {
     required this.posts,
     required this.lat,
     required this.lng,
+    required this.pinId,
+    required this.openId,
+    required this.nameFor,
+    required this.onPin,
     required this.onOpen,
     required this.onClose,
-    required this.open,
-    required this.categoryName,
   });
 
   final List<FeedPost> posts;
   final double lat;
   final double lng;
+  final String? pinId;
+  final String? openId;
+  final String? Function(FeedPost post) nameFor;
+  final ValueChanged<String> onPin;
   final ValueChanged<String> onOpen;
   final VoidCallback onClose;
-  final FeedPost? open;
-  final String? categoryName;
 
   @override
   State<_MapPane> createState() => _MapPaneState();
@@ -1102,7 +1171,7 @@ class _MapPaneState extends State<_MapPane> {
         best = post;
       }
     }
-    if (best != null) widget.onOpen(best.id);
+    if (best != null) widget.onPin(best.id);
   }
 
   double _km(double aLat, double aLng, double bLat, double bLng) {
@@ -1123,7 +1192,9 @@ class _MapPaneState extends State<_MapPane> {
     if (controller == null) return;
     try {
       await controller.clearCircles();
+      final drawn = <(int, int)>{};
       for (final post in widget.posts) {
+        if (!drawn.add(pinCell(post.lat, post.lng))) continue;
         await controller.addCircle(
           CircleOptions(
             geometry: LatLng(post.lat, post.lng),
@@ -1148,11 +1219,21 @@ class _MapPaneState extends State<_MapPane> {
     final postsChanged = !_samePosts(oldWidget.posts, widget.posts);
     if (moved || postsChanged) _center();
     if (postsChanged) _draw();
-    if (oldWidget.open?.id != widget.open?.id) {
+    final wasOpen = _listed(oldWidget.posts, oldWidget.pinId);
+    final isOpen = _listed(widget.posts, widget.pinId);
+    if (wasOpen != isOpen || oldWidget.openId != widget.openId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _controller?.forceResizeWebMap();
       });
     }
+  }
+
+  bool _listed(List<FeedPost> posts, String? id) {
+    if (id == null) return false;
+    for (final post in posts) {
+      if (post.id == id) return true;
+    }
+    return false;
   }
 
   bool _samePosts(List<FeedPost> a, List<FeedPost> b) {
@@ -1163,66 +1244,96 @@ class _MapPaneState extends State<_MapPane> {
     return true;
   }
 
+  FeedPost? _pinPost() {
+    final id = widget.pinId;
+    if (id == null) return null;
+    for (final post in widget.posts) {
+      if (post.id == id) return post;
+    }
+    return null;
+  }
+
+  List<FeedPost> _cellPosts(FeedPost pin) {
+    final cell = pinCell(pin.lat, pin.lng);
+    return [
+      for (final post in widget.posts)
+        if (pinCell(post.lat, post.lng) == cell) post,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final open = widget.open;
-    return Column(
-      children: [
-        Expanded(flex: open == null ? 1 : 2, child: _map()),
-        if (open != null)
-          Expanded(
-            flex: 3,
-            child: Material(
-              color: Colors.white,
-              elevation: 12,
-              shadowColor: const Color(0x291C2421),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 48,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE5E0D5),
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(
-                            onPressed: widget.onClose,
-                            icon: const Icon(Icons.close),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFF4F2EB),
-                              foregroundColor: const Color(0xFF1C2421),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pin = _pinPost();
+        final cell = pin == null ? const <FeedPost>[] : _cellPosts(pin);
+        final expanded =
+            widget.openId != null &&
+            cell.any((post) => post.id == widget.openId);
+        final cap = math.max(0.0, constraints.maxHeight - _padClear);
+        final wanted = 48.0 + (expanded ? 560.0 : 210.0);
+        final sheetHeight = math.min(wanted, cap);
+        final showSheet = pin != null && cell.isNotEmpty && sheetHeight >= 48;
+        return Column(
+          children: [
+            Expanded(child: _map()),
+            if (showSheet)
+              SizedBox(
+                height: sheetHeight,
+                child: Material(
+                  color: Colors.white,
+                  elevation: 12,
+                  shadowColor: const Color(0x291C2421),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 48,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE5E0D5),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
                             ),
-                          ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: IconButton(
+                                onPressed: widget.onClose,
+                                icon: const Icon(Icons.close),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF4F2EB),
+                                  foregroundColor: const Color(0xFF1C2421),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: ExpandedCard(
-                        post: open,
-                        wide: true,
-                        categoryName: widget.categoryName,
                       ),
-                    ),
+                      Expanded(
+                        child: _JobStrip(
+                          posts: cell,
+                          categoryName: '',
+                          nameOf: widget.nameFor,
+                          openId: expanded ? widget.openId : null,
+                          scrollOpen: expanded && cap < 608,
+                          onOpen: widget.onOpen,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -1239,7 +1350,7 @@ class _MapPaneState extends State<_MapPane> {
             _controller = controller;
             controller.onCircleTapped.add((circle) {
               final id = circle.data?['postId'];
-              if (id is String) widget.onOpen(id);
+              if (id is String) widget.onPin(id);
             });
           },
           featureTapsTriggersMapClick: true,

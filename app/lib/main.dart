@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +16,7 @@ import 'src/google_screen.dart';
 import 'src/language_screen.dart';
 import 'src/session.dart';
 import 'src/setup_screen.dart';
+import 'src/talk_push.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +53,7 @@ Future<void> main() async {
   final session = Session(FirebaseAuth.instance);
   await session.boot();
   runApp(WorkyApp(session: session));
+  unawaited(TalkPush.listen());
 }
 
 class WorkyApp extends StatelessWidget {
@@ -88,6 +92,7 @@ class WorkyApp extends StatelessWidget {
               ),
               iconTheme: const IconThemeData(size: 32),
             ),
+            navigatorKey: talkNav,
             home: Gate(
               key: ValueKey(
                 '${session.ready}|${session.lang}|${session.user?.uid}|${session.whatsapp}',

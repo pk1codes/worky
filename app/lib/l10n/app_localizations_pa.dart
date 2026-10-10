@@ -113,7 +113,7 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'ਨੇੜੇ ਦੇ ਲੋਕ ਇਸ ਨੰਬਰ ਤੇ WhatsApp ਜਾਂ ਕਾਲ ਕਰ ਸਕਦੇ ਹਨ। ਹਰ ਵਿਅਕਤੀ ਦਿਨ ਵਿੱਚ ਸਿਰਫ਼ 3 ਵਾਰ। ਉਹ ਤੁਹਾਨੂੰ ਲਗਭਗ 2 ਕਿਮੀ ਦੂਰ ਦੇਖਦੇ ਹਨ, ਠੀਕ ਥਾਂ ਨਹੀਂ। ਪੋਸਟ ਰੋਕ ਸਕਦੇ ਹੋ ਜਾਂ ਖਾਤਾ ਕਦੇ ਵੀ ਮਿਟਾ ਸਕਦੇ ਹੋ। ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਨੂੰ ਸੰਪਰਕ ਕਰਦੇ ਹੋ ਤਾਂ ਉਹ ਤੁਹਾਡਾ ਨੰਬਰ ਦੇਖ ਕੇ ਤੁਹਾਨੂੰ ਰੋਕ ਸਕਦੇ ਹਨ।';
+      'ਨੇੜੇ ਦੇ ਲੋਕ ਇਸ ਨੰਬਰ ਤੇ WhatsApp ਜਾਂ ਕਾਲ ਕਰ ਸਕਦੇ ਹਨ। ਹਰ ਵਿਅਕਤੀ ਦਿਨ ਵਿੱਚ ਸਿਰਫ਼ 3 ਵਾਰ। ਉਹ ਤੁਹਾਨੂੰ ਲਗਭਗ 2 ਕਿਮੀ ਦੂਰ ਦੇਖਦੇ ਹਨ, ਠੀਕ ਥਾਂ ਨਹੀਂ। ਪੋਸਟ ਰੋਕ ਸਕਦੇ ਹੋ ਜਾਂ ਖਾਤਾ ਕਦੇ ਵੀ ਮਿਟਾ ਸਕਦੇ ਹੋ। ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਨੂੰ ਸੰਪਰਕ ਕਰਦੇ ਹੋ ਤਾਂ ਉਹ ਤੁਹਾਡਾ ਨੰਬਰ ਦੇਖ ਕੇ ਤੁਹਾਨੂੰ ਰੋਕ ਸਕਦੇ ਹਨ। ਨੇੜੇ ਦੇ ਲੋਕ Worky Talk ਵਿੱਚ ਵੀ ਸੁਨੇਹਾ ਭੇਜ ਸਕਦੇ ਹਨ।';
 
   @override
   String get block => 'ਬਲਾਕ';
@@ -126,4 +126,19 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get speaks => 'ਬੋਲਦੇ ਹਨ';
+
+  @override
+  String get workyTalk => 'Worky Talk';
+
+  @override
+  String get typeMessage => 'ਸੁਨੇਹਾ';
+
+  @override
+  String get joinVideo => 'ਜੁੜੋ';
+
+  @override
+  String get videoCall => 'ਵੀਡੀਓ';
+
+  @override
+  String get call => 'ਕਾਲ';
 }

@@ -325,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactNotice.
   ///
   /// In en, this message translates to:
-  /// **'People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you.'**
+  /// **'People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky Talk.'**
   String get contactNotice;
 
   /// No description provided for @block.
@@ -351,6 +351,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Speaks'**
   String get speaks;
+
+  /// No description provided for @workyTalk.
+  ///
+  /// In en, this message translates to:
+  /// **'Worky Talk'**
+  String get workyTalk;
+
+  /// No description provided for @typeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get typeMessage;
+
+  /// No description provided for @joinVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get joinVideo;
+
+  /// No description provided for @videoCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get videoCall;
+
+  /// No description provided for @call.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get call;
 }
 
 class _AppLocalizationsDelegate

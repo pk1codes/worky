@@ -113,7 +113,7 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'قریب کے لوگ اس نمبر پر WhatsApp یا کال کر سکتے ہیں۔ ہر شخص دن میں صرف 3 بار۔ وہ آپ کو تقریباً 2 کلومیٹر دور دیکھتے ہیں، ٹھیک جگہ نہیں۔ پوسٹ روک سکتے ہیں یا اکاؤنٹ کبھی بھی مٹا سکتے ہیں۔ اگر آپ کسی سے رابطہ کریں تو وہ آپ کا نمبر دیکھ کر آپ کو بلاک کر سکتے ہیں۔';
+      'قریب کے لوگ اس نمبر پر WhatsApp یا کال کر سکتے ہیں۔ ہر شخص دن میں صرف 3 بار۔ وہ آپ کو تقریباً 2 کلومیٹر دور دیکھتے ہیں، ٹھیک جگہ نہیں۔ پوسٹ روک سکتے ہیں یا اکاؤنٹ کبھی بھی مٹا سکتے ہیں۔ اگر آپ کسی سے رابطہ کریں تو وہ آپ کا نمبر دیکھ کر آپ کو بلاک کر سکتے ہیں۔ قریبی لوگ Worky Talk میں بھی پیغام بھیج سکتے ہیں۔';
 
   @override
   String get block => 'بلاک';
@@ -126,4 +126,19 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get speaks => 'بولتے ہیں';
+
+  @override
+  String get workyTalk => 'Worky Talk';
+
+  @override
+  String get typeMessage => 'پیغام';
+
+  @override
+  String get joinVideo => 'شامل ہوں';
+
+  @override
+  String get videoCall => 'ویڈیو';
+
+  @override
+  String get call => 'کال';
 }

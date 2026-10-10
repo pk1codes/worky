@@ -16,6 +16,7 @@ import 'local_thumb.dart' if (dart.library.io) 'local_thumb_io.dart';
 import 'media_queue.dart';
 import 'post_screen.dart';
 import 'session.dart';
+import 'talk_screen.dart';
 
 class MineScreen extends StatefulWidget {
   const MineScreen({super.key});
@@ -26,6 +27,7 @@ class MineScreen extends StatefulWidget {
 
 class _MineScreenState extends State<MineScreen> {
   List<FeedPost> _posts = [];
+  List<TalkPreview> _talks = [];
   var _loading = true;
   var _failed = false;
   String? _armedDelete;
@@ -106,10 +108,11 @@ class _MineScreenState extends State<MineScreen> {
 
   Future<void> _load() async {
     try {
-      final posts = await SessionHost.of(context).api.mine();
+      final page = await SessionHost.of(context).api.mine();
       if (mounted) {
         setState(() {
-          _posts = posts;
+          _posts = page.posts;
+          _talks = page.talks;
           _loading = false;
           _failed = false;
         });
@@ -197,6 +200,43 @@ class _MineScreenState extends State<MineScreen> {
                     ),
                     for (final draft in session.outbox.drafts)
                       _draft(session, draft, l10n),
+                    for (final talk in _talks)
+                      Card(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: ListTile(
+                          leading: Icon(
+                            talk.kind == 'video'
+                                ? Icons.videocam
+                                : talk.kind == 'voice'
+                                ? Icons.mic
+                                : Icons.forum,
+                            color: const Color(0xFF0F6E56),
+                          ),
+                          title: Text(
+                            talk.preview.isEmpty ? l10n.workyTalk : talk.preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: talk.unread > 0
+                              ? CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: const Color(0xFF0F6E56),
+                                  child: Text(
+                                    '${talk.unread}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                  ),
+                                )
+                              : null,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => TalkScreen(pairId: talk.id),
+                              ),
+                            );
+                            await _load();
+                          },
+                        ),
+                      ),
                     if (_loading) const LinearProgressIndicator(),
                     if (_failed && _posts.isEmpty)
                       BigIcon(
