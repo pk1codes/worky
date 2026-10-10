@@ -2,7 +2,6 @@ package com.pk1codes.worky
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -33,13 +32,6 @@ class MainActivity : FlutterActivity() {
         Manifest.permission.CAMERA,
         Manifest.permission.RECORD_AUDIO,
       )
-    if (Build.VERSION.SDK_INT >= 33) {
-      list.add(Manifest.permission.READ_MEDIA_IMAGES)
-      list.add(Manifest.permission.READ_MEDIA_VIDEO)
-      list.add(Manifest.permission.READ_MEDIA_AUDIO)
-    } else {
-      list.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-    }
     return list.toTypedArray()
   }
 

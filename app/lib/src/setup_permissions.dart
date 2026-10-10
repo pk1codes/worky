@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 const _channel = MethodChannel('worky/permissions');
 
-/// Ask for location, camera, mic, and media access in one system prompt batch.
+/// Ask for location, camera, and mic in one system prompt batch.
 Future<void> requestSetupPermissions() async {
   if (kIsWeb) return;
   try {
