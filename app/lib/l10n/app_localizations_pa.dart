@@ -96,6 +96,9 @@ class AppLocalizationsPa extends AppLocalizations {
   String get tryAgain => 'ਮੁੜ';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'ਦਿਆਲੂ ਰਹੋ। ਸਿਰਫ਼ ਆਪਣੀ ਫੋਟੋ ਅਤੇ ਆਵਾਜ਼ ਪਾਓ। ਖਾਤਾ ਕਦੇ ਵੀ ਮਿਟਾ ਸਕਦੇ ਹੋ।';
 

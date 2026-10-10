@@ -96,6 +96,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get tryAgain => 'വീണ്ടും';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'ദയയോടെ ഇരിക്കുക. നിങ്ങളുടെ ഫോട്ടോയും ശബ്ദവും മാത്രം ഇടുക. അക്കൗണ്ട് എപ്പോൾ വേണമെങ്കിലും നീക്കാം.';
 

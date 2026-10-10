@@ -366,11 +366,7 @@ class _CategoryRow extends StatelessWidget {
                         color: _tileColor(row.id),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        _rowIcon(row),
-                        color: Colors.white,
-                        size: 36,
-                      ),
+                      child: Icon(_rowIcon(row), color: Colors.white, size: 36),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -544,6 +540,8 @@ class _ExpandedCardState extends State<ExpandedCard> {
   int _playToken = 0;
   bool _ready = false;
   Future<List<MediaItem>>? _detail;
+  Future<String>? _ownerDigits;
+  String? _reachNote;
   final AudioPlayer _audio = AudioPlayer();
   final PageController _pages = PageController();
 
@@ -551,6 +549,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     unawaited(_ensureMedia().catchError((Object _) => <MediaItem>[]));
+    if (!widget.mine) _reachNote ??= _composeNote();
   }
 
   Future<List<MediaItem>> _ensureMedia() {
@@ -918,14 +917,82 @@ class _ExpandedCardState extends State<ExpandedCard> {
     );
   }
 
+  String _composeNote() {
+    final session = SessionHost.of(context);
+    final line = AppLocalizations.of(context).reachNote;
+    final lat = session.lat;
+    final lng = session.lng;
+    if (lat == null || lng == null) return line;
+    final place =
+        'https://maps.google.com/?q=${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
+    return '$line\n$place';
+  }
+
+  Future<String> _loadOwnerDigits() async {
+    final api = SessionHost.of(context).api;
+    try {
+      final url = await api.reveal(widget.post.id, 'whatsapp');
+      final parts = Uri.parse(
+        url,
+      ).pathSegments.where((part) => part.isNotEmpty);
+      final number = parts.isEmpty ? '' : parts.last;
+      if (!RegExp(r'^\d{8,15}$').hasMatch(number)) {
+        throw const FormatException('number');
+      }
+      return number;
+    } catch (_) {
+      _ownerDigits = null;
+      rethrow;
+    }
+  }
+
+  Future<bool> _openWhatsApp(String digits) async {
+    final note = _reachNote ?? _composeNote();
+    final app = Uri.parse(
+      'whatsapp://send?phone=$digits&text=${Uri.encodeComponent(note)}',
+    );
+    try {
+      if (await launchUrl(
+        app,
+        mode: LaunchMode.externalNonBrowserApplication,
+      )) {
+        return true;
+      }
+    } catch (_) {}
+    try {
+      return await launchUrl(
+        Uri.parse('https://wa.me/$digits?text=${Uri.encodeComponent(note)}'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _open(String channel) async {
     final session = SessionHost.of(context);
     final retry = AppLocalizations.of(context).tryAgain;
     try {
-      final url = await session.api.reveal(widget.post.id, channel);
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (channel == 'gmail') {
+        final url = await session.api.reveal(widget.post.id, channel);
+        final opened = await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
+        if (!opened && mounted) await Speaker.say(session.lang, retry);
+        return;
+      }
+      final digits = await (_ownerDigits ??= _loadOwnerDigits());
+      if (!mounted) return;
+      final opened = channel == 'whatsapp'
+          ? await _openWhatsApp(digits)
+          : await launchUrl(
+              Uri.parse('tel:+$digits'),
+              mode: LaunchMode.externalApplication,
+            );
+      if (!opened && mounted) await Speaker.say(session.lang, retry);
     } catch (_) {
-      await Speaker.say(session.lang, retry);
+      if (mounted) await Speaker.say(session.lang, retry);
     }
   }
 }
@@ -957,6 +1024,10 @@ class _MapPaneState extends State<_MapPane> {
   MapLibreMapController? _controller;
 
   static const _zoom = 17.0;
+  static const _control = 48.0;
+  static const _gap = 4.0;
+  static const _pad = _control * 4 + _gap * 3;
+  static const _padClear = _pad + 8;
 
   Future<void> _center() async {
     final controller = _controller;
@@ -968,7 +1039,7 @@ class _MapPaneState extends State<_MapPane> {
     try {
       if (_onePlace(points)) {
         await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(points.first, _zoom),
+          CameraUpdate.newLatLngZoom(_abovePad(points.first), _zoom),
           duration: const Duration(milliseconds: 350),
         );
         return;
@@ -992,7 +1063,7 @@ class _MapPaneState extends State<_MapPane> {
           left: 48,
           top: 48,
           right: 48,
-          bottom: 48,
+          bottom: _padClear,
         ),
         duration: const Duration(milliseconds: 350),
       );
@@ -1006,6 +1077,37 @@ class _MapPaneState extends State<_MapPane> {
       if ((point.longitude - first.longitude).abs() > 0.02) return false;
     }
     return true;
+  }
+
+  LatLng _abovePad(LatLng point) {
+    final metersPerPixel =
+        156543.03392 *
+        math.cos(point.latitude * math.pi / 180) /
+        math.pow(2, _zoom);
+    final south = (_padClear / 2) * metersPerPixel / 111320;
+    return LatLng(point.latitude - south, point.longitude);
+  }
+
+  Future<void> _nudge(double dx, double dy) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.scrollBy(dx, dy),
+        duration: const Duration(milliseconds: 250),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _stepZoom(double amount) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.zoomBy(amount),
+        duration: const Duration(milliseconds: 250),
+      );
+    } catch (_) {}
   }
 
   void _openNearest(LatLng tap) {
@@ -1147,23 +1249,86 @@ class _MapPaneState extends State<_MapPane> {
   }
 
   Widget _map() {
-    return MapLibreMap(
-      styleString: 'https://tiles.openfreemap.org/styles/liberty',
-      initialCameraPosition: CameraPosition(
-        target: LatLng(widget.lat, widget.lng),
-        zoom: _zoom,
-      ),
-      onMapCreated: (controller) {
-        _controller = controller;
-        controller.onCircleTapped.add((circle) {
-          final id = circle.data?['postId'];
-          if (id is String) widget.onOpen(id);
-        });
-      },
-      featureTapsTriggersMapClick: true,
-      onMapClick: (_, latLng) => _openNearest(latLng),
-      onStyleLoadedCallback: _onStyle,
-      myLocationEnabled: false,
+    return Stack(
+      children: [
+        MapLibreMap(
+          styleString: 'https://tiles.openfreemap.org/styles/liberty',
+          initialCameraPosition: CameraPosition(
+            target: _abovePad(LatLng(widget.lat, widget.lng)),
+            zoom: _zoom,
+          ),
+          onMapCreated: (controller) {
+            _controller = controller;
+            controller.onCircleTapped.add((circle) {
+              final id = circle.data?['postId'];
+              if (id is String) widget.onOpen(id);
+            });
+          },
+          featureTapsTriggersMapClick: true,
+          onMapClick: (_, latLng) => _openNearest(latLng),
+          onStyleLoadedCallback: _onStyle,
+          myLocationEnabled: false,
+          compassEnabled: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+        ),
+        Positioned(left: 0, right: 0, bottom: 8, child: _controls()),
+      ],
     );
+  }
+
+  Widget _controls() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _controlButton(Icons.arrow_upward, () {
+            _nudge(0, -160);
+          }),
+          const SizedBox(height: _gap),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _controlButton(Icons.arrow_back, () {
+                _nudge(-160, 0);
+              }),
+              const SizedBox(width: _gap),
+              _controlButton(Icons.my_location, () {
+                _center();
+              }, filled: true),
+              const SizedBox(width: _gap),
+              _controlButton(Icons.arrow_forward, () {
+                _nudge(160, 0);
+              }),
+            ],
+          ),
+          const SizedBox(height: _gap),
+          _controlButton(Icons.arrow_downward, () {
+            _nudge(0, 160);
+          }),
+          const SizedBox(height: _gap),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _controlButton(Icons.remove, () {
+                _stepZoom(-1);
+              }),
+              const SizedBox(width: _control),
+              _controlButton(Icons.add, () {
+                _stepZoom(1);
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlButton(
+    IconData icon,
+    VoidCallback onTap, {
+    bool filled = false,
+  }) {
+    return BigIcon(icon: icon, extent: _control, filled: filled, onTap: onTap);
   }
 }

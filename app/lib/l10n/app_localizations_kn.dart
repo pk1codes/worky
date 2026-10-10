@@ -96,6 +96,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get tryAgain => 'ಮತ್ತೆ';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'ದಯೆಯಿಂದಿರಿ. ನಿಮ್ಮ ಫೋಟೋ ಮತ್ತು ಧ್ವನಿ ಮಾತ್ರ ಹಾಕಿ. ಖಾತೆಯನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ಅಳಿಸಬಹುದು.';
 

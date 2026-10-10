@@ -96,6 +96,9 @@ class AppLocalizationsGu extends AppLocalizations {
   String get tryAgain => 'ફરી';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'દયાળુ રહો. ફક્ત તમારા ફોટા અને અવાજ મૂકો. ખાતું ગમે ત્યારે કાઢી શકાય.';
 

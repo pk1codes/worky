@@ -292,6 +292,12 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get tryAgain;
 
+  /// No description provided for @reachNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Hi, I found you on Worky.'**
+  String get reachNote;
+
   /// No description provided for @termsBody.
   ///
   /// In en, this message translates to:

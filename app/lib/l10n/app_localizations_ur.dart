@@ -96,6 +96,9 @@ class AppLocalizationsUr extends AppLocalizations {
   String get tryAgain => 'دوبارہ';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'مہربان رہیں۔ صرف اپنی تصویر اور اپنی آواز لگائیں۔ اکاؤنٹ کبھی بھی مٹا سکتے ہیں۔';
 

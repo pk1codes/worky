@@ -96,6 +96,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryAgain => 'Try again';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'Be kind. Post only your own photos and voice. You can delete your account any time.';
 

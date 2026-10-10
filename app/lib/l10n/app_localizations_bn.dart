@@ -96,6 +96,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get tryAgain => 'আবার';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'দয়ালু থাকুন। শুধু নিজের ছবি ও নিজের শব্দ দিন। অ্যাকাউন্ট যখন খুশি মুছতে পারবেন।';
 

@@ -96,6 +96,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get tryAgain => 'மீண்டும்';
 
   @override
+  String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
   String get termsBody =>
       'அன்பாக இருங்கள். உங்கள் படமும் குரலும் மட்டும் போடுங்கள். கணக்கை எப்போதும் நீக்கலாம்.';
 

@@ -74,6 +74,7 @@ class BigIcon extends StatelessWidget {
     this.color,
     this.filled = false,
     this.compact = false,
+    this.extent,
     super.key,
   });
 
@@ -83,17 +84,24 @@ class BigIcon extends StatelessWidget {
   final Color? color;
   final bool filled;
   final bool compact;
+  final double? extent;
 
   @override
   Widget build(BuildContext context) {
     final fg = filled ? Colors.white : (color ?? const Color(0xFF16332C));
     final tight = compact || label == null;
+    final side = extent;
+    final iconPx = side == null ? 40.0 : side * 0.75;
     final button = IconButton(
       onPressed: onTap,
-      iconSize: 40,
+      iconSize: iconPx,
       style: IconButton.styleFrom(
-        minimumSize: Size(tight ? 72 : 64, 64),
-        fixedSize: tight ? const Size(72, 64) : null,
+        minimumSize: side == null
+            ? Size(tight ? 72 : 64, 64)
+            : Size(side, side),
+        fixedSize: side != null
+            ? Size(side, side)
+            : (tight ? const Size(72, 64) : null),
         padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 10, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: filled
@@ -106,7 +114,7 @@ class BigIcon extends StatelessWidget {
           ? Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 40),
+                Icon(icon, size: iconPx),
                 if (label != null)
                   Text(
                     label!,
@@ -125,7 +133,7 @@ class BigIcon extends StatelessWidget {
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 40),
+                Icon(icon, size: iconPx),
                 const SizedBox(width: 6),
                 Text(
                   label!,
