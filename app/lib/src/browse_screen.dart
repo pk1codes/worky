@@ -670,12 +670,51 @@ class _MapPaneState extends State<_MapPane> {
   Future<void> _center() async {
     final controller = _controller;
     if (controller == null) return;
+    final points = <LatLng>[
+      LatLng(widget.lat, widget.lng),
+      for (final post in widget.posts) LatLng(post.lat, post.lng),
+    ];
     try {
+      if (_onePlace(points)) {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(points.first, _zoom),
+          duration: const Duration(milliseconds: 350),
+        );
+        return;
+      }
+      var minLat = points.first.latitude;
+      var maxLat = minLat;
+      var minLng = points.first.longitude;
+      var maxLng = minLng;
+      for (final point in points) {
+        minLat = math.min(minLat, point.latitude);
+        maxLat = math.max(maxLat, point.latitude);
+        minLng = math.min(minLng, point.longitude);
+        maxLng = math.max(maxLng, point.longitude);
+      }
       await controller.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(widget.lat, widget.lng), _zoom),
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          left: 48,
+          top: 48,
+          right: 48,
+          bottom: 48,
+        ),
         duration: const Duration(milliseconds: 350),
       );
     } catch (_) {}
+  }
+
+  bool _onePlace(List<LatLng> points) {
+    final first = points.first;
+    for (final point in points.skip(1)) {
+      if ((point.latitude - first.latitude).abs() > 0.02) return false;
+      if ((point.longitude - first.longitude).abs() > 0.02) return false;
+    }
+    return true;
   }
 
   void _openNearest(LatLng tap) {
@@ -734,10 +773,10 @@ class _MapPaneState extends State<_MapPane> {
   @override
   void didUpdateWidget(covariant _MapPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.lat != widget.lat || oldWidget.lng != widget.lng) {
-      _center();
-    }
-    if (!_samePosts(oldWidget.posts, widget.posts)) _draw();
+    final moved = oldWidget.lat != widget.lat || oldWidget.lng != widget.lng;
+    final postsChanged = !_samePosts(oldWidget.posts, widget.posts);
+    if (moved || postsChanged) _center();
+    if (postsChanged) _draw();
     if (oldWidget.open?.id != widget.open?.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _controller?.forceResizeWebMap();

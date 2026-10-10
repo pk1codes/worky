@@ -420,23 +420,26 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const cell = geohash(lat, lng, 4);
     const cats = await db.collection('categories').where('parentId', '==', parentId).get();
     const children = cats.docs
       .map((d) => d.data() && { id: d.id, ...d.data() })
       .filter((c) => c.active !== false)
       .sort((a, b) => (a.sort || 0) - (b.sort || 0));
-    const childIds = new Set(children.map((c) => c.id));
-    const found = await db.collection('posts').where('cell', '==', cell).where('status', '==', 'active').limit(200).get();
+    const jobs = children.filter((c) => resolvedKind(c.id, c) === 'job');
     const grouped = new Map();
-    for (const doc of found.docs) {
-      const data = doc.data();
-      if (!childIds.has(data.categoryId)) continue;
-      const distance = kmBetween(lat, lng, data.lat, data.lng);
-      const list = grouped.get(data.categoryId) || [];
-      list.push({ doc, distance });
-      grouped.set(data.categoryId, list);
-    }
+    await Promise.all(jobs.map(async (job) => {
+      const found = await db.collection('posts')
+        .where('categoryId', '==', job.id)
+        .where('status', '==', 'active')
+        .limit(12)
+        .get();
+      const list = found.docs.map((doc) => {
+        const data = doc.data();
+        return { doc, distance: kmBetween(lat, lng, data.lat, data.lng) };
+      });
+      list.sort((a, b) => a.distance - b.distance);
+      grouped.set(job.id, list);
+    }));
     const categories = children.map((c) => {
       const kind = resolvedKind(c.id, c);
       const list = kind === 'job'
