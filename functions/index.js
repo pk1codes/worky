@@ -243,6 +243,8 @@ function card(req, doc, distanceKm) {
     id: doc.id,
     posterUrl: data.posterUrl || (data.posterPath ? fileUrl(req, `poster:${doc.id}`) : ''),
     daysAgo: daysAgo(data.createdAt || Date.now()),
+    createdAt: data.createdAt || Date.now(),
+    km: Math.round(distanceKm),
     band: band(distanceKm),
     langs: data.langs || [],
     hasVideo: !!data.hasVideo,
