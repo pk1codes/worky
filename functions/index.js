@@ -458,7 +458,7 @@ async function handle(req, res) {
     const body = { categories };
     const etag = `"${crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex')}"`;
     res.set('ETag', etag);
-    res.set('Cache-Control', 'private, max-age=60');
+    res.set('Cache-Control', 'private, max-age=3600');
     if (req.get('if-none-match') === etag) {
       res.status(304).end();
       return;

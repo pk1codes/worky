@@ -14,7 +14,7 @@ import 'media_queue.dart';
 
 class Session extends ChangeNotifier {
   Session(this.auth) : api = WorkyApi(auth) {
-    outbox = MediaQueue(api);
+    outbox = MediaQueue(api, onPublished: dropFeed);
   }
 
   final FirebaseAuth auth;
@@ -29,7 +29,9 @@ class Session extends ChangeNotifier {
   User? user;
   double? lat;
   double? lng;
+  static const feedTtl = Duration(hours: 1);
   final Map<String, List<FeedCategory>> feedCache = {};
+  final Map<String, int> _feedAt = {};
 
   Future<void> boot() async {
     _prefs = await SharedPreferences.getInstance();
@@ -189,9 +191,26 @@ class Session extends ChangeNotifier {
     );
   }
 
+  bool feedIsFresh(String key) {
+    final at = _feedAt[key];
+    if (at == null || !feedCache.containsKey(key)) return false;
+    return DateTime.now().millisecondsSinceEpoch - at < feedTtl.inMilliseconds;
+  }
+
+  void rememberFeed(String key, List<FeedCategory> rows) {
+    feedCache[key] = rows;
+    _feedAt[key] = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  void dropFeed() {
+    feedCache.clear();
+    _feedAt.clear();
+  }
+
   Future<void> deleteAccount() async {
     await outbox.clear();
     await api.deleteMe();
+    dropFeed();
     whatsapp = null;
     admin = false;
     await _prefs?.remove('whatsapp');

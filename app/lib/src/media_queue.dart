@@ -112,9 +112,10 @@ class OutboxDraft {
 }
 
 class MediaQueue extends ChangeNotifier {
-  MediaQueue(this._api);
+  MediaQueue(this._api, {this.onPublished});
 
   final WorkyApi _api;
+  final VoidCallback? onPublished;
   SharedPreferences? _prefs;
   final List<MediaJob> jobs = [];
   final List<OutboxDraft> drafts = [];
@@ -366,6 +367,7 @@ class MediaQueue extends ChangeNotifier {
         }
         drafts.remove(draft);
         jobs.removeWhere((item) => draft.jobIds.contains(item.id));
+        onPublished?.call();
         await _store();
       } catch (_) {
         draft.failed = true;

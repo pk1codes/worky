@@ -266,6 +266,7 @@ class _MineScreenState extends State<MineScreen> {
                                         post.id,
                                         post.status != 'paused',
                                       );
+                                      session.dropFeed();
                                       await _load();
                                     },
                                   ),
@@ -286,6 +287,7 @@ class _MineScreenState extends State<MineScreen> {
                                         return;
                                       }
                                       await session.api.deletePost(post.id);
+                                      session.dropFeed();
                                       await _load();
                                     },
                                   ),
