@@ -46,7 +46,17 @@ class _BrowseScreenState extends State<BrowseScreen> {
     });
   }
 
-  Future<void> _load() async {
+  void _paintCached(Session session) {
+    final cached = session.feedCache[session.cacheKey(_parents.last)];
+    if (cached != null) {
+      _rows = cached;
+      _loading = false;
+    } else {
+      _loading = true;
+    }
+  }
+
+  Future<void> _load({bool force = false}) async {
     final session = SessionHost.of(context);
     if (session.lat == null) {
       final ok = await session.locate();
@@ -65,7 +75,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
       setState(() {
         _rows = cached;
         _loading = false;
+        _failed = false;
       });
+      if (!force && session.feedIsFresh(key)) return;
     }
     try {
       final fresh = await session.api.feed(
@@ -79,7 +91,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         setState(() => _loading = false);
         return;
       }
-      session.feedCache[key] = fresh;
+      session.rememberFeed(key, fresh);
       setState(() {
         _rows = fresh;
         _loading = false;
@@ -96,10 +108,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
   }
 
   void _drill(String id) {
+    final session = SessionHost.of(context);
     setState(() {
       _parents.add(id);
       _openId = null;
-      _loading = true;
+      _paintCached(session);
     });
     _load();
   }
@@ -137,10 +150,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         compact: true,
                         onTap: () {
                           if (_parents.length > 1) {
+                            final session = SessionHost.of(context);
                             setState(() {
                               _parents.removeLast();
                               _openId = null;
-                              _loading = true;
+                              _paintCached(session);
                             });
                             _load();
                           } else {
@@ -177,8 +191,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
                   icon: Icons.refresh,
                   label: l10n.tryAgain,
                   onTap: () {
-                    setState(() => _loading = true);
-                    _load();
+                    setState(() => _loading = _rows.isEmpty);
+                    _load(force: true);
                   },
                 ),
               Expanded(
@@ -195,7 +209,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         categoryName: _nameFor(_openPost(posts)),
                       )
                     : RefreshIndicator(
-                        onRefresh: _load,
+                        onRefresh: () => _load(force: true),
                         child: ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -360,6 +374,7 @@ class _CategoryRow extends StatelessWidget {
                               width: 150,
                               height: 190,
                               fit: BoxFit.cover,
+                              gaplessPlayback: true,
                               cacheWidth: imageCacheWidth(context, 150),
                               errorBuilder: (_, _, _) => const SizedBox(
                                 width: 150,
@@ -747,7 +762,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
     if (poster.isEmpty) return const ColoredBox(color: Color(0xFFE7F2EE));
     return Image.network(
       poster,
-      key: ValueKey(poster),
       fit: BoxFit.cover,
       gaplessPlayback: true,
       cacheWidth: imageCacheWidth(context, cacheWidth.toDouble()),

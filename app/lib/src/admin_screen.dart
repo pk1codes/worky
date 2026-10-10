@@ -60,6 +60,7 @@ class _AdminScreenState extends State<AdminScreen> {
         coverMediaId: _coverId!,
         sort: _rows.length,
       );
+      session.dropFeed();
       for (final controller in _names.values) {
         controller.clear();
       }
@@ -182,10 +183,12 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                     tooltip: row['active'] == false ? l10n.show : l10n.hide,
                     onPressed: () async {
-                      await SessionHost.of(context).api.hideCategory(
+                      final session = SessionHost.of(context);
+                      await session.api.hideCategory(
                         row['id'] as String,
                         active: row['active'] == false,
                       );
+                      session.dropFeed();
                       await _load();
                     },
                   ),
