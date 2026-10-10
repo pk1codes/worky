@@ -110,4 +110,17 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get nameLabel => 'નામ';
+
+  @override
+  String get contactNotice =>
+      'નજીકના લોકો આ નંબર પર WhatsApp અથવા કૉલ કરી શકે છે. દરેક વ્યક્તિ દિવસમાં ફક્ત 3 વાર. તેઓ તમને લગભગ 2 કિમી દૂર જુએ છે, બરાબર જગ્યા નહીં. પોસ્ટ રોકી શકો અથવા ખાતું ગમે ત્યારે કાઢી શકો. તમે કોઈનો સંપર્ક કરો તો તેઓ તમારો નંબર જુએ છે અને તમને અટકાવી શકે છે.';
+
+  @override
+  String get block => 'અટકાવો';
+
+  @override
+  String get blocked => 'અટક્યું';
+
+  @override
+  String get allowed => 'ચાલુ';
 }

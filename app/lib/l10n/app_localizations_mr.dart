@@ -110,4 +110,17 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get nameLabel => 'नाव';
+
+  @override
+  String get contactNotice =>
+      'जवळचे लोक या नंबरवर WhatsApp किंवा कॉल करू शकतात. प्रत्येक जण दिवसात फक्त 3 वेळा. ते तुम्हाला सुमारे 2 किमी दूर पाहतात, नेमके ठिकाण नाही. पोस्ट थांबवू शकता किंवा खाते कधीही काढू शकता. तुम्ही एखाद्याशी संपर्क केला तर ते तुमचा नंबर पाहतात आणि तुम्हाला अडवू शकतात.';
+
+  @override
+  String get block => 'अडवा';
+
+  @override
+  String get blocked => 'अडवले';
+
+  @override
+  String get allowed => 'सुरू';
 }

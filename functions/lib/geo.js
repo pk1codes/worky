@@ -65,4 +65,23 @@ function daysAgo(ms) {
   return Math.max(0, Math.floor((Date.now() - ms) / 86400000));
 }
 
-module.exports = { BASE, LANGS, coarse, geohash, kmBetween, band, daysAgo };
+function publicPoint(lat, lng) {
+  const snap = (n) => Math.round(Number(n) * 50) / 50;
+  return { lat: snap(lat), lng: snap(lng) };
+}
+
+function publicKm(km) {
+  return Math.max(2, Math.round(Number(km)));
+}
+
+module.exports = {
+  BASE,
+  LANGS,
+  coarse,
+  geohash,
+  kmBetween,
+  band,
+  daysAgo,
+  publicPoint,
+  publicKm,
+};

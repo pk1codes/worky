@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
-const { LANGS, coarse, geohash, kmBetween, band, daysAgo } = require('./lib/geo');
+const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm } = require('./lib/geo');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl } = require('./lib/media');
 
 admin.initializeApp({
@@ -150,9 +150,26 @@ async function limited(key, max, windowMs) {
   });
 }
 
-function clientIp(req) {
-  const fwd = req.get('x-forwarded-for') || '';
-  return (fwd.split(',')[0] || req.ip || '0').trim().slice(0, 64);
+function numberList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
+}
+
+function capReaches(reaches, blockedNumbers) {
+  const blocked = new Set(blockedNumbers);
+  const entries = Object.entries(reaches || {}).filter(
+    ([, row]) => row && typeof row.number === 'string',
+  );
+  const pinned = entries.filter(([, row]) => blocked.has(row.number));
+  const rest = entries.filter(([, row]) => !blocked.has(row.number));
+  rest.sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const room = Math.max(0, 30 - pinned.length);
+  return Object.fromEntries([...pinned, ...rest.slice(0, room)]);
+}
+
+function publicView(row, distanceKm) {
+  const point = publicPoint(row.lat, row.lng);
+  const km = publicKm(distanceKm);
+  return { ...row, lat: point.lat, lng: point.lng, km, band: band(km) };
 }
 
 function nameIn(names, lang) {
@@ -315,7 +332,6 @@ async function handle(req, res) {
   const user = await authed(req, res);
   if (!user) return;
   const uid = user.uid;
-  const ip = clientIp(req);
 
   try {
     await seed();
@@ -393,9 +409,19 @@ async function handle(req, res) {
 
   if (req.method === 'GET' && path === '/v1/me/posts') {
     const posts = await db.collection('posts').where('uid', '==', uid).get();
+    const me = await db.collection('users').doc(uid).get();
+    const blocked = new Set(numberList(me.get('blockedNumbers')));
     send(res, 200, {
       posts: posts.docs.map((doc) => {
         const data = doc.data();
+        const reaches = Object.values(data.reaches || {})
+          .filter((row) => row && typeof row.number === 'string')
+          .map((row) => ({
+            number: row.number,
+            at: row.at || 0,
+            blocked: blocked.has(row.number),
+          }))
+          .sort((a, b) => b.at - a.at);
         return {
           ...card(req, doc, 0),
           mine: true,
@@ -403,9 +429,38 @@ async function handle(req, res) {
           langs: data.langs || [],
           categoryId: data.categoryId,
           mediaIds: data.mediaIds || [],
+          contactsOpen: data.contactsOpen !== false,
+          reaches,
         };
       }),
     });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/me/blocks') {
+    const number = typeof req.body?.number === 'string' ? req.body.number.trim() : '';
+    if (!/^\+[1-9]\d{7,14}$/.test(number)) {
+      send(res, 400, { error: 'try_again' });
+      return;
+    }
+    const posts = await db.collection('posts').where('uid', '==', uid).get();
+    const known = posts.docs.some((doc) =>
+      Object.values(doc.get('reaches') || {}).some((row) => row && row.number === number),
+    );
+    if (!known) {
+      send(res, 404, { error: 'try_again' });
+      return;
+    }
+    const blocked = req.body?.blocked === true;
+    const userRef = db.collection('users').doc(uid);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(userRef);
+      const list = new Set(numberList(snap.get('blockedNumbers')));
+      if (blocked) list.add(number);
+      else list.delete(number);
+      tx.set(userRef, { blockedNumbers: [...list] }, { merge: true });
+    });
+    send(res, 200, { blocked });
     return;
   }
 
@@ -455,7 +510,7 @@ async function handle(req, res) {
         name: nameIn(c.names, lang),
         coverUrl: c.coverPath ? fileUrl(req, `cover:${c.id}`) : '',
         kind,
-        posts: list.map((row) => card(req, row.doc, row.distance)),
+        posts: list.map((row) => publicView(card(req, row.doc, row.distance), row.distance)),
       };
     });
     const body = { categories };
@@ -486,6 +541,7 @@ async function handle(req, res) {
       send(res, 404, { error: 'try_again' });
       return;
     }
+    const point = mine ? { lat: data.lat, lng: data.lng } : publicPoint(data.lat, data.lng);
     const media = [];
     for (const id of data.mediaIds || []) {
       const m = await db.collection('media').doc(id).get();
@@ -499,8 +555,8 @@ async function handle(req, res) {
       band: 'near',
       langs: data.langs || [],
       status: data.status,
-      lat: data.lat,
-      lng: data.lng,
+      lat: point.lat,
+      lng: point.lng,
       mine,
       media,
       mediaIds: mine ? data.mediaIds || [] : undefined,
@@ -509,44 +565,52 @@ async function handle(req, res) {
   }
 
   if (req.method === 'POST' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'reveal') {
-    const postId = bits[2];
-    const blocked =
-      (await limited(`rev_u_${uid}`, 30, 86400_000)) ||
-      (await limited(`rev_p_${uid}_${postId}`, 5, 86400_000)) ||
-      (await limited(`rev_i_${ip.replace(/[^\w]/g, '_')}`, 40, 86400_000));
-    if (blocked) {
-      send(res, 429, { error: 'try_again' });
-      return;
-    }
     const channel = req.body?.channel;
-    if (!['whatsapp', 'phone', 'gmail'].includes(channel)) {
+    if (channel !== 'whatsapp' && channel !== 'phone') {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const doc = await db.collection('posts').doc(postId).get();
+    const postRef = db.collection('posts').doc(bits[2]);
+    const doc = await postRef.get();
     if (!doc.exists || doc.get('status') !== 'active' || doc.get('uid') === uid) {
       send(res, 404, { error: 'try_again' });
       return;
     }
-    const owner = await db.collection('users').doc(doc.get('uid')).get();
-    const authUser = await admin.auth().getUser(doc.get('uid'));
-    let url = '';
-    if (channel === 'gmail') {
-      const email = authUser.email || '';
-      if (!email) {
-        send(res, 404, { error: 'try_again' });
-        return;
-      }
-      url = `mailto:${email}`;
-    } else {
-      const number = owner.exists ? owner.get('whatsapp') || '' : '';
-      if (!number) {
-        send(res, 404, { error: 'try_again' });
-        return;
-      }
-      const digits = number.replace(/\D/g, '');
-      url = channel === 'whatsapp' ? `https://wa.me/${digits}` : `tel:${number}`;
+    if (doc.get('contactsOpen') === false) {
+      send(res, 404, { error: 'try_again' });
+      return;
     }
+    const ownerRef = db.collection('users').doc(doc.get('uid'));
+    const [seeker, owner] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      ownerRef.get(),
+    ]);
+    const seekerNumber = seeker.exists ? String(seeker.get('whatsapp') || '') : '';
+    const ownerNumber = owner.exists ? String(owner.get('whatsapp') || '') : '';
+    if (!/^\+[1-9]\d{7,14}$/.test(seekerNumber) || !/^\+[1-9]\d{7,14}$/.test(ownerNumber)) {
+      send(res, 404, { error: 'try_again' });
+      return;
+    }
+    if (numberList(owner.get('blockedNumbers')).includes(seekerNumber)) {
+      send(res, 404, { error: 'try_again' });
+      return;
+    }
+    if (await limited(`rev_u_${uid}`, 3, 86400_000)) {
+      send(res, 429, { error: 'try_again' });
+      return;
+    }
+    await db.runTransaction(async (tx) => {
+      const post = await tx.get(postRef);
+      const ownerSnap = await tx.get(ownerRef);
+      if (!post.exists) return;
+      const reaches = { ...(post.get('reaches') || {}) };
+      reaches[uid] = { number: seekerNumber, at: Date.now() };
+      tx.update(postRef, {
+        reaches: capReaches(reaches, numberList(ownerSnap.get('blockedNumbers'))),
+      });
+    });
+    const digits = ownerNumber.replace(/\D/g, '');
+    const url = channel === 'whatsapp' ? `https://wa.me/${digits}` : `tel:${ownerNumber}`;
     send(res, 200, { url });
     return;
   }
@@ -560,6 +624,18 @@ async function handle(req, res) {
     const paused = req.body?.paused !== false;
     await doc.ref.update({ status: paused ? 'paused' : 'active' });
     send(res, 200, { status: paused ? 'paused' : 'active' });
+    return;
+  }
+
+  if (req.method === 'POST' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'block') {
+    const doc = await db.collection('posts').doc(bits[2]).get();
+    if (!doc.exists || doc.get('uid') !== uid) {
+      send(res, 404, { error: 'try_again' });
+      return;
+    }
+    const blocked = req.body?.blocked === true;
+    await doc.ref.update({ contactsOpen: !blocked });
+    send(res, 200, { contactsOpen: !blocked });
     return;
   }
 

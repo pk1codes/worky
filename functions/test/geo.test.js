@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { coarse, geohash, band, kmBetween } = require('../lib/geo');
+const { coarse, geohash, band, kmBetween, publicPoint, publicKm } = require('../lib/geo');
 const { parseWav, parseMp4, sniff, limitsFor } = require('../lib/media');
 
 test('coarse point is about 100m', () => {
@@ -13,6 +13,22 @@ test('same place stays in one geohash cell', () => {
   const b = geohash(coarse(12.9719), coarse(77.5942), 4);
   assert.equal(a, b);
   assert.equal(a.length, 4);
+});
+
+test('public point stays on a 2 km grid', () => {
+  const point = publicPoint(12.9716, 77.5946);
+  assert.equal(point.lat, 12.98);
+  assert.equal(point.lng, 77.6);
+  const near = publicPoint(12.975, 77.595);
+  assert.equal(near.lat, point.lat);
+  assert.equal(near.lng, point.lng);
+});
+
+test('public km is at least 2', () => {
+  assert.equal(publicKm(0.4), 2);
+  assert.equal(publicKm(2.4), 2);
+  assert.equal(publicKm(14.6), 15);
+  assert.equal(band(publicKm(0.4)), 'mid');
 });
 
 test('distance bands', () => {

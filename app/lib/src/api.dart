@@ -28,6 +28,22 @@ class UploadTicket {
   final String finishUrl;
 }
 
+class Reach {
+  Reach({required this.number, required this.at, required this.blocked});
+
+  final String number;
+  final int at;
+  final bool blocked;
+
+  factory Reach.fromJson(Map<String, dynamic> json) {
+    return Reach(
+      number: (json['number'] as String?) ?? '',
+      at: (json['at'] as num?)?.toInt() ?? 0,
+      blocked: json['blocked'] == true,
+    );
+  }
+}
+
 class FeedPost {
   FeedPost({
     required this.id,
@@ -43,6 +59,8 @@ class FeedPost {
     required this.categoryId,
     required this.status,
     this.mediaIds = const [],
+    this.contactsOpen = true,
+    this.reaches = const [],
   });
 
   final String id;
@@ -58,6 +76,8 @@ class FeedPost {
   final String categoryId;
   final String status;
   final List<String> mediaIds;
+  final bool contactsOpen;
+  final List<Reach> reaches;
 
   factory FeedPost.fromJson(Map<String, dynamic> json) {
     return FeedPost(
@@ -74,6 +94,10 @@ class FeedPost {
       categoryId: (json['categoryId'] as String?) ?? '',
       status: (json['status'] as String?) ?? 'active',
       mediaIds: ((json['mediaIds'] as List?) ?? const []).cast<String>(),
+      contactsOpen: json['contactsOpen'] != false,
+      reaches: ((json['reaches'] as List?) ?? const [])
+          .map((row) => Reach.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(),
     );
   }
 }
@@ -378,6 +402,14 @@ class WorkyApi {
 
   Future<void> pause(String id, bool paused) async {
     await _json('POST', '/v1/posts/$id/pause', body: {'paused': paused});
+  }
+
+  Future<void> blockIncoming(String id, bool blocked) async {
+    await _json('POST', '/v1/posts/$id/block', body: {'blocked': blocked});
+  }
+
+  Future<void> blockNumber(String number, bool blocked) async {
+    await _json('POST', '/v1/me/blocks', body: {'number': number, 'blocked': blocked});
   }
 
   Future<void> deletePost(String id) async {

@@ -540,7 +540,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
   int _playToken = 0;
   bool _ready = false;
   Future<List<MediaItem>>? _detail;
-  Future<String>? _ownerDigits;
   String? _reachNote;
   final AudioPlayer _audio = AudioPlayer();
   final PageController _pages = PageController();
@@ -850,12 +849,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
                         color: const Color(0xFF1A73E8),
                         onTap: () => _open('phone'),
                       ),
-                      BigIcon(
-                        icon: Icons.mail,
-                        filled: true,
-                        color: const Color(0xFFC5221F),
-                        onTap: () => _open('gmail'),
-                      ),
                     ],
                   ),
               ],
@@ -928,22 +921,31 @@ class _ExpandedCardState extends State<ExpandedCard> {
     return '$line\n$place';
   }
 
-  Future<String> _loadOwnerDigits() async {
-    final api = SessionHost.of(context).api;
+  Future<void> _open(String channel) async {
+    final session = SessionHost.of(context);
+    final retry = AppLocalizations.of(context).tryAgain;
     try {
-      final url = await api.reveal(widget.post.id, 'whatsapp');
-      final parts = Uri.parse(
-        url,
-      ).pathSegments.where((part) => part.isNotEmpty);
-      final number = parts.isEmpty ? '' : parts.last;
-      if (!RegExp(r'^\d{8,15}$').hasMatch(number)) {
-        throw const FormatException('number');
-      }
-      return number;
+      final url = await session.api.reveal(widget.post.id, channel);
+      if (!mounted) return;
+      final opened = channel == 'whatsapp'
+          ? await _openWhatsApp(_digits(url))
+          : await launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            );
+      if (!opened && mounted) await Speaker.say(session.lang, retry);
     } catch (_) {
-      _ownerDigits = null;
-      rethrow;
+      if (mounted) await Speaker.say(session.lang, retry);
     }
+  }
+
+  String _digits(String url) {
+    final parts = Uri.parse(url).pathSegments.where((part) => part.isNotEmpty);
+    final number = parts.isEmpty ? '' : parts.last;
+    if (!RegExp(r'^\d{8,15}$').hasMatch(number)) {
+      throw const FormatException('number');
+    }
+    return number;
   }
 
   Future<bool> _openWhatsApp(String digits) async {
@@ -966,33 +968,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
       );
     } catch (_) {
       return false;
-    }
-  }
-
-  Future<void> _open(String channel) async {
-    final session = SessionHost.of(context);
-    final retry = AppLocalizations.of(context).tryAgain;
-    try {
-      if (channel == 'gmail') {
-        final url = await session.api.reveal(widget.post.id, channel);
-        final opened = await launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.externalApplication,
-        );
-        if (!opened && mounted) await Speaker.say(session.lang, retry);
-        return;
-      }
-      final digits = await (_ownerDigits ??= _loadOwnerDigits());
-      if (!mounted) return;
-      final opened = channel == 'whatsapp'
-          ? await _openWhatsApp(digits)
-          : await launchUrl(
-              Uri.parse('tel:+$digits'),
-              mode: LaunchMode.externalApplication,
-            );
-      if (!opened && mounted) await Speaker.say(session.lang, retry);
-    } catch (_) {
-      if (mounted) await Speaker.say(session.lang, retry);
     }
   }
 }
