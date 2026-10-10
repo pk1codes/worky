@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:69334014512:android:01d200740d8bbf03766bf5",
+        "mobilesdk_app_id": "1:69334014512:android:825df7f3d703dda6766bf5",
         "android_client_info": {
-          "package_name": "com.pk1codes.worky"
+          "package_name": "com.lifestations.app"
         }
       },
       "oauth_client": [
