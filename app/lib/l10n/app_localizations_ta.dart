@@ -113,7 +113,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'அருகில் உள்ளவர்கள் இந்த எண்ணில் WhatsApp அல்லது அழைப்பு செய்யலாம். ஒருவர் ஒரு நாளில் 3 முறை மட்டும். அவர்கள் உங்களை சுமார் 2 கி.மீ. தூரத்தில் பார்ப்பார்கள், சரியான இடம் அல்ல. இடுகையை நிறுத்தலாம் அல்லது கணக்கை எப்போதும் நீக்கலாம். நீங்கள் ஒருவரை தொடர்பு கொண்டால், அவர்கள் உங்கள் எண்ணைப் பார்த்து உங்களைத் தடுக்கலாம்.';
+      'அருகில் உள்ளவர்கள் இந்த எண்ணில் WhatsApp அல்லது அழைப்பு செய்யலாம். ஒருவர் ஒரு நாளில் 3 முறை மட்டும். அவர்கள் உங்களை சுமார் 2 கி.மீ. தூரத்தில் பார்ப்பார்கள், சரியான இடம் அல்ல. இடுகையை நிறுத்தலாம் அல்லது கணக்கை எப்போதும் நீக்கலாம். நீங்கள் ஒருவரை தொடர்பு கொண்டால், அவர்கள் உங்கள் எண்ணைப் பார்த்து உங்களைத் தடுக்கலாம். அருகில் உள்ளவர்கள் Worky Talk-லும் செய்தி அனுப்பலாம்.';
 
   @override
   String get block => 'தடு';
@@ -126,4 +126,19 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get speaks => 'பேசுகிறார்';
+
+  @override
+  String get workyTalk => 'Worky Talk';
+
+  @override
+  String get typeMessage => 'செய்தி';
+
+  @override
+  String get joinVideo => 'சேரு';
+
+  @override
+  String get videoCall => 'வீடியோ';
+
+  @override
+  String get call => 'கால்';
 }

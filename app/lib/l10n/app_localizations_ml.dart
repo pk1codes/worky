@@ -113,7 +113,7 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'അടുത്തുള്ളവർക്ക് ഈ നമ്പറിൽ WhatsApp ചെയ്യാനോ വിളിക്കാനോ കഴിയും. ഒരാൾക്ക് ഒരു ദിവസം 3 തവണ മാത്രം. അവർ നിങ്ങളെ ഏകദേശം 2 കി.മീ. അകലെ കാണും, കൃത്യമായ സ്ഥലമല്ല. പോസ്റ്റ് നിർത്താം അല്ലെങ്കിൽ അക്കൗണ്ട് എപ്പോൾ വേണമെങ്കിലും നീക്കാം. നിങ്ങൾ ആരെയെങ്കിലും ബന്ധപ്പെട്ടാൽ, അവർ നിങ്ങളുടെ നമ്പർ കാണുകയും നിങ്ങളെ തടയുകയും ചെയ്യാം.';
+      'അടുത്തുള്ളവർക്ക് ഈ നമ്പറിൽ WhatsApp ചെയ്യാനോ വിളിക്കാനോ കഴിയും. ഒരാൾക്ക് ഒരു ദിവസം 3 തവണ മാത്രം. അവർ നിങ്ങളെ ഏകദേശം 2 കി.മീ. അകലെ കാണും, കൃത്യമായ സ്ഥലമല്ല. പോസ്റ്റ് നിർത്താം അല്ലെങ്കിൽ അക്കൗണ്ട് എപ്പോൾ വേണമെങ്കിലും നീക്കാം. നിങ്ങൾ ആരെയെങ്കിലും ബന്ധപ്പെട്ടാൽ, അവർ നിങ്ങളുടെ നമ്പർ കാണുകയും നിങ്ങളെ തടയുകയും ചെയ്യാം. അടുത്തുള്ളവർക്ക് Worky Talk-ൽ സന്ദേശം അയക്കാനും കഴിയും.';
 
   @override
   String get block => 'തടയുക';
@@ -126,4 +126,19 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get speaks => 'സംസാരിക്കുന്നു';
+
+  @override
+  String get workyTalk => 'Worky Talk';
+
+  @override
+  String get typeMessage => 'സന്ദേശം';
+
+  @override
+  String get joinVideo => 'ചേരുക';
+
+  @override
+  String get videoCall => 'വീഡിയോ';
+
+  @override
+  String get call => 'കോൾ';
 }

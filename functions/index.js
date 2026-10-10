@@ -5,6 +5,7 @@ const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
 const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm } = require('./lib/geo');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
+const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
 
 admin.initializeApp({
   projectId: 'worky-93fbc',
@@ -18,7 +19,7 @@ const fileTokenKey = defineSecret('FILE_TOKEN_KEY');
 function fileKey() {
   return process.env.FILE_TOKEN_KEY || 'worky-local-file-key';
 }
-const MAX_BYTES = { image: 8_000_000, video: 20_000_000, audio: 8_000_000 };
+const MAX_BYTES = { image: 8_000_000, video: 20_000_000, audio: 8_000_000, voice: 400_000 };
 
 const NAMES = {
   cook: { en: 'Cook' },
@@ -320,6 +321,410 @@ function card(req, doc, distanceKm) {
   };
 }
 
+async function talkInbox(uid) {
+  const snap = await db.collection('chats')
+    .where('members', 'array-contains', uid)
+    .orderBy('updatedAt', 'desc')
+    .limit(30)
+    .get();
+  return snap.docs.filter((doc) => doc.get('last')).map((doc) => {
+    const last = doc.get('last') || {};
+    const unread = doc.get('unread') || {};
+    return {
+      id: doc.id,
+      kind: last.kind || 'text',
+      preview: last.text || '',
+      at: last.at || doc.get('updatedAt') || 0,
+      unread: unread[uid] || 0,
+      closed: doc.get('closed') === true,
+    };
+  });
+}
+
+function otherOf(members, uid) {
+  return members.find((id) => id !== uid) || '';
+}
+
+function talkPreview(kind, text) {
+  if (kind === 'voice') return 'Voice';
+  if (kind === 'video') return 'Video';
+  return String(text || '').slice(0, 80);
+}
+
+async function loadTalk(id, uid) {
+  const members = pairMembers(id, uid);
+  if (!members) return null;
+  const ref = db.collection('chats').doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return { ref, snap, members, missing: true };
+  const stored = snap.get('members') || [];
+  if (!stored.includes(uid)) return null;
+  return { ref, snap, members: stored, missing: false };
+}
+
+async function talkRows(req, ref, now) {
+  const msgs = await ref.collection('msgs').orderBy('at', 'desc').limit(40).get();
+  const rows = [];
+  for (const doc of msgs.docs) {
+    const data = doc.data();
+    const voice = data.kind === 'voice' ? fileUrl(req, data.mediaId) : '';
+    rows.push(viewMessage({ id: doc.id, ...data }, now, voice));
+  }
+  rows.reverse();
+  return rows;
+}
+
+async function markRead(ref, snap, uid) {
+  const unread = { ...(snap.get('unread') || {}) };
+  if (!unread[uid]) return;
+  unread[uid] = 0;
+  await ref.update({ unread });
+}
+
+async function ensurePair(uid, owner, postId) {
+  const id = pairId(uid, owner);
+  if (!id) return { status: 404 };
+  const ref = db.collection('chats').doc(id);
+  const snap = await ref.get();
+  if (snap.exists) {
+    if (snap.get('closed') === true) return { status: 404, id, ref, snap };
+    return { id, ref, snap };
+  }
+  const post = await db.collection('posts').doc(postId).get();
+  if (!post.exists || post.get('uid') !== owner || post.get('status') !== 'active') return { status: 404 };
+  if (post.get('contactsOpen') === false) return { status: 404 };
+  if (await limited(`pair_${uid}`, 3, DAY_MS)) return { status: 429 };
+  try {
+    await ref.create({
+      members: [uid, owner].sort(),
+      postId,
+      updatedAt: Date.now(),
+      unread: {},
+      closed: false,
+    });
+  } catch (err) {
+    if (err.code !== 6 && err.code !== 'already-exists') throw err;
+  }
+  return { id, ref, snap: await ref.get() };
+}
+
+async function appendTalk(ref, uid, members, msg, preview) {
+  const id = crypto.randomBytes(8).toString('hex');
+  const at = Date.now();
+  const other = otherOf(members, uid);
+  await db.runTransaction(async (tx) => {
+    const chat = await tx.get(ref);
+    if (!chat.exists || chat.get('closed') === true) throw Object.assign(new Error('closed'), { status: 404 });
+    const unread = { ...(chat.get('unread') || {}) };
+    if (other) unread[other] = (unread[other] || 0) + 1;
+    tx.set(ref.collection('msgs').doc(id), { ...msg, from: uid, at });
+    tx.update(ref, {
+      updatedAt: at,
+      last: { kind: msg.kind, text: preview, from: uid, at },
+      unread,
+    });
+  });
+  return { id, at, other };
+}
+
+async function pingTalk(other, body, id) {
+  if (!other) return;
+  const user = await db.collection('users').doc(other).get();
+  const tokens = numberList(user.get('pushTokens')).slice(-3);
+  if (!tokens.length) return;
+  try {
+    const result = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title: 'Worky Talk', body },
+      data: { pairId: id },
+      android: { priority: 'high' },
+    });
+    const left = tokens.filter((_, i) => result.responses[i].success);
+    if (left.length !== tokens.length) {
+      await db.collection('users').doc(other).set({ pushTokens: left }, { merge: true });
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function messageFrom(req, uid) {
+  const text = cleanText(req.body?.text);
+  const mediaId = typeof req.body?.mediaId === 'string' ? req.body.mediaId : '';
+  if (text && mediaId) return { status: 400 };
+  if (text) {
+    if (await limited(`txt_${uid}`, 400, DAY_MS)) return { status: 429 };
+    return { msg: { kind: 'text', text }, preview: talkPreview('text', text) };
+  }
+  if (!mediaId) return { status: 400 };
+  if (await limited(`voi_${uid}`, 60, DAY_MS)) return { status: 429 };
+  const media = await db.collection('media').doc(mediaId).get();
+  if (!media.exists || media.get('uid') !== uid || media.get('kind') !== 'voice' || media.get('status') !== 'ready') {
+    return { status: 400 };
+  }
+  const durMs = Math.min(60_000, Math.max(0, Number(req.body?.durMs) || 0));
+  return { msg: { kind: 'voice', mediaId, durMs }, preview: talkPreview('voice') };
+}
+
+async function calendarJson(accessToken, method, path, body) {
+  const response = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) return null;
+  return response.json();
+}
+
+async function createMeet(accessToken, uid) {
+  const info = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+  if (!info.ok) return '';
+  const token = await info.json();
+  const scope = String(token.scope || '');
+  if (!scope.includes('https://www.googleapis.com/auth/calendar.events')) return '';
+  const user = await admin.auth().getUser(uid);
+  if (!googleMatch(token.sub, user.providerData)) return '';
+  const created = await calendarJson(
+    accessToken,
+    'POST',
+    '/calendars/primary/events?conferenceDataVersion=1',
+    meetBody(Date.now(), crypto.randomBytes(8).toString('hex')),
+  );
+  if (!created || !created.id) return '';
+  let url = meetUrl(created);
+  let event = created;
+  for (let i = 0; !url && i < 3; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    event = await calendarJson(
+      accessToken,
+      'GET',
+      `/calendars/primary/events/${encodeURIComponent(created.id)}?conferenceDataVersion=1`,
+    );
+    url = meetUrl(event);
+  }
+  return url;
+}
+
+async function talk(req, res, uid, path, bits) {
+  if (req.method === 'PUT' && path === '/v1/me/push') {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    if (token.length < 20 || token.length > 4096) {
+      send(res, 400, { error: 'try_again' });
+      return true;
+    }
+    const user = await db.collection('users').doc(uid).get();
+    const tokens = numberList(user.get('pushTokens')).filter((item) => item !== token);
+    tokens.push(token);
+    await db.collection('users').doc(uid).set({ pushTokens: tokens.slice(-3) }, { merge: true });
+    send(res, 200, { ok: true });
+    return true;
+  }
+
+  const postTalk = bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'talk';
+  const pairTalk = bits[0] === 'v1' && bits[1] === 'talks' && bits[2];
+  if (!postTalk && !pairTalk) return false;
+
+  if (postTalk) {
+    const post = await db.collection('posts').doc(bits[2]).get();
+    if (!post.exists || post.get('uid') === uid) {
+      send(res, 404, { error: 'try_again' });
+      return true;
+    }
+    const owner = post.get('uid');
+    const id = pairId(uid, owner);
+    if (!id) {
+      send(res, 404, { error: 'try_again' });
+      return true;
+    }
+    if (req.method === 'GET' && !bits[4]) {
+      const loaded = await loadTalk(id, uid);
+      if (!loaded || loaded.missing) {
+        send(res, 200, { pairId: '', closed: false, messages: [] });
+        return true;
+      }
+      await markRead(loaded.ref, loaded.snap, uid);
+      send(res, 200, {
+        pairId: id,
+        closed: loaded.snap.get('closed') === true,
+        messages: await talkRows(req, loaded.ref, Date.now()),
+      });
+      return true;
+    }
+    if (req.method === 'POST' && !bits[4]) {
+      const made = await messageFrom(req, uid);
+      if (made.status) {
+        send(res, made.status, { error: 'try_again' });
+        return true;
+      }
+      const room = await ensurePair(uid, owner, post.id);
+      if (room.status) {
+        send(res, room.status, { error: 'try_again' });
+        return true;
+      }
+      try {
+        const saved = await appendTalk(room.ref, uid, room.snap.get('members'), made.msg, made.preview);
+        await pingTalk(saved.other, made.preview, room.id);
+        send(res, 200, { pairId: room.id, message: { id: saved.id, at: saved.at, ...made.msg, from: uid } });
+      } catch (err) {
+        send(res, err.status || 500, { error: 'try_again' });
+      }
+      return true;
+    }
+    if (req.method === 'POST' && bits[4] === 'video') {
+      await startVideo(req, res, uid, owner, post.id);
+      return true;
+    }
+    send(res, 404, { error: 'try_again' });
+    return true;
+  }
+
+  const loaded = await loadTalk(bits[2], uid);
+  if (!loaded || loaded.missing) {
+    send(res, 404, { error: 'try_again' });
+    return true;
+  }
+  if (req.method === 'GET' && !bits[3]) {
+    await markRead(loaded.ref, loaded.snap, uid);
+    send(res, 200, {
+      pairId: bits[2],
+      closed: loaded.snap.get('closed') === true,
+      messages: await talkRows(req, loaded.ref, Date.now()),
+    });
+    return true;
+  }
+  if (req.method === 'POST' && bits[3] === 'block') {
+    await loaded.ref.update({ closed: true });
+    send(res, 200, { closed: true });
+    return true;
+  }
+  if (loaded.snap.get('closed') === true) {
+    send(res, 404, { error: 'try_again' });
+    return true;
+  }
+  if (req.method === 'POST' && !bits[3]) {
+    const made = await messageFrom(req, uid);
+    if (made.status) {
+      send(res, made.status, { error: 'try_again' });
+      return true;
+    }
+    try {
+      const saved = await appendTalk(loaded.ref, uid, loaded.members, made.msg, made.preview);
+      await pingTalk(saved.other, made.preview, bits[2]);
+      send(res, 200, { pairId: bits[2], message: { id: saved.id, at: saved.at, ...made.msg, from: uid } });
+    } catch (err) {
+      send(res, err.status || 500, { error: 'try_again' });
+    }
+    return true;
+  }
+  if (req.method === 'POST' && bits[3] === 'video') {
+    const owner = otherOf(loaded.members, uid);
+    await startVideo(req, res, uid, owner, loaded.snap.get('postId') || '', bits[2]);
+    return true;
+  }
+  send(res, 404, { error: 'try_again' });
+  return true;
+}
+
+async function startVideo(req, res, uid, owner, postId, existingId) {
+  const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken : '';
+  if (accessToken.length < 20 || accessToken.length > 4096) {
+    send(res, 400, { error: 'try_again' });
+    return;
+  }
+  let room;
+  if (existingId) {
+    const loaded = await loadTalk(existingId, uid);
+    if (!loaded || loaded.missing || loaded.snap.get('closed') === true) {
+      send(res, 404, { error: 'try_again' });
+      return;
+    }
+    room = { id: existingId, ref: loaded.ref, snap: loaded.snap };
+  } else {
+    room = await ensurePair(uid, owner, postId);
+    if (room.status) {
+      send(res, room.status, { error: 'try_again' });
+      return;
+    }
+  }
+  if (await limited(`vid_${uid}`, 30, DAY_MS)) {
+    send(res, 429, { error: 'try_again' });
+    return;
+  }
+  const url = await createMeet(accessToken, uid);
+  if (!url) {
+    send(res, 400, { error: 'try_again' });
+    return;
+  }
+  const expiresAt = Date.now() + VIDEO_MS;
+  try {
+    const saved = await appendTalk(
+      room.ref,
+      uid,
+      room.snap.get('members'),
+      { kind: 'video', meetUrl: url, expiresAt },
+      talkPreview('video'),
+    );
+    await pingTalk(saved.other, 'Video', room.id);
+    send(res, 200, {
+      pairId: room.id,
+      message: { id: saved.id, at: saved.at, kind: 'video', from: uid, meetUrl: url, expiresAt },
+    });
+  } catch (err) {
+    send(res, err.status || 500, { error: 'try_again' });
+  }
+}
+
+async function deleteStep(uid, cursor) {
+  if (!cursor || cursor === 'posts') {
+    const snap = await db.collection('posts').where('uid', '==', uid).limit(15).get();
+    for (const doc of snap.docs) await doc.ref.delete();
+    return { cursor: snap.size === 15 ? 'posts' : 'media' };
+  }
+  if (cursor === 'media') {
+    const snap = await db.collection('media').where('uid', '==', uid).limit(8).get();
+    for (const doc of snap.docs) {
+      if (doc.get('path')) await bucket.file(doc.get('path')).delete({ ignoreNotFound: true });
+      if (doc.get('thumbPath')) await bucket.file(doc.get('thumbPath')).delete({ ignoreNotFound: true });
+      await doc.ref.delete();
+    }
+    return { cursor: snap.size === 8 ? 'media' : 'chats' };
+  }
+  if (cursor === 'chats' || cursor.startsWith('chat:')) {
+    let chatId = cursor.startsWith('chat:') ? cursor.slice(5) : '';
+    if (!chatId) {
+      const found = await db.collection('chats').where('members', 'array-contains', uid).limit(1).get();
+      if (found.empty) return { cursor: 'user' };
+      chatId = found.docs[0].id;
+    }
+    const ref = db.collection('chats').doc(chatId);
+    const chat = await ref.get();
+    if (!chat.exists || !(chat.get('members') || []).includes(uid)) return { cursor: 'chats' };
+    const msgs = await ref.collection('msgs').limit(40).get();
+    for (const doc of msgs.docs) await doc.ref.delete();
+    if (msgs.size === 40) return { cursor: `chat:${chatId}` };
+    await ref.delete();
+    return { cursor: 'chats' };
+  }
+  const [posts, media, chats] = await Promise.all([
+    db.collection('posts').where('uid', '==', uid).limit(1).get(),
+    db.collection('media').where('uid', '==', uid).limit(1).get(),
+    db.collection('chats').where('members', 'array-contains', uid).limit(1).get(),
+  ]);
+  if (!posts.empty) return { cursor: 'posts' };
+  if (!media.empty) return { cursor: 'media' };
+  if (!chats.empty) return { cursor: 'chats' };
+  await db.collection('users').doc(uid).delete();
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') throw err;
+  }
+  return { done: true };
+}
+
 async function handle(req, res) {
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -389,6 +794,8 @@ async function handle(req, res) {
     return;
   }
 
+  if (await talk(req, res, uid, path, bits)) return;
+
   if (req.method === 'GET' && path === '/v1/me') {
     const snap = await db.collection('users').doc(uid).get();
     send(res, 200, {
@@ -429,24 +836,16 @@ async function handle(req, res) {
   }
 
   if (req.method === 'DELETE' && path === '/v1/me') {
-    const posts = await db.collection('posts').where('uid', '==', uid).get();
-    for (const doc of posts.docs) await doc.ref.delete();
-    const media = await db.collection('media').where('uid', '==', uid).get();
-    for (const doc of media.docs) {
-      if (doc.get('path')) await bucket.file(doc.get('path')).delete({ ignoreNotFound: true });
-      if (doc.get('thumbPath')) await bucket.file(doc.get('thumbPath')).delete({ ignoreNotFound: true });
-      await doc.ref.delete();
-    }
-    await db.collection('users').doc(uid).delete();
-    await admin.auth().deleteUser(uid);
-    send(res, 200, { ok: true });
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : '';
+    const step = await deleteStep(uid, cursor);
+    send(res, 200, step.done ? { ok: true } : { cursor: step.cursor });
     return;
   }
 
   if (req.method === 'GET' && path === '/v1/me/media') {
     const media = await db.collection('media').where('uid', '==', uid).get();
     const rows = media.docs
-      .filter((d) => d.get('status') === 'ready')
+      .filter((d) => d.get('status') === 'ready' && d.get('kind') !== 'voice')
       .map((d) => ({
         id: d.id,
         kind: d.get('kind'),
@@ -460,6 +859,12 @@ async function handle(req, res) {
     const posts = await db.collection('posts').where('uid', '==', uid).get();
     const me = await db.collection('users').doc(uid).get();
     const blocked = new Set(numberList(me.get('blockedNumbers')));
+    let talks = [];
+    try {
+      talks = await talkInbox(uid);
+    } catch (err) {
+      console.error(err);
+    }
     send(res, 200, {
       posts: posts.docs.map((doc) => {
         const data = doc.data();
@@ -482,6 +887,7 @@ async function handle(req, res) {
           reaches,
         };
       }),
+      talks,
     });
     return;
   }
@@ -773,6 +1179,19 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
+    if (doc.get('kind') === 'voice') {
+      await file.setMetadata({
+        contentType: accepted.contentType,
+        cacheControl: 'private, max-age=3600',
+      });
+      await doc.ref.update({
+        status: 'ready',
+        contentType: accepted.contentType,
+        bytes: buf.length,
+      });
+      send(res, 200, { mediaId: id });
+      return;
+    }
     const token = crypto.randomUUID();
     const cacheControl = 'public, max-age=31536000, immutable';
     const metadata = {
@@ -891,6 +1310,7 @@ async function ownedMedia(uid, ids) {
     const doc = await db.collection('media').doc(id).get();
     if (!doc.exists || doc.get('uid') !== uid || doc.get('status') !== 'ready') return null;
     const kind = doc.get('kind');
+    if (kind === 'voice') return null;
     if (kind === 'image') images += 1;
     if (kind === 'video') {
       videos += 1;

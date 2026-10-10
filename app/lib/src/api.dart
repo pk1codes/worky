@@ -137,6 +137,94 @@ class FeedCategory {
   }
 }
 
+class TalkPreview {
+  TalkPreview({
+    required this.id,
+    required this.kind,
+    required this.preview,
+    required this.at,
+    required this.unread,
+    required this.closed,
+  });
+
+  final String id;
+  final String kind;
+  final String preview;
+  final int at;
+  final int unread;
+  final bool closed;
+
+  factory TalkPreview.fromJson(Map<String, dynamic> json) {
+    return TalkPreview(
+      id: (json['id'] as String?) ?? '',
+      kind: (json['kind'] as String?) ?? 'text',
+      preview: (json['preview'] as String?) ?? '',
+      at: (json['at'] as num?)?.toInt() ?? 0,
+      unread: (json['unread'] as num?)?.toInt() ?? 0,
+      closed: json['closed'] == true,
+    );
+  }
+}
+
+class TalkMessage {
+  TalkMessage({
+    required this.id,
+    required this.from,
+    required this.at,
+    required this.kind,
+    this.text = '',
+    this.url = '',
+    this.durMs = 0,
+    this.meetUrl = '',
+    this.expiresAt = 0,
+  });
+
+  final String id;
+  final String from;
+  final int at;
+  final String kind;
+  final String text;
+  final String url;
+  final int durMs;
+  final String meetUrl;
+  final int expiresAt;
+
+  bool get liveVideo =>
+      meetUrl.isNotEmpty && expiresAt > DateTime.now().millisecondsSinceEpoch;
+
+  factory TalkMessage.fromJson(Map<String, dynamic> json) {
+    return TalkMessage(
+      id: (json['id'] as String?) ?? '',
+      from: (json['from'] as String?) ?? '',
+      at: (json['at'] as num?)?.toInt() ?? 0,
+      kind: (json['kind'] as String?) ?? 'text',
+      text: (json['text'] as String?) ?? '',
+      url: (json['url'] as String?) ?? '',
+      durMs: (json['durMs'] as num?)?.toInt() ?? 0,
+      meetUrl: (json['meetUrl'] as String?) ?? '',
+      expiresAt: (json['expiresAt'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class TalkThread {
+  TalkThread({required this.pairId, required this.closed, required this.messages});
+
+  final String pairId;
+  final bool closed;
+  final List<TalkMessage> messages;
+
+  factory TalkThread.fromJson(Map<String, dynamic> json) {
+    return TalkThread(
+      pairId: (json['pairId'] as String?) ?? '',
+      closed: json['closed'] == true,
+      messages: ((json['messages'] as List?) ?? const [])
+          .map((row) => TalkMessage.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(),
+    );
+  }
+}
+
 class MediaItem {
   MediaItem({required this.id, required this.kind, required this.url});
   final String id;
@@ -230,7 +318,18 @@ class WorkyApi {
   }
 
   Future<void> deleteMe() async {
-    await _json('DELETE', '/v1/me');
+    String? cursor;
+    for (var i = 0; i < 80; i += 1) {
+      final path = cursor == null
+          ? '/v1/me'
+          : '/v1/me?cursor=${Uri.encodeQueryComponent(cursor)}';
+      final json = (await _json('DELETE', path))!;
+      if (json['ok'] == true) return;
+      final next = json['cursor'] as String?;
+      if (next == null || next == cursor) throw ApiException(500);
+      cursor = next;
+    }
+    throw ApiException(500);
   }
 
   Future<List<FeedCategory>?> feed({
@@ -275,11 +374,15 @@ class WorkyApi {
     return json['url'] as String;
   }
 
-  Future<List<FeedPost>> mine() async {
+  Future<({List<FeedPost> posts, List<TalkPreview> talks})> mine() async {
     final json = (await _json('GET', '/v1/me/posts'))!;
-    return ((json['posts'] as List?) ?? const [])
+    final posts = ((json['posts'] as List?) ?? const [])
         .map((row) => FeedPost.fromJson(Map<String, dynamic>.from(row as Map)))
         .toList();
+    final talks = ((json['talks'] as List?) ?? const [])
+        .map((row) => TalkPreview.fromJson(Map<String, dynamic>.from(row as Map)))
+        .toList();
+    return (posts: posts, talks: talks);
   }
 
   Future<List<MediaItem>> library() async {
@@ -446,6 +549,68 @@ class WorkyApi {
     } else {
       await _json('PATCH', '/v1/admin/categories/$id', body: body);
     }
+  }
+
+  Future<void> savePush(String token) async {
+    await _json('PUT', '/v1/me/push', body: {'token': token});
+  }
+
+  Future<TalkThread> talkForPost(String postId) async {
+    final json = (await _json('GET', '/v1/posts/$postId/talk'))!;
+    return TalkThread.fromJson(json);
+  }
+
+  Future<TalkThread> talk(String pairId) async {
+    final json = (await _json('GET', '/v1/talks/$pairId'))!;
+    return TalkThread.fromJson(json);
+  }
+
+  Future<TalkThread> sendTalk({
+    String? postId,
+    String? pairId,
+    String? text,
+    String? mediaId,
+    int? durMs,
+  }) async {
+    final body = <String, dynamic>{};
+    if (text != null) body['text'] = text;
+    if (mediaId != null) {
+      body['mediaId'] = mediaId;
+      body['durMs'] = durMs ?? 0;
+    }
+    final path = (pairId == null || pairId.isEmpty)
+        ? '/v1/posts/$postId/talk'
+        : '/v1/talks/$pairId';
+    final json = (await _json('POST', path, body: body))!;
+    return TalkThread(
+      pairId: (json['pairId'] as String?) ?? pairId ?? '',
+      closed: false,
+      messages: [
+        TalkMessage.fromJson(Map<String, dynamic>.from(json['message'] as Map)),
+      ],
+    );
+  }
+
+  Future<TalkThread> startVideo({
+    String? postId,
+    String? pairId,
+    required String accessToken,
+  }) async {
+    final path = (pairId == null || pairId.isEmpty)
+        ? '/v1/posts/$postId/talk/video'
+        : '/v1/talks/$pairId/video';
+    final json = (await _json('POST', path, body: {'accessToken': accessToken}))!;
+    return TalkThread(
+      pairId: (json['pairId'] as String?) ?? pairId ?? '',
+      closed: false,
+      messages: [
+        TalkMessage.fromJson(Map<String, dynamic>.from(json['message'] as Map)),
+      ],
+    );
+  }
+
+  Future<void> closeTalk(String pairId) async {
+    await _json('POST', '/v1/talks/$pairId/block');
   }
 
   Future<void> hideCategory(String id, {required bool active}) async {

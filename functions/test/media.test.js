@@ -8,6 +8,8 @@ test('media extensions match the upload kind', () => {
   assert.equal(extFor('video', 'video/mp4'), 'mp4');
   assert.equal(extFor('image', 'video/mp4'), null);
   assert.equal(extFor('audio', 'audio/wav'), null);
+  assert.equal(extFor('voice', 'audio/mp4'), 'm4a');
+  assert.equal(extFor('voice', 'audio/mpeg'), null);
 });
 
 test('thumbs are only for images larger than the strip', () => {

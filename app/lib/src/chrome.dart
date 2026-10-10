@@ -111,6 +111,7 @@ class BigIcon extends StatelessWidget {
     this.color,
     this.filled = false,
     this.compact = false,
+    this.stretch = false,
     this.extent,
     super.key,
   });
@@ -121,6 +122,7 @@ class BigIcon extends StatelessWidget {
   final Color? color;
   final bool filled;
   final bool compact;
+  final bool stretch;
   final double? extent;
 
   @override
@@ -134,11 +136,11 @@ class BigIcon extends StatelessWidget {
       iconSize: iconPx,
       style: IconButton.styleFrom(
         minimumSize: side == null
-            ? Size(tight ? 72 : 64, 64)
+            ? Size(stretch ? 0 : (tight ? 72 : 64), 64)
             : Size(side, side),
         fixedSize: side != null
             ? Size(side, side)
-            : (tight ? const Size(72, 64) : null),
+            : (tight && !stretch ? const Size(72, 64) : null),
         padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 10, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: filled
@@ -153,18 +155,36 @@ class BigIcon extends StatelessWidget {
               children: [
                 Icon(icon, size: iconPx),
                 if (label != null)
-                  Text(
-                    label!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1,
-                      color: fg,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  stretch
+                      ? SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label!,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1,
+                                color: fg,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          label!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1,
+                            color: fg,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
               ],
             )
           : Row(
