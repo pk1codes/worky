@@ -63,7 +63,7 @@ class _PostScreenState extends State<PostScreen> {
       _lat ??= session.lat;
       _lng ??= session.lng;
       if (mounted) setState(() {});
-      await Speaker.say(session.lang, AppLocalizations.of(context).post);
+      unawaited(Speaker.say(session.lang, AppLocalizations.of(context).post));
       try {
         final library = await session.api.library();
         if (mounted) setState(() => _library = library);
@@ -226,50 +226,53 @@ class _PostScreenState extends State<PostScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Row(
-                children: [
-                  BigIcon(
-                    icon: Icons.arrow_back,
-                    label: l10n.back,
-                    compact: true,
-                    onTap: () {
-                      if (_step == 0) {
-                        Navigator.pop(context);
-                      } else {
-                        setState(() => _step -= 1);
-                      }
-                    },
-                  ),
-                  const Spacer(),
-                  for (var i = 0; i < 3; i++)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        Icons.circle,
-                        size: 14,
-                        color: i == _step
-                            ? const Color(0xFF0F6E56)
-                            : const Color(0xFFD5E5DF),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    BigIcon(
+                      icon: Icons.arrow_back,
+                      label: l10n.back,
+                      compact: true,
+                      onTap: () {
+                        if (_step == 0) {
+                          Navigator.pop(context);
+                        } else {
+                          setState(() => _step -= 1);
+                        }
+                      },
+                    ),
+                    const Spacer(),
+                    for (var i = 0; i < 3; i++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          Icons.circle,
+                          size: 14,
+                          color: i == _step
+                              ? const Color(0xFF0F6E56)
+                              : const Color(0xFFD5E5DF),
+                        ),
                       ),
-                    ),
-                  if (_step < 2)
-                    BigIcon(
-                      icon: Icons.arrow_forward,
-                      label: l10n.continueAction,
-                      compact: true,
-                      onTap: _step == 0 && _categoryId == null
-                          ? null
-                          : () => setState(() => _step += 1),
-                    )
-                  else
-                    BigIcon(
-                      icon: Icons.check,
-                      filled: true,
-                      label: l10n.save,
-                      compact: true,
-                      onTap: _save,
-                    ),
-                ],
+                    if (_step < 2)
+                      BigIcon(
+                        icon: Icons.arrow_forward,
+                        label: l10n.continueAction,
+                        compact: true,
+                        onTap: _step == 0 && _categoryId == null
+                            ? null
+                            : () => setState(() => _step += 1),
+                      )
+                    else
+                      BigIcon(
+                        icon: Icons.check,
+                        filled: true,
+                        label: l10n.save,
+                        compact: true,
+                        onTap: _save,
+                      ),
+                  ],
+                ),
               ),
               Text(
                 _step == 0
@@ -277,7 +280,10 @@ class _PostScreenState extends State<PostScreen> {
                     : _step == 1
                     ? l10n.location
                     : l10n.photos,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Expanded(
                 child: _step == 0

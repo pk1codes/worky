@@ -96,7 +96,9 @@ class BigIcon extends StatelessWidget {
         fixedSize: tight ? const Size(72, 64) : null,
         padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 10, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: filled ? (color ?? const Color(0xFF0F6E56)) : const Color(0xFFE7F2EE),
+        backgroundColor: filled
+            ? (color ?? const Color(0xFF0F6E56))
+            : const Color(0xFFE7F2EE),
         foregroundColor: fg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
@@ -111,7 +113,12 @@ class BigIcon extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, height: 1, color: fg),
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1,
+                      color: fg,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
               ],
             )
@@ -122,7 +129,12 @@ class BigIcon extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label!,
-                  style: TextStyle(fontSize: 15, height: 1, color: fg),
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1,
+                    color: fg,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

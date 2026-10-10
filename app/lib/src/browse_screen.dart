@@ -37,11 +37,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
   void initState() {
     super.initState();
     FirebaseAnalytics.instance.logScreenView(screenName: 'browse');
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
       final l10n = AppLocalizations.of(context);
-      await Speaker.say(session.lang, l10n.near);
-      await _load();
+      unawaited(Speaker.say(session.lang, l10n.near));
+      unawaited(_load());
     });
   }
 
@@ -125,48 +125,51 @@ class _BrowseScreenState extends State<BrowseScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Row(
-                children: [
-                  if (_parents.length > 1 || widget.picking)
-                    BigIcon(
-                      icon: Icons.arrow_back,
-                      label: l10n.back,
-                      compact: true,
-                      onTap: () {
-                        if (_parents.length > 1) {
-                          setState(() {
-                            _parents.removeLast();
-                            _openId = null;
-                            _loading = true;
-                          });
-                          _load();
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  const Spacer(),
-                  if (!widget.picking)
-                    BigIcon(
-                      icon: _map ? Icons.view_agenda : Icons.map,
-                      label: l10n.map,
-                      compact: true,
-                      onTap: () => setState(() => _map = !_map),
-                    ),
-                  if (!widget.picking)
-                    BigIcon(
-                      icon: Icons.person,
-                      label: l10n.mine,
-                      compact: true,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const MineScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    if (_parents.length > 1 || widget.picking)
+                      BigIcon(
+                        icon: Icons.arrow_back,
+                        label: l10n.back,
+                        compact: true,
+                        onTap: () {
+                          if (_parents.length > 1) {
+                            setState(() {
+                              _parents.removeLast();
+                              _openId = null;
+                              _loading = true;
+                            });
+                            _load();
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    const Spacer(),
+                    if (!widget.picking)
+                      BigIcon(
+                        icon: _map ? Icons.view_agenda : Icons.map,
+                        label: l10n.map,
+                        compact: true,
+                        onTap: () => setState(() => _map = !_map),
+                      ),
+                    if (!widget.picking)
+                      BigIcon(
+                        icon: Icons.person,
+                        label: l10n.mine,
+                        compact: true,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const MineScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
               if (_failed)
                 BigIcon(
@@ -189,20 +192,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         onClose: () => setState(() => _openId = null),
                         open: _openPost(posts),
                       )
-                    : !_failed && _rows.isEmpty
-                    ? Center(
-                        child: BigIcon(
-                          icon: Icons.refresh,
-                          label: l10n.tryAgain,
-                          onTap: () {
-                            setState(() => _loading = true);
-                            _load();
-                          },
-                        ),
-                      )
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           children: [
                             for (final row in _rows)
