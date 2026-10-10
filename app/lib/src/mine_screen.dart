@@ -233,17 +233,12 @@ class _MineScreenState extends State<MineScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Image.network(
-                              post.posterUrl,
+                            NetImage(
+                              url: post.posterUrl,
                               height: 180,
                               width: double.infinity,
-                              fit: BoxFit.cover,
-                              cacheWidth: imageCacheWidth(
-                                context,
-                                MediaQuery.sizeOf(context).width,
-                              ),
-                              errorBuilder: (_, _, _) =>
-                                  const SizedBox(height: 80),
+                              cacheLogical: MediaQuery.sizeOf(context).width,
+                              error: const SizedBox(height: 80),
                             ),
                             Padding(
                               padding: const EdgeInsets.all(8),

@@ -182,6 +182,12 @@ function limitsFor(kind, info) {
   return null;
 }
 
+const THUMB_EDGE = 480;
+
+function needsThumb(width, height) {
+  return width > THUMB_EDGE || height > THUMB_EDGE;
+}
+
 function extFor(kind, contentType) {
   if (kind === 'image' && contentType === 'image/webp') return 'webp';
   if (kind === 'image' && contentType === 'image/jpeg') return 'jpg';
@@ -189,7 +195,6 @@ function extFor(kind, contentType) {
   if (kind === 'video' && contentType === 'video/mp4') return 'mp4';
   if (kind === 'audio' && (contentType === 'audio/mp4' || contentType === 'audio/aac')) return 'm4a';
   if (kind === 'audio' && contentType === 'audio/mpeg') return 'mp3';
-  if (kind === 'audio' && contentType === 'audio/wav') return 'wav';
   return null;
 }
 
@@ -208,4 +213,6 @@ module.exports = {
   limitsFor,
   extFor,
   publicUrl,
+  THUMB_EDGE,
+  needsThumb,
 };

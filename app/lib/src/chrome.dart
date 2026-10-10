@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -31,6 +32,42 @@ class Speaker {
 int imageCacheWidth(BuildContext context, double logical) {
   final width = (logical * MediaQuery.devicePixelRatioOf(context)).round();
   return width < 1 ? 1 : width;
+}
+
+class NetImage extends StatelessWidget {
+  const NetImage({
+    required this.url,
+    this.width,
+    this.height,
+    this.fit = BoxFit.cover,
+    this.cacheLogical,
+    this.error,
+    super.key,
+  });
+
+  final String url;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final double? cacheLogical;
+  final Widget? error;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.isEmpty) return error ?? const SizedBox.shrink();
+    final cache = cacheLogical == null ? null : imageCacheWidth(context, cacheLogical!);
+    return CachedNetworkImage(
+      imageUrl: url,
+      width: width,
+      height: height,
+      fit: fit,
+      memCacheWidth: cache,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      useOldImageOnUrlChange: true,
+      errorWidget: (_, _, _) => error ?? const SizedBox.shrink(),
+    );
+  }
 }
 
 class Paged extends StatelessWidget {

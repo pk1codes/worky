@@ -48,6 +48,7 @@ class FeedPost {
   FeedPost({
     required this.id,
     required this.posterUrl,
+    this.thumbUrl = '',
     required this.daysAgo,
     required this.band,
     this.createdAt,
@@ -65,6 +66,7 @@ class FeedPost {
 
   final String id;
   final String posterUrl;
+  final String thumbUrl;
   final int daysAgo;
   final int? createdAt;
   final int? km;
@@ -83,6 +85,7 @@ class FeedPost {
     return FeedPost(
       id: json['id'] as String,
       posterUrl: (json['posterUrl'] as String?) ?? '',
+      thumbUrl: (json['thumbUrl'] as String?) ?? '',
       daysAgo: (json['daysAgo'] as num?)?.toInt() ?? 0,
       createdAt: (json['createdAt'] as num?)?.toInt(),
       km: (json['km'] as num?)?.toInt(),

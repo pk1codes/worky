@@ -165,11 +165,11 @@ class _AdminScreenState extends State<AdminScreen> {
                 ListTile(
                   leading: row['coverUrl'] == null
                       ? null
-                      : Image.network(
-                          '${row['coverUrl']}',
+                      : NetImage(
+                          url: '${row['coverUrl']}',
                           width: 48,
                           height: 48,
-                          fit: BoxFit.cover,
+                          cacheLogical: 48,
                         ),
                   title: Text('${(row['names'] as Map?)?['en'] ?? row['id']}'),
                   subtitle: Text(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -106,9 +107,9 @@ class _PostScreenState extends State<PostScreen> {
   Future<void> _pickImage(ImageSource source) async {
     final file = await _picker.pickImage(
       source: source,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 80,
+      maxWidth: kIsWeb ? 1600 : null,
+      maxHeight: kIsWeb ? 1600 : null,
+      imageQuality: kIsWeb ? 80 : null,
     );
     if (file == null || !mounted) return;
     _take(
@@ -168,7 +169,7 @@ class _PostScreenState extends State<PostScreen> {
   Future<void> _pickAudioFile() async {
     final files = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['mp3', 'wav', 'm4a'],
+      allowedExtensions: ['mp3', 'm4a'],
     );
     if (files.isEmpty || !mounted) return;
     final path = files.first.path;
@@ -516,12 +517,11 @@ class _PostScreenState extends State<PostScreen> {
                 }),
                 child: Stack(
                   children: [
-                    Image.network(
-                      item.url,
+                    NetImage(
+                      url: item.url,
                       width: 72,
                       height: 72,
-                      fit: BoxFit.cover,
-                      cacheWidth: imageCacheWidth(context, 72),
+                      cacheLogical: 72,
                     ),
                     if (_mediaIds.contains(item.id))
                       const Icon(Icons.check_circle, color: Colors.white),

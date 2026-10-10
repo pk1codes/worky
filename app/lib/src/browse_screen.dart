@@ -493,14 +493,12 @@ class _JobStripState extends State<_JobStrip> {
                   widthFactor: 1,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      post.posterUrl,
+                    child: NetImage(
+                      url: post.thumbUrl.isEmpty ? post.posterUrl : post.thumbUrl,
                       width: _collapsedPoster,
                       height: 190,
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                      cacheWidth: imageCacheWidth(context, _collapsedPoster),
-                      errorBuilder: (_, _, _) => const SizedBox(
+                      cacheLogical: _collapsedPoster,
+                      error: const SizedBox(
                         width: _collapsedPoster,
                         height: 190,
                         child: ColoredBox(color: Color(0xFFE7F2EE)),
@@ -877,11 +875,10 @@ class _ExpandedCardState extends State<ExpandedCard> {
   Widget _poster(int cacheWidth) {
     final poster = widget.post.posterUrl;
     if (poster.isEmpty) return const ColoredBox(color: Color(0xFFE7F2EE));
-    return Image.network(
-      poster,
+    return NetImage(
+      url: poster,
       fit: BoxFit.cover,
-      gaplessPlayback: true,
-      cacheWidth: imageCacheWidth(context, cacheWidth.toDouble()),
+      cacheLogical: cacheWidth.toDouble(),
     );
   }
 

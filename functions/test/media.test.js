@@ -1,12 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { extFor, publicUrl } = require('../lib/media');
+const { extFor, publicUrl, needsThumb } = require('../lib/media');
 
 test('media extensions match the upload kind', () => {
   assert.equal(extFor('image', 'image/webp'), 'webp');
   assert.equal(extFor('audio', 'audio/mp4'), 'm4a');
   assert.equal(extFor('video', 'video/mp4'), 'mp4');
   assert.equal(extFor('image', 'video/mp4'), null);
+  assert.equal(extFor('audio', 'audio/wav'), null);
+});
+
+test('thumbs are only for images larger than the strip', () => {
+  assert.equal(needsThumb(481, 100), true);
+  assert.equal(needsThumb(100, 481), true);
+  assert.equal(needsThumb(480, 480), false);
+  assert.equal(needsThumb(0, 0), false);
 });
 
 test('download url stays stable for the same token', () => {

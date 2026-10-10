@@ -4,7 +4,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
 const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm } = require('./lib/geo');
-const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl } = require('./lib/media');
+const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
 
 admin.initializeApp({
   projectId: 'worky-93fbc',
@@ -202,7 +202,15 @@ async function seed() {
         .png()
         .toBuffer();
       const path = `covers/${row.id}.png`;
-      await bucket.file(path).save(png, { contentType: 'image/png', resumable: false });
+      const token = crypto.randomUUID();
+      await bucket.file(path).save(png, {
+        resumable: false,
+        metadata: {
+          contentType: 'image/png',
+          cacheControl: 'public, max-age=31536000, immutable',
+          metadata: { firebaseStorageDownloadTokens: token },
+        },
+      });
       await db.collection('categories').doc(row.id).set({
         parentId: row.parentId,
         sort: row.sort,
@@ -210,6 +218,7 @@ async function seed() {
         kind: row.kind,
         names: NAMES[row.id],
         coverPath: path,
+        coverUrl: publicUrl(bucket.name, path, token),
       });
     }
   })().catch((err) => {
@@ -224,6 +233,41 @@ async function readReadyFile(path) {
   return buf;
 }
 
+async function thumbBytes(buf) {
+  return sharp(buf, { failOn: 'error', limitInputPixels: 12_000_000 })
+    .rotate()
+    .resize({ width: THUMB_EDGE, height: THUMB_EDGE, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 70 })
+    .toBuffer();
+}
+
+async function stampCover(doc) {
+  if (doc.get('coverUrl')) return doc.get('coverUrl');
+  const coverPath = doc.get('coverPath');
+  if (!coverPath) return '';
+  try {
+    const file = bucket.file(coverPath);
+    const [exists] = await file.exists();
+    if (!exists) return '';
+    const [meta] = await file.getMetadata();
+    const stored = meta.metadata && meta.metadata.firebaseStorageDownloadTokens;
+    let token = stored ? String(stored).split(',')[0] : '';
+    if (!token) {
+      token = crypto.randomUUID();
+      await file.setMetadata({
+        cacheControl: meta.cacheControl || 'public, max-age=31536000, immutable',
+        metadata: { ...(meta.metadata || {}), firebaseStorageDownloadTokens: token },
+      });
+    }
+    const url = publicUrl(bucket.name, coverPath, token);
+    await doc.ref.update({ coverUrl: url });
+    return url;
+  } catch (err) {
+    console.error(err);
+    return '';
+  }
+}
+
 async function acceptUpload(kind, buf) {
   const sniffed = sniff(buf);
   if (!sniffed || !KIND_TYPE[kind].has(sniffed)) return { error: 'type' };
@@ -231,15 +275,18 @@ async function acceptUpload(kind, buf) {
     try {
       const img = sharp(buf, { failOn: 'error', limitInputPixels: 12_000_000 });
       const meta = await img.metadata();
-      const pixels = (meta.width || 0) * (meta.height || 0);
+      const width = meta.width || 0;
+      const height = meta.height || 0;
+      const pixels = width * height;
       if (!pixels || pixels > 12_000_000) return { error: 'pixels' };
-      if (sniffed === 'webp') return { buf, contentType: 'image/webp' };
+      const thumb = needsThumb(width, height) ? await thumbBytes(buf) : null;
+      if (sniffed === 'webp') return { buf, contentType: 'image/webp', thumb };
       const out = await img
         .rotate()
         .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer();
-      return { buf: out, contentType: 'image/jpeg', rewrite: true };
+      return { buf: out, contentType: 'image/jpeg', rewrite: true, thumb };
     } catch (_) {
       return { error: 'type' };
     }
@@ -259,6 +306,7 @@ function card(req, doc, distanceKm) {
   return {
     id: doc.id,
     posterUrl: data.posterUrl || (data.posterPath ? fileUrl(req, `poster:${doc.id}`) : ''),
+    thumbUrl: data.thumbUrl || '',
     daysAgo: daysAgo(data.createdAt || Date.now()),
     createdAt: data.createdAt || Date.now(),
     km: Math.round(distanceKm),
@@ -386,6 +434,7 @@ async function handle(req, res) {
     const media = await db.collection('media').where('uid', '==', uid).get();
     for (const doc of media.docs) {
       if (doc.get('path')) await bucket.file(doc.get('path')).delete({ ignoreNotFound: true });
+      if (doc.get('thumbPath')) await bucket.file(doc.get('thumbPath')).delete({ ignoreNotFound: true });
       await doc.ref.delete();
     }
     await db.collection('users').doc(uid).delete();
@@ -478,6 +527,13 @@ async function handle(req, res) {
       return;
     }
     const cats = await db.collection('categories').where('parentId', '==', parentId).get();
+    const stamped = new Map();
+    await Promise.all(cats.docs.map(async (d) => {
+      if (d.get('coverPath') && !d.get('coverUrl')) {
+        const url = await stampCover(d);
+        if (url) stamped.set(d.id, url);
+      }
+    }));
     const children = cats.docs
       .map((d) => d.data() && { id: d.id, ...d.data() })
       .filter((c) => c.active !== false)
@@ -508,7 +564,7 @@ async function handle(req, res) {
       return {
         id: c.id,
         name: nameIn(c.names, lang),
-        coverUrl: c.coverPath ? fileUrl(req, `cover:${c.id}`) : '',
+        coverUrl: c.coverUrl || stamped.get(c.id) || (c.coverPath ? fileUrl(req, `cover:${c.id}`) : ''),
         kind,
         posts: list.map((row) => publicView(card(req, row.doc, row.distance), row.distance)),
       };
@@ -730,11 +786,28 @@ async function handle(req, res) {
       await file.setMetadata(metadata);
     }
     const url = publicUrl(bucket.name, objectPath, token);
+    let thumbUrl = '';
+    let thumbPath = '';
+    if (accepted.thumb) {
+      const dot = objectPath.lastIndexOf('.');
+      thumbPath = `${dot === -1 ? objectPath : objectPath.slice(0, dot)}_thumb.webp`;
+      const thumbToken = crypto.randomUUID();
+      await bucket.file(thumbPath).save(accepted.thumb, {
+        resumable: false,
+        metadata: {
+          contentType: 'image/webp',
+          cacheControl,
+          metadata: { firebaseStorageDownloadTokens: thumbToken },
+        },
+      });
+      thumbUrl = publicUrl(bucket.name, thumbPath, thumbToken);
+    }
     await doc.ref.update({
       status: 'ready',
       contentType: accepted.contentType,
       bytes: accepted.rewrite ? accepted.buf.length : buf.length,
       url,
+      ...(thumbUrl ? { thumbUrl, thumbPath } : {}),
     });
     send(res, 200, { mediaId: id, url });
     return;
@@ -768,14 +841,19 @@ async function handle(req, res) {
     }
     if (req.method === 'GET' && path === '/v1/admin/categories') {
       const cats = await db.collection('categories').get();
-      send(res, 200, {
-        categories: cats.docs.map((d) => ({
+      const categories = [];
+      for (const d of cats.docs) {
+        let coverUrl = d.get('coverUrl') || '';
+        if (!coverUrl && d.get('coverPath')) coverUrl = await stampCover(d);
+        if (!coverUrl && d.get('coverPath')) coverUrl = fileUrl(req, `cover:${d.id}`);
+        categories.push({
           id: d.id,
           ...d.data(),
           kind: resolvedKind(d.id, d.data()),
-          coverUrl: fileUrl(req, `cover:${d.id}`),
-        })),
-      });
+          coverUrl,
+        });
+      }
+      send(res, 200, { categories });
       return;
     }
     if (req.method === 'POST' && path === '/v1/admin/categories') {
@@ -806,6 +884,7 @@ async function ownedMedia(uid, ids) {
   let audios = 0;
   let posterPath = '';
   let posterUrl = '';
+  let thumbUrl = '';
   let hasVideo = false;
   for (const id of ids) {
     if (typeof id !== 'string') return null;
@@ -821,11 +900,12 @@ async function ownedMedia(uid, ids) {
     if (kind === 'image' && !posterPath) {
       posterPath = doc.get('path');
       posterUrl = doc.get('url') || '';
+      thumbUrl = doc.get('thumbUrl') || '';
     }
     out.push(id);
   }
   if (images < 1 || images > 5 || videos > 5 || audios > 5) return null;
-  return { ids: out, posterPath, posterUrl, hasVideo };
+  return { ids: out, posterPath, posterUrl, thumbUrl, hasVideo };
 }
 
 async function savePost(req, uid, existingId) {
@@ -853,6 +933,7 @@ async function savePost(req, uid, existingId) {
     mediaIds: media.ids,
     posterPath: media.posterPath,
     posterUrl: media.posterUrl || '',
+    thumbUrl: media.thumbUrl || '',
     hasVideo: media.hasVideo,
     updatedAt: Date.now(),
   };
@@ -884,10 +965,12 @@ async function writeCategory(req, id) {
   }
   const sort = Number(req.body?.sort || 0);
   let coverPath = null;
+  let coverUrl = '';
   if (id) {
     const prev = await db.collection('categories').doc(id).get();
     if (!prev.exists) return { error: 'missing' };
     coverPath = prev.get('coverPath');
+    coverUrl = prev.get('coverUrl') || '';
   }
   if (req.body?.coverMediaId) {
     const media = await db.collection('media').doc(String(req.body.coverMediaId)).get();
@@ -895,9 +978,10 @@ async function writeCategory(req, id) {
       return { error: 'cover' };
     }
     coverPath = media.get('path');
+    coverUrl = media.get('url') || '';
   }
   if (!coverPath) return { error: 'cover' };
-  const data = { parentId, sort, names: clean, coverPath, active: true, kind };
+  const data = { parentId, sort, names: clean, coverPath, coverUrl, active: true, kind };
   if (id) {
     await db.collection('categories').doc(id).set(data, { merge: true });
     return { body: { id } };
