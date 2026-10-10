@@ -151,7 +151,8 @@ class _MineScreenState extends State<MineScreen> {
                       onTap: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => const LanguageScreen(),
+                            builder: (_) =>
+                                const LanguageScreen(popOnPick: true),
                           ),
                         );
                         if (mounted) setState(() {});

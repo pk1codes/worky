@@ -92,9 +92,14 @@ class _PostScreenState extends State<PostScreen> {
     super.dispose();
   }
 
-  void _take(Session session, String kind, String path) {
+  void _take(Session session, String kind, String path, {String? contentType}) {
     final id = session.outbox.freshId();
-    session.outbox.addFile(id: id, kind: kind, path: path);
+    session.outbox.addFile(
+      id: id,
+      kind: kind,
+      path: path,
+      contentType: contentType,
+    );
     setState(() => _jobIds.add(id));
   }
 
@@ -106,7 +111,12 @@ class _PostScreenState extends State<PostScreen> {
       imageQuality: 80,
     );
     if (file == null || !mounted) return;
-    _take(SessionHost.of(context), 'image', file.path);
+    _take(
+      SessionHost.of(context),
+      'image',
+      file.path,
+      contentType: file.mimeType,
+    );
   }
 
   Future<void> _pickVideo(ImageSource source) async {

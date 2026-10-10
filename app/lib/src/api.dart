@@ -211,9 +211,11 @@ class WorkyApi {
     required double lat,
     required double lng,
     required String lang,
+    bool headersOnly = false,
   }) async {
+    final cards = headersOnly ? '&cards=0' : '';
     final path =
-        '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang';
+        '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang$cards';
     final json = await _json('GET', path, cache: true);
     if (json == null) return null;
     return ((json['categories'] as List?) ?? const [])

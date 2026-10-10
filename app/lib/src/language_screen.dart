@@ -6,7 +6,9 @@ import 'langs.dart';
 import 'session.dart';
 
 class LanguageScreen extends StatefulWidget {
-  const LanguageScreen({super.key});
+  const LanguageScreen({this.popOnPick = false, super.key});
+
+  final bool popOnPick;
 
   @override
   State<LanguageScreen> createState() => _LanguageScreenState();
@@ -37,6 +39,11 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         code: code,
                         selected: _armed == code,
                         onTap: () async {
+                          if (widget.popOnPick) {
+                            await session.setLang(code);
+                            if (context.mounted) Navigator.pop(context);
+                            return;
+                          }
                           if (_armed != code) {
                             setState(() => _armed = code);
                             await Speaker.clip(code);

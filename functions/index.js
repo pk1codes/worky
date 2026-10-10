@@ -427,7 +427,10 @@ async function handle(req, res) {
       .map((d) => d.data() && { id: d.id, ...d.data() })
       .filter((c) => c.active !== false)
       .sort((a, b) => (a.sort || 0) - (b.sort || 0));
-    const jobs = children.filter((c) => resolvedKind(c.id, c) === 'job');
+    const headersOnly = req.query.cards === '0';
+    const jobs = headersOnly
+      ? []
+      : children.filter((c) => resolvedKind(c.id, c) === 'job');
     const grouped = new Map();
     await Promise.all(jobs.map(async (job) => {
       const found = await db.collection('posts')
@@ -586,8 +589,12 @@ async function handle(req, res) {
     });
     let uploadUrl = '';
     try {
+      const origin = req.get('origin') || '';
+      const webOrigin = origin === 'https://worky-93fbc.web.app' ||
+        origin === 'https://worky-93fbc.firebaseapp.com';
       const [uri] = await bucket.file(objectPath).createResumableUpload({
         metadata: { contentType },
+        ...(webOrigin ? { origin } : {}),
       });
       uploadUrl = uri;
     } catch (err) {

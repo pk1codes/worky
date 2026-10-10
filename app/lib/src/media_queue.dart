@@ -16,6 +16,7 @@ class MediaJob {
     this.mediaId,
     this.uploadUrl,
     this.finishUrl,
+    this.contentType,
     this.compressed = false,
     this.resume = false,
     List<String>? owned,
@@ -28,6 +29,7 @@ class MediaJob {
   String? mediaId;
   String? uploadUrl;
   String? finishUrl;
+  String? contentType;
   bool compressed;
   bool resume;
   final List<String> owned;
@@ -40,6 +42,7 @@ class MediaJob {
     'mediaId': mediaId,
     'uploadUrl': uploadUrl,
     'finishUrl': finishUrl,
+    'contentType': contentType,
     'compressed': compressed,
     'resume': resume,
     'owned': owned,
@@ -54,6 +57,7 @@ class MediaJob {
       mediaId: json['mediaId'] as String?,
       uploadUrl: json['uploadUrl'] as String?,
       finishUrl: json['finishUrl'] as String?,
+      contentType: json['contentType'] as String?,
       compressed: json['compressed'] == true,
       resume: json['resume'] == true,
       owned: ((json['owned'] as List?) ?? const []).cast<String>(),
@@ -156,9 +160,15 @@ class MediaQueue extends ChangeNotifier {
     required String id,
     required String kind,
     required String path,
+    String? contentType,
     bool ownsPath = false,
   }) {
-    final item = MediaJob(id: id, kind: kind, path: path);
+    final item = MediaJob(
+      id: id,
+      kind: kind,
+      path: path,
+      contentType: contentType,
+    );
     if (ownsPath) item.owned.add(path);
     jobs.add(item);
     unawaited(_store());
@@ -280,7 +290,7 @@ class MediaQueue extends ChangeNotifier {
       item.status = 'uploading';
       await _store();
       final length = await files.byteLength(item.path);
-      final type = contentTypeFor(item.kind, item.path);
+      final type = _uploadType(item);
       if (item.uploadUrl == null || item.finishUrl == null) {
         final ticket = await _api.openUpload(
           kind: item.kind,
@@ -404,6 +414,21 @@ class MediaQueue extends ChangeNotifier {
       return const [];
     }
   }
+}
+
+String _uploadType(MediaJob item) {
+  final slash = item.path.lastIndexOf('/');
+  final name = slash == -1 ? item.path : item.path.substring(slash + 1);
+  if (!name.contains('.')) {
+    final given = item.contentType;
+    if (given == 'image/jpeg' ||
+        given == 'image/png' ||
+        given == 'image/webp') {
+      return given!;
+    }
+    if (given == 'image/jpg') return 'image/jpeg';
+  }
+  return contentTypeFor(item.kind, item.path);
 }
 
 String contentTypeFor(String kind, String path) {

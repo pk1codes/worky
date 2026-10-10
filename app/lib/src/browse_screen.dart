@@ -85,13 +85,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
         lat: session.lat!,
         lng: session.lng!,
         lang: session.lang ?? 'en',
+        headersOnly: widget.picking,
       );
       if (!mounted) return;
       if (fresh == null) {
         setState(() => _loading = false);
         return;
       }
-      session.rememberFeed(key, fresh);
+      if (!widget.picking) session.rememberFeed(key, fresh);
       setState(() {
         _rows = fresh;
         _loading = false;
@@ -271,6 +272,56 @@ Color _tileColor(String id) {
   return _tileColors[hash % _tileColors.length];
 }
 
+const _collapsedPoster = 150.0;
+const _stripGap = 12.0;
+const _stripPad = 12.0;
+const _openInnerWidth = 280.0;
+const _openInnerPad = 8.0;
+const _openOuterWidth = _openInnerWidth + _openInnerPad * 2;
+
+const _rowIcons = <String, IconData>{
+  'cook': Icons.soup_kitchen,
+  'car-driver': Icons.directions_car,
+  'house-maid': Icons.cleaning_services,
+  'security-guard': Icons.shield,
+  'delivery-driver': Icons.delivery_dining,
+  'sales-man': Icons.storefront,
+  'car-cleaner': Icons.local_car_wash,
+  'loader': Icons.inventory_2,
+  'oil-field-rigs': Icons.oil_barrel,
+  'hospital': Icons.local_hospital,
+  'asst-driller': Icons.hardware,
+  'driller': Icons.construction,
+  'medic': Icons.medical_services,
+  'service-companies': Icons.handyman,
+  'oil-company-jobs': Icons.apartment,
+};
+
+IconData _rowIcon(FeedCategory row) {
+  return _rowIcons[row.id] ?? (row.isJob ? Icons.badge : Icons.folder);
+}
+
+double stripRevealOffset({
+  required int index,
+  required double pixels,
+  required double viewport,
+  required double maxExtent,
+}) {
+  const inset = 12.0;
+  final start = _stripPad + index * (_collapsedPoster + _stripGap);
+  final end = start + _openOuterWidth;
+  if (viewport <= 0 || (start >= pixels && end <= pixels + viewport)) {
+    return pixels;
+  }
+  final room = viewport - _openOuterWidth;
+  final margin = room >= inset ? inset : (room > 0 ? room : 0.0);
+  var target = end + margin - viewport;
+  if (start < target) target = start;
+  if (target < 0) target = 0;
+  if (target > maxExtent) target = maxExtent;
+  return target;
+}
+
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.row,
@@ -316,7 +367,7 @@ class _CategoryRow extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        job ? Icons.badge : Icons.folder,
+                        _rowIcon(row),
                         color: Colors.white,
                         size: 36,
                       ),
@@ -340,55 +391,129 @@ class _CategoryRow extends StatelessWidget {
             ),
           ],
         ),
-        if (job)
+        if (job && !picking)
           SizedBox(
             height: openId != null && row.posts.any((post) => post.id == openId)
                 ? 560
                 : 210,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.all(12),
-              itemCount: row.posts.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final post = row.posts[index];
-                final open = post.id == openId;
-                return GestureDetector(
-                  onTap: () => onOpen(post.id),
-                  child: open
-                      ? Align(
-                          alignment: Alignment.topCenter,
-                          widthFactor: 1,
-                          child: ExpandedCard(
-                            post: post,
-                            categoryName: row.name,
-                          ),
-                        )
-                      : Align(
-                          alignment: Alignment.topCenter,
-                          widthFactor: 1,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              post.posterUrl,
-                              width: 150,
-                              height: 190,
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                              cacheWidth: imageCacheWidth(context, 150),
-                              errorBuilder: (_, _, _) => const SizedBox(
-                                width: 150,
-                                height: 190,
-                                child: ColoredBox(color: Color(0xFFE7F2EE)),
-                              ),
-                            ),
-                          ),
-                        ),
-                );
-              },
+            child: _JobStrip(
+              posts: row.posts,
+              categoryName: row.name,
+              openId: openId,
+              onOpen: onOpen,
             ),
           ),
       ],
+    );
+  }
+}
+
+class _JobStrip extends StatefulWidget {
+  const _JobStrip({
+    required this.posts,
+    required this.categoryName,
+    required this.openId,
+    required this.onOpen,
+  });
+
+  final List<FeedPost> posts;
+  final String categoryName;
+  final String? openId;
+  final ValueChanged<String> onOpen;
+
+  @override
+  State<_JobStrip> createState() => _JobStripState();
+}
+
+class _JobStripState extends State<_JobStrip> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleReveal();
+  }
+
+  @override
+  void didUpdateWidget(_JobStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openId != oldWidget.openId) _scheduleReveal();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scheduleReveal() {
+    final id = widget.openId;
+    if (id == null || !widget.posts.any((post) => post.id == id)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final index = widget.posts.indexWhere((post) => post.id == widget.openId);
+      if (index < 0) return;
+      final position = _scroll.position;
+      final target = stripRevealOffset(
+        index: index,
+        pixels: position.pixels,
+        viewport: position.viewportDimension,
+        maxExtent: position.maxScrollExtent,
+      );
+      if ((target - position.pixels).abs() < 1) return;
+      _scroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final openId = widget.openId;
+    return ListView.separated(
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.all(_stripPad),
+      itemCount: widget.posts.length,
+      separatorBuilder: (_, _) => const SizedBox(width: _stripGap),
+      itemBuilder: (context, index) {
+        final post = widget.posts[index];
+        final open = post.id == openId;
+        return GestureDetector(
+          onTap: () => widget.onOpen(post.id),
+          child: open
+              ? Align(
+                  alignment: Alignment.topCenter,
+                  widthFactor: 1,
+                  child: ExpandedCard(
+                    post: post,
+                    categoryName: widget.categoryName,
+                  ),
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  widthFactor: 1,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      post.posterUrl,
+                      width: _collapsedPoster,
+                      height: 190,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      cacheWidth: imageCacheWidth(context, _collapsedPoster),
+                      errorBuilder: (_, _, _) => const SizedBox(
+                        width: _collapsedPoster,
+                        height: 190,
+                        child: ColoredBox(color: Color(0xFFE7F2EE)),
+                      ),
+                    ),
+                  ),
+                ),
+        );
+      },
     );
   }
 }
@@ -592,9 +717,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(_openInnerPad),
           child: SizedBox(
-            width: wide ? double.infinity : 280,
+            width: wide ? double.infinity : _openInnerWidth,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
