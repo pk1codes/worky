@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -37,11 +38,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
   void initState() {
     super.initState();
     FirebaseAnalytics.instance.logScreenView(screenName: 'browse');
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
       final l10n = AppLocalizations.of(context);
-      await Speaker.say(session.lang, l10n.near);
-      await _load();
+      unawaited(Speaker.say(session.lang, l10n.near));
+      unawaited(_load());
     });
   }
 
@@ -125,48 +126,51 @@ class _BrowseScreenState extends State<BrowseScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Row(
-                children: [
-                  if (_parents.length > 1 || widget.picking)
-                    BigIcon(
-                      icon: Icons.arrow_back,
-                      label: l10n.back,
-                      compact: true,
-                      onTap: () {
-                        if (_parents.length > 1) {
-                          setState(() {
-                            _parents.removeLast();
-                            _openId = null;
-                            _loading = true;
-                          });
-                          _load();
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  const Spacer(),
-                  if (!widget.picking)
-                    BigIcon(
-                      icon: _map ? Icons.view_agenda : Icons.map,
-                      label: l10n.map,
-                      compact: true,
-                      onTap: () => setState(() => _map = !_map),
-                    ),
-                  if (!widget.picking)
-                    BigIcon(
-                      icon: Icons.person,
-                      label: l10n.mine,
-                      compact: true,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const MineScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    if (_parents.length > 1 || widget.picking)
+                      BigIcon(
+                        icon: Icons.arrow_back,
+                        label: l10n.back,
+                        compact: true,
+                        onTap: () {
+                          if (_parents.length > 1) {
+                            setState(() {
+                              _parents.removeLast();
+                              _openId = null;
+                              _loading = true;
+                            });
+                            _load();
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    const Spacer(),
+                    if (!widget.picking)
+                      BigIcon(
+                        icon: _map ? Icons.view_agenda : Icons.map,
+                        label: l10n.map,
+                        compact: true,
+                        onTap: () => setState(() => _map = !_map),
+                      ),
+                    if (!widget.picking)
+                      BigIcon(
+                        icon: Icons.person,
+                        label: l10n.mine,
+                        compact: true,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const MineScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
               if (_failed)
                 BigIcon(
@@ -188,21 +192,12 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         onOpen: (id) => setState(() => _openId = id),
                         onClose: () => setState(() => _openId = null),
                         open: _openPost(posts),
-                      )
-                    : !_failed && _rows.isEmpty
-                    ? Center(
-                        child: BigIcon(
-                          icon: Icons.refresh,
-                          label: l10n.tryAgain,
-                          onTap: () {
-                            setState(() => _loading = true);
-                            _load();
-                          },
-                        ),
+                        categoryName: _nameFor(_openPost(posts)),
                       )
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           children: [
                             for (final row in _rows)
@@ -233,6 +228,33 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
     return null;
   }
+
+  String? _nameFor(FeedPost? post) {
+    if (post == null) return null;
+    for (final row in _rows) {
+      if (row.posts.any((item) => item.id == post.id)) return row.name;
+    }
+    return null;
+  }
+}
+
+const _tileColors = <Color>[
+  Color(0xFF0F6E56),
+  Color(0xFF1A73E8),
+  Color(0xFFB45309),
+  Color(0xFF7C3AED),
+  Color(0xFF0F766E),
+  Color(0xFFBE185D),
+  Color(0xFF0369A1),
+  Color(0xFF3F6212),
+];
+
+Color _tileColor(String id) {
+  var hash = 0;
+  for (final unit in id.codeUnits) {
+    hash = (hash + unit) & 0x7fffffff;
+  }
+  return _tileColors[hash % _tileColors.length];
 }
 
 class _CategoryRow extends StatelessWidget {
@@ -264,23 +286,25 @@ class _CategoryRow extends StatelessWidget {
               child: InkWell(
                 onTap: () {
                   Speaker.say(SessionHost.of(context).lang, row.name);
-                  if (!job) onDrill();
+                  if (!job) {
+                    onDrill();
+                  } else if (picking) {
+                    onPick();
+                  }
                 },
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        row.coverUrl,
-                        width: 72,
-                        height: 72,
-                        fit: BoxFit.cover,
-                        cacheWidth: imageCacheWidth(context, 72),
-                        errorBuilder: (_, _, _) => const SizedBox(
-                          width: 72,
-                          height: 72,
-                          child: ColoredBox(color: Color(0xFFE7F2EE)),
-                        ),
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: _tileColor(row.id),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        job ? Icons.badge : Icons.folder,
+                        color: Colors.white,
+                        size: 36,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -292,19 +316,20 @@ class _CategoryRow extends StatelessWidget {
                         style: const TextStyle(fontSize: 20),
                       ),
                     ),
-                    if (!job) const Icon(Icons.chevron_right, size: 28),
+                    if (!job)
+                      const Icon(Icons.chevron_right, size: 28)
+                    else if (picking)
+                      const Icon(Icons.arrow_forward, size: 28),
                   ],
                 ),
               ),
             ),
-            if (picking && job)
-              BigIcon(icon: Icons.check_circle, onTap: onPick),
           ],
         ),
         if (job)
           SizedBox(
             height: openId != null && row.posts.any((post) => post.id == openId)
-                ? 460
+                ? 540
                 : 210,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -320,7 +345,10 @@ class _CategoryRow extends StatelessWidget {
                       ? Align(
                           alignment: Alignment.topCenter,
                           widthFactor: 1,
-                          child: ExpandedCard(post: post),
+                          child: ExpandedCard(
+                            post: post,
+                            categoryName: row.name,
+                          ),
                         )
                       : Align(
                           alignment: Alignment.topCenter,
@@ -353,12 +381,14 @@ class _CategoryRow extends StatelessWidget {
 class ExpandedCard extends StatefulWidget {
   const ExpandedCard({
     required this.post,
+    this.categoryName,
     this.mine = false,
     this.wide = false,
     super.key,
   });
 
   final FeedPost post;
+  final String? categoryName;
   final bool mine;
   final bool wide;
 
@@ -370,6 +400,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   List<MediaItem> _media = [];
   VideoPlayerController? _video;
   String? _playingUrl;
+  bool _showPause = false;
   int _playToken = 0;
   bool _ready = false;
   Future<List<MediaItem>>? _detail;
@@ -420,12 +451,14 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final previous = _video;
     _video = null;
     _playingUrl = null;
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _showPause = false);
     await previous?.dispose();
     if (!mounted || token != _playToken) return;
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     try {
       await controller.initialize();
+      await controller.setLooping(false);
+      _watch(controller);
       await controller.play();
     } catch (_) {
       await controller.dispose();
@@ -441,7 +474,60 @@ class _ExpandedCardState extends State<ExpandedCard> {
     setState(() {
       _video = controller;
       _playingUrl = url;
+      _showPause = true;
     });
+  }
+
+  void _watch(VideoPlayerController controller) {
+    controller.addListener(() {
+      if (!mounted || _video != controller) return;
+      final value = controller.value;
+      if (!value.isInitialized) return;
+      final showPause = value.isPlaying;
+      if (showPause == _showPause) return;
+      setState(() => _showPause = showPause);
+    });
+  }
+
+  bool _ended(VideoPlayerController controller) {
+    final value = controller.value;
+    return value.isInitialized &&
+        value.duration > Duration.zero &&
+        value.position >= value.duration &&
+        !value.isPlaying;
+  }
+
+  Future<void> _toggle(String url) async {
+    final controller = _video;
+    if (controller == null || _playingUrl != url || !controller.value.isInitialized) {
+      await _play(url);
+      return;
+    }
+    if (controller.value.isPlaying) {
+      await controller.pause();
+      return;
+    }
+    if (_ended(controller)) await controller.seekTo(Duration.zero);
+    await controller.play();
+  }
+
+  Future<void> _onPlayTap(String? url) async {
+    if (_showPause) {
+      await _video?.pause();
+      return;
+    }
+    if (url == null) {
+      await _openVideo();
+      return;
+    }
+    if (_pages.hasClients) {
+      await _pages.animateToPage(
+        1,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+    await _toggle(url);
   }
 
   Future<void> _openVideo() async {
@@ -466,7 +552,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
-      unawaited(_play(url));
+      unawaited(_toggle(url));
     }
 
     if (hadPage) {
@@ -505,11 +591,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
                         ),
                         if (videos.isNotEmpty ||
                             (widget.post.hasVideo && !_ready))
-                          Center(
-                            child: BigIcon(
-                              icon: Icons.play_arrow,
-                              filled: true,
-                              onTap: _openVideo,
+                          _videoButton(
+                            () => _onPlayTap(
+                              videos.isEmpty ? null : videos.first.url,
                             ),
                           ),
                       ],
@@ -527,18 +611,37 @@ class _ExpandedCardState extends State<ExpandedCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if ((widget.categoryName ?? '').isNotEmpty)
+                  Text(
+                    widget.categoryName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(Icons.calendar_today, size: 22),
                     const SizedBox(width: 4),
-                    Text(
-                      '${widget.post.daysAgo}',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        _when(context),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
                     Icon(
                       widget.post.band == 'near'
                           ? Icons.place
@@ -549,11 +652,9 @@ class _ExpandedCardState extends State<ExpandedCard> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      widget.post.band == 'near'
-                          ? l10n.near
-                          : widget.post.band == 'mid'
-                          ? l10n.mid
-                          : l10n.far,
+                      widget.post.km == null
+                          ? _bandLabel(l10n)
+                          : '${widget.post.km} km',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -587,17 +688,20 @@ class _ExpandedCardState extends State<ExpandedCard> {
                 BigIcon(
                   icon: Icons.chat,
                   label: 'WhatsApp',
-                  filled: wide,
+                  filled: true,
+                  color: const Color(0xFF25D366),
                   onTap: () => _open('whatsapp'),
                 ),
                 BigIcon(
                   icon: Icons.call,
-                  filled: wide,
+                  filled: true,
+                  color: const Color(0xFF1A73E8),
                   onTap: () => _open('phone'),
                 ),
                 BigIcon(
                   icon: Icons.mail,
-                  filled: wide,
+                  filled: true,
+                  color: const Color(0xFFC5221F),
                   onTap: () => _open('gmail'),
                 ),
               ],
@@ -605,6 +709,21 @@ class _ExpandedCardState extends State<ExpandedCard> {
         ],
       ),
     );
+  }
+
+  String _when(BuildContext context) {
+    final ms = widget.post.createdAt;
+    if (ms == null) return '${widget.post.daysAgo}';
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat.yMMMd(locale).format(
+      DateTime.fromMillisecondsSinceEpoch(ms),
+    );
+  }
+
+  String _bandLabel(AppLocalizations l10n) {
+    if (widget.post.band == 'near') return l10n.near;
+    if (widget.post.band == 'mid') return l10n.mid;
+    return l10n.far;
   }
 
   Widget _poster(int cacheWidth) {
@@ -619,19 +738,27 @@ class _ExpandedCardState extends State<ExpandedCard> {
     );
   }
 
+  Widget _videoButton(VoidCallback onTap) {
+    return Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: BigIcon(
+          icon: _showPause ? Icons.pause : Icons.play_arrow,
+          filled: true,
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+
   Widget _videoPage(MediaItem item) {
-    final playing = _video != null && _playingUrl == item.url;
+    final ready = _video != null && _playingUrl == item.url;
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (playing) VideoPlayer(_video!) else _poster(widget.wide ? 360 : 280),
-        Center(
-          child: BigIcon(
-            icon: Icons.play_arrow,
-            filled: true,
-            onTap: () => _play(item.url),
-          ),
-        ),
+        if (ready) VideoPlayer(_video!) else _poster(widget.wide ? 360 : 280),
+        _videoButton(() => _onPlayTap(item.url)),
       ],
     );
   }
@@ -656,6 +783,7 @@ class _MapPane extends StatefulWidget {
     required this.onOpen,
     required this.onClose,
     required this.open,
+    required this.categoryName,
   });
 
   final List<FeedPost> posts;
@@ -664,6 +792,7 @@ class _MapPane extends StatefulWidget {
   final ValueChanged<String> onOpen;
   final VoidCallback onClose;
   final FeedPost? open;
+  final String? categoryName;
 
   @override
   State<_MapPane> createState() => _MapPaneState();
@@ -677,12 +806,51 @@ class _MapPaneState extends State<_MapPane> {
   Future<void> _center() async {
     final controller = _controller;
     if (controller == null) return;
+    final points = <LatLng>[
+      LatLng(widget.lat, widget.lng),
+      for (final post in widget.posts) LatLng(post.lat, post.lng),
+    ];
     try {
+      if (_onePlace(points)) {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(points.first, _zoom),
+          duration: const Duration(milliseconds: 350),
+        );
+        return;
+      }
+      var minLat = points.first.latitude;
+      var maxLat = minLat;
+      var minLng = points.first.longitude;
+      var maxLng = minLng;
+      for (final point in points) {
+        minLat = math.min(minLat, point.latitude);
+        maxLat = math.max(maxLat, point.latitude);
+        minLng = math.min(minLng, point.longitude);
+        maxLng = math.max(maxLng, point.longitude);
+      }
       await controller.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(widget.lat, widget.lng), _zoom),
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          left: 48,
+          top: 48,
+          right: 48,
+          bottom: 48,
+        ),
         duration: const Duration(milliseconds: 350),
       );
     } catch (_) {}
+  }
+
+  bool _onePlace(List<LatLng> points) {
+    final first = points.first;
+    for (final point in points.skip(1)) {
+      if ((point.latitude - first.latitude).abs() > 0.02) return false;
+      if ((point.longitude - first.longitude).abs() > 0.02) return false;
+    }
+    return true;
   }
 
   void _openNearest(LatLng tap) {
@@ -741,10 +909,10 @@ class _MapPaneState extends State<_MapPane> {
   @override
   void didUpdateWidget(covariant _MapPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.lat != widget.lat || oldWidget.lng != widget.lng) {
-      _center();
-    }
-    if (!_samePosts(oldWidget.posts, widget.posts)) _draw();
+    final moved = oldWidget.lat != widget.lat || oldWidget.lng != widget.lng;
+    final postsChanged = !_samePosts(oldWidget.posts, widget.posts);
+    if (moved || postsChanged) _center();
+    if (postsChanged) _draw();
     if (oldWidget.open?.id != widget.open?.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _controller?.forceResizeWebMap();
@@ -808,7 +976,11 @@ class _MapPaneState extends State<_MapPane> {
                   ),
                   Expanded(
                     child: SingleChildScrollView(
-                      child: ExpandedCard(post: open, wide: true),
+                      child: ExpandedCard(
+                        post: open,
+                        wide: true,
+                        categoryName: widget.categoryName,
+                      ),
                     ),
                   ),
                 ],

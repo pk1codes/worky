@@ -35,7 +35,9 @@ Future<void> main() async {
     if (kDebugMode) {
       try {
         final token = await FirebaseAppCheck.instance.getToken(true);
-        debugPrint('App Check token (register debug token in Firebase): $token');
+        debugPrint(
+          'App Check token (register debug token in Firebase): $token',
+        );
       } catch (error) {
         debugPrint('App Check token unavailable: $error');
       }
@@ -69,7 +71,9 @@ class WorkyApp extends StatelessWidget {
             supportedLocales: AppLocalizations.supportedLocales,
             theme: ThemeData(
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F6E56)),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF0F6E56),
+              ),
               scaffoldBackgroundColor: const Color(0xFFF6F4EE),
               cardTheme: const CardThemeData(
                 color: Colors.white,
@@ -78,6 +82,9 @@ class WorkyApp extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.all(Radius.circular(20)),
                 ),
+              ),
+              progressIndicatorTheme: const ProgressIndicatorThemeData(
+                color: Color(0xFF0F6E56),
               ),
               iconTheme: const IconThemeData(size: 32),
             ),
@@ -104,7 +111,8 @@ class Gate extends StatelessWidget {
     }
     if (session.lang == null) return const LanguageScreen();
     if (session.user == null) return const GoogleScreen();
-    if (session.whatsapp == null || session.whatsapp!.isEmpty) return const SetupScreen();
+    if (session.whatsapp == null || session.whatsapp!.isEmpty)
+      return const SetupScreen();
     return const BrowseScreen();
   }
 }

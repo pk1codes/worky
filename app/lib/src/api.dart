@@ -34,6 +34,8 @@ class FeedPost {
     required this.posterUrl,
     required this.daysAgo,
     required this.band,
+    this.createdAt,
+    this.km,
     required this.langs,
     required this.hasVideo,
     required this.lat,
@@ -46,6 +48,8 @@ class FeedPost {
   final String id;
   final String posterUrl;
   final int daysAgo;
+  final int? createdAt;
+  final int? km;
   final String band;
   final List<String> langs;
   final bool hasVideo;
@@ -60,6 +64,8 @@ class FeedPost {
       id: json['id'] as String,
       posterUrl: (json['posterUrl'] as String?) ?? '',
       daysAgo: (json['daysAgo'] as num?)?.toInt() ?? 0,
+      createdAt: (json['createdAt'] as num?)?.toInt(),
+      km: (json['km'] as num?)?.toInt(),
       band: (json['band'] as String?) ?? 'far',
       langs: ((json['langs'] as List?) ?? const []).cast<String>(),
       hasVideo: json['hasVideo'] == true,

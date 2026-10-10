@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +23,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
     FirebaseAnalytics.instance.logScreenView(screenName: 'google');
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final session = SessionHost.of(context);
-      await Speaker.say(session.lang, 'Google');
+      unawaited(Speaker.say(session.lang, 'Google'));
       await session.trySilent();
     });
   }
@@ -45,7 +47,8 @@ class _GoogleScreenState extends State<GoogleScreen> {
                     try {
                       await session.signIn();
                     } catch (_) {
-                      if (mounted) await Speaker.say(session.lang, l10n.tryAgain);
+                      if (mounted)
+                        await Speaker.say(session.lang, l10n.tryAgain);
                     } finally {
                       if (mounted) setState(() => _busy = false);
                     }

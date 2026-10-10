@@ -41,7 +41,7 @@ class _MineScreenState extends State<MineScreen> {
       _box = session.outbox;
       _seenDrafts = _box!.drafts.length;
       _box!.addListener(_onBox);
-      await Speaker.say(session.lang, AppLocalizations.of(context).mine);
+      unawaited(Speaker.say(session.lang, AppLocalizations.of(context).mine));
       await _load();
     });
   }
@@ -133,40 +133,43 @@ class _MineScreenState extends State<MineScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Row(
-                children: [
-                  BigIcon(
-                    icon: Icons.arrow_back,
-                    label: l10n.back,
-                    compact: true,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  BigIcon(
-                    icon: Icons.translate,
-                    label: kAutonym[session.lang] ?? session.lang,
-                    compact: true,
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LanguageScreen(),
-                        ),
-                      );
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                  if (session.admin)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
                     BigIcon(
-                      icon: Icons.category,
-                      label: l10n.admin,
+                      icon: Icons.arrow_back,
+                      label: l10n.back,
                       compact: true,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AdminScreen(),
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    const Spacer(),
+                    BigIcon(
+                      icon: Icons.translate,
+                      label: kAutonym[session.lang] ?? session.lang,
+                      compact: true,
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LanguageScreen(),
+                          ),
+                        );
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    if (session.admin)
+                      BigIcon(
+                        icon: Icons.category,
+                        label: l10n.admin,
+                        compact: true,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AdminScreen(),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
               Expanded(
                 child: ListView(
@@ -176,7 +179,10 @@ class _MineScreenState extends State<MineScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       child: Text(
                         l10n.mine,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     for (final draft in session.outbox.drafts)
@@ -203,7 +209,9 @@ class _MineScreenState extends State<MineScreen> {
                         filled: true,
                         onTap: () async {
                           await Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => const PostScreen()),
+                            MaterialPageRoute<void>(
+                              builder: (_) => const PostScreen(),
+                            ),
                           );
                           await _load();
                         },
@@ -239,7 +247,8 @@ class _MineScreenState extends State<MineScreen> {
                                     onTap: () async {
                                       await Navigator.of(context).push(
                                         MaterialPageRoute<void>(
-                                          builder: (_) => PostScreen(edit: post),
+                                          builder: (_) =>
+                                              PostScreen(edit: post),
                                         ),
                                       );
                                       await _load();
