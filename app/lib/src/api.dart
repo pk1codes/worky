@@ -58,6 +58,7 @@ class FeedPost {
     required this.lat,
     required this.lng,
     required this.categoryId,
+    this.categoryPath = const [],
     required this.status,
     this.mediaIds = const [],
     this.contactsOpen = true,
@@ -76,6 +77,7 @@ class FeedPost {
   final double lat;
   final double lng;
   final String categoryId;
+  final List<String> categoryPath;
   final String status;
   final List<String> mediaIds;
   final bool contactsOpen;
@@ -95,6 +97,7 @@ class FeedPost {
       lat: (json['lat'] as num?)?.toDouble() ?? 0,
       lng: (json['lng'] as num?)?.toDouble() ?? 0,
       categoryId: (json['categoryId'] as String?) ?? '',
+      categoryPath: ((json['categoryPath'] as List?) ?? const []).cast<String>(),
       status: (json['status'] as String?) ?? 'active',
       mediaIds: ((json['mediaIds'] as List?) ?? const []).cast<String>(),
       contactsOpen: json['contactsOpen'] != false,

@@ -22,6 +22,8 @@ import 'post_screen.dart';
 import 'session.dart';
 import 'talk_screen.dart';
 
+const _kWorld = 'World';
+
 class MineScreen extends StatefulWidget {
   const MineScreen({super.key});
 
@@ -164,14 +166,9 @@ class _MineScreenState extends State<MineScreen> {
     ).add_jm().format(DateTime.fromMillisecondsSinceEpoch(at));
   }
 
-  String? _jobName(Session session, String categoryId) {
-    if (categoryId.isEmpty) return null;
-    for (final rows in session.feedCache.values) {
-      for (final row in rows) {
-        if (row.id == categoryId && row.name.isNotEmpty) return row.name;
-      }
-    }
-    return null;
+  String? _postedPath(FeedPost post) {
+    if (post.categoryPath.isEmpty) return null;
+    return '$_kWorld / ${post.categoryPath.join(' / ')}';
   }
 
   String _talkTitle(TalkPreview talk, AppLocalizations l10n) {
@@ -544,7 +541,7 @@ class _MineScreenState extends State<MineScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: ExpandedCard(
                           post: post,
-                          categoryName: _jobName(session, post.categoryId),
+                          categoryName: _postedPath(post),
                           mine: true,
                           wide: true,
                           tail: _cardTail(session, post, l10n),

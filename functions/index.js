@@ -4,6 +4,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
 const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm } = require('./lib/geo');
+const { categoryTrail } = require('./lib/categories');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
 const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
 
@@ -914,6 +915,9 @@ async function handle(req, res) {
     const posts = await db.collection('posts').where('uid', '==', uid).get();
     const me = await db.collection('users').doc(uid).get();
     const blocked = new Set(numberList(me.get('blockedNumbers')));
+    const cats = await db.collection('categories').get();
+    const byId = new Map(cats.docs.map((d) => [d.id, d.data()]));
+    const lang = me.get('lang') || 'en';
     let talks = [];
     try {
       talks = await talkInbox(uid);
@@ -937,6 +941,7 @@ async function handle(req, res) {
           status: data.status,
           langs: data.langs || [],
           categoryId: data.categoryId,
+          categoryPath: categoryTrail(byId, data.categoryId, lang),
           mediaIds: data.mediaIds || [],
           contactsOpen: data.contactsOpen !== false,
           reaches,

@@ -834,11 +834,11 @@ class _ExpandedCardState extends State<ExpandedCard> {
                       if ((widget.categoryName ?? '').isNotEmpty) ...[
                         Text(
                           widget.categoryName!,
-                          maxLines: 1,
+                          maxLines: widget.mine ? 2 : 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            color: Color(0xFF16332C),
+                          style: TextStyle(
+                            fontSize: widget.mine ? 16 : 20,
+                            color: const Color(0xFF16332C),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
