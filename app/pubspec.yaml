@@ -61,6 +61,8 @@ dependencies:
   cached_network_image: ^4.0.3
   geocoding: ^5.0.0
   circle_flags: 5.0.1
+  package_info_plus: ^10.2.2
+  in_app_update: ^5.0.0
 
 dev_dependencies:
   flutter_test:

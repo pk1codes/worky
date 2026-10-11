@@ -154,4 +154,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google দিয়ে সাইন ইন করুন.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

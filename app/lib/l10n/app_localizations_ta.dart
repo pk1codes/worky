@@ -155,4 +155,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google மூலம் உள்நுழையுங்கள்.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

@@ -405,6 +405,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign in with Google.'**
   String get signInGoogle;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get updateAvailable;
 }
 
 class _AppLocalizationsDelegate

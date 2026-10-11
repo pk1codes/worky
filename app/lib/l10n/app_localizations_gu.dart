@@ -154,4 +154,7 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google વડે સાઇન ઇન કરો.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

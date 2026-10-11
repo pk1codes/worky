@@ -155,4 +155,7 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google తో సైన్ ఇన్ చేయండి.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

@@ -155,4 +155,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google से साइन इन करें.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

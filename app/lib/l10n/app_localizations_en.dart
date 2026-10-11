@@ -154,4 +154,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Sign in with Google.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

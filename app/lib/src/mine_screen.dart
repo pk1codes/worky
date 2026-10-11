@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -35,6 +38,8 @@ class _MineScreenState extends State<MineScreen> {
   var _armedAccount = false;
   MediaQueue? _box;
   var _seenDrafts = 0;
+  var _version = '';
+  var _update = false;
 
   @override
   void initState() {
@@ -46,6 +51,7 @@ class _MineScreenState extends State<MineScreen> {
       _seenDrafts = _box!.drafts.length;
       _box!.addListener(_onBox);
       unawaited(Speaker.say(session.lang, AppLocalizations.of(context).mine));
+      unawaited(_versionLine());
       await _load();
     });
   }
@@ -105,6 +111,28 @@ class _MineScreenState extends State<MineScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _versionLine() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _version = info.version);
+    } catch (_) {}
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final update = await InAppUpdate.checkForUpdate();
+      if (!mounted) return;
+      setState(() {
+        _update =
+            update.updateAvailability == UpdateAvailability.updateAvailable;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _updateNow() async {
+    try {
+      await InAppUpdate.performImmediateUpdate();
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -440,6 +468,46 @@ class _MineScreenState extends State<MineScreen> {
                         ),
                       ),
                     ),
+                    if (_version.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              _version,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF16332C),
+                              ),
+                            ),
+                            if (_update) ...[
+                              const SizedBox(width: 10),
+                              Material(
+                                color: const Color(0xFF0F6E56),
+                                borderRadius: BorderRadius.circular(20),
+                                child: InkWell(
+                                  onTap: _updateNow,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      l10n.updateAvailable,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     if (_loading) const LinearProgressIndicator(),
                     if (_failed && _posts.isEmpty)
                       BigIcon(

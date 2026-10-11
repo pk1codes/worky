@@ -154,4 +154,7 @@ class AppLocalizationsOr extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google ରେ ସାଇନ ଇନ କରନ୍ତୁ.';
+
+  @override
+  String get updateAvailable => 'Update';
 }

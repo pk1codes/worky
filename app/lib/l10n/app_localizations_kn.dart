@@ -154,4 +154,7 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get signInGoogle => 'Google ನೊಂದಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.';
+
+  @override
+  String get updateAvailable => 'Update';
 }
