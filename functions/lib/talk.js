@@ -4,7 +4,7 @@ const TEXT_MAX = 500;
 
 function pairId(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a === b) return '';
-  if (!/^[A-Za-z0-9]{6,128}$/.test(a) || !/^[A-Za-z0-9]{6,128}$/.test(b)) return '';
+  if (!/^[A-Za-z0-9-]{6,128}$/.test(a) || !/^[A-Za-z0-9-]{6,128}$/.test(b)) return '';
   return [a, b].sort().join('_');
 }
 

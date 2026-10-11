@@ -183,7 +183,7 @@ class Session extends ChangeNotifier {
   Future<String?> calendarAccess() async {
     if (kIsWeb) return null;
     final account = await GoogleSignIn.instance.authenticate();
-    const scopes = ['https://www.googleapis.com/auth/calendar.events'];
+    const scopes = ['https://www.googleapis.com/auth/calendar.events.owned'];
     final existing = await account.authorizationClient.authorizationForScopes(scopes);
     final auth = existing ?? await account.authorizationClient.authorizeScopes(scopes);
     return auth.accessToken;

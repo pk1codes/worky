@@ -140,5 +140,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get videoCall => 'ವೀಡಿಯೊ';
 
   @override
+  String get videoNotice =>
+      'Worky can see, create, change, and delete events on calendars you own. Worky uses that only to add one Worky Talk event on your primary calendar, share that Meet link with the other person in this talk, and delete that event if the call is not saved. Worky deletes the stored link when the talk is closed and when the talk is next opened after two hours, does not send the link after two hours, and keeps the stored link if the talk is not opened again. Worky\'s use of information from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.';
+
+  @override
   String get call => 'ಕರೆ';
 }

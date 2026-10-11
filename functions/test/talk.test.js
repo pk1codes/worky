@@ -7,6 +7,10 @@ test('a pair id is the two accounts sorted once', () => {
   assert.equal(pairId('aaaaaa', 'bbbbbb'), 'aaaaaa_bbbbbb');
   assert.equal(pairId('aaaaaa', 'aaaaaa'), '');
   assert.equal(pairId('bad_id', 'aaaaaa'), '');
+  const account = 'EPLsSBi4AbfuBcn20NIP6Y2T3bF3';
+  const sample = 'sample-house-maid';
+  assert.equal(pairId(sample, account), `${account}_${sample}`);
+  assert.deepEqual(pairMembers(`${account}_${sample}`, account), [account, sample]);
 });
 
 test('only a member can name the pair', () => {

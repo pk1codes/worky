@@ -50,6 +50,12 @@ class _TalkScreenState extends State<TalkScreen> {
         try {
           await TalkPush.allow(SessionHost.of(context).api);
         } catch (_) {}
+        if (mounted) {
+          await Speaker.say(
+            SessionHost.of(context).lang,
+            AppLocalizations.of(context).videoNotice,
+          );
+        }
       }
       await _load();
     });
@@ -189,8 +195,21 @@ class _TalkScreenState extends State<TalkScreen> {
     }
   }
 
+  TalkMessage? _liveMeet() {
+    for (var i = _messages.length - 1; i >= 0; i -= 1) {
+      final message = _messages[i];
+      if (message.liveVideo) return message;
+    }
+    return null;
+  }
+
   Future<void> _video() async {
     if (_sending || _closed || kIsWeb) return;
+    final live = _liveMeet();
+    if (live != null) {
+      await launchUrl(Uri.parse(live.meetUrl), mode: LaunchMode.externalApplication);
+      return;
+    }
     final session = SessionHost.of(context);
     setState(() => _sending = true);
     try {
@@ -207,7 +226,12 @@ class _TalkScreenState extends State<TalkScreen> {
       if (!mounted) return;
       setState(() {
         _pairId = sent.pairId;
-        _messages = [..._messages, ...sent.messages];
+        final known = {for (final message in _messages) message.id};
+        _messages = [
+          ..._messages,
+          for (final message in sent.messages)
+            if (!known.contains(message.id)) message,
+        ];
       });
       final url = sent.messages.isEmpty ? '' : sent.messages.last.meetUrl;
       if (url.isNotEmpty) {
@@ -309,7 +333,15 @@ class _TalkScreenState extends State<TalkScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Text(l10n.blocked, style: const TextStyle(fontWeight: FontWeight.w700)),
                 )
-              else
+              else ...[
+                if (!kIsWeb)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Text(
+                      l10n.videoNotice,
+                      style: const TextStyle(fontSize: 13, height: 1.3),
+                    ),
+                  ),
                 _Composer(
                   controller: _text,
                   hint: l10n.typeMessage,
@@ -321,6 +353,7 @@ class _TalkScreenState extends State<TalkScreen> {
                   onMic: _toggleMic,
                   onVideo: _video,
                 ),
+              ],
             ],
           ),
         ),

@@ -362,16 +362,37 @@ async function loadTalk(id, uid) {
   return { ref, snap, members: stored, missing: false };
 }
 
-async function talkRows(req, ref, now) {
+async function talkRows(req, ref, now, closed = false) {
   const msgs = await ref.collection('msgs').orderBy('at', 'desc').limit(40).get();
   const rows = [];
+  let batch = null;
+  let drops = 0;
   for (const doc of msgs.docs) {
     const data = doc.data();
+    const stale = data.kind === 'video' && data.meetUrl && (closed || !(data.expiresAt > now));
+    if (stale) {
+      batch = batch || db.batch();
+      batch.update(doc.ref, { meetUrl: admin.firestore.FieldValue.delete() });
+      drops += 1;
+      delete data.meetUrl;
+    }
     const voice = data.kind === 'voice' ? fileUrl(req, data.mediaId) : '';
     rows.push(viewMessage({ id: doc.id, ...data }, now, voice));
   }
+  if (drops) await batch.commit();
   rows.reverse();
   return rows;
+}
+
+async function liveVideo(ref, now) {
+  const msgs = await ref.collection('msgs').orderBy('at', 'desc').limit(40).get();
+  for (const doc of msgs.docs) {
+    const data = doc.data();
+    if (data.kind === 'video' && data.meetUrl && data.expiresAt > now) {
+      return { id: doc.id, ...data };
+    }
+  }
+  return null;
 }
 
 async function markRead(ref, snap, uid) {
@@ -466,6 +487,8 @@ async function messageFrom(req, uid) {
   return { msg: { kind: 'voice', mediaId, durMs }, preview: talkPreview('voice') };
 }
 
+const OWNED_CALENDAR = 'https://www.googleapis.com/auth/calendar.events.owned';
+
 async function calendarJson(accessToken, method, path, body) {
   const response = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
     method,
@@ -476,24 +499,35 @@ async function calendarJson(accessToken, method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!response.ok) return null;
+  const text = await response.text();
+  if (!text) return {};
+  return JSON.parse(text);
+}
+
+async function tokenInfo(accessToken) {
+  const response = await fetch('https://oauth2.googleapis.com/tokeninfo', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ access_token: accessToken }).toString(),
+  });
+  if (!response.ok) return null;
   return response.json();
 }
 
 async function createMeet(accessToken, uid) {
-  const info = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
-  if (!info.ok) return '';
-  const token = await info.json();
-  const scope = String(token.scope || '');
-  if (!scope.includes('https://www.googleapis.com/auth/calendar.events')) return '';
+  const token = await tokenInfo(accessToken);
+  if (!token) return null;
+  const scopes = String(token.scope || '').split(/\s+/);
+  if (!scopes.includes(OWNED_CALENDAR)) return null;
   const user = await admin.auth().getUser(uid);
-  if (!googleMatch(token.sub, user.providerData)) return '';
+  if (!googleMatch(token.sub, user.providerData)) return null;
   const created = await calendarJson(
     accessToken,
     'POST',
     '/calendars/primary/events?conferenceDataVersion=1',
     meetBody(Date.now(), crypto.randomBytes(8).toString('hex')),
   );
-  if (!created || !created.id) return '';
+  if (!created || !created.id) return null;
   let url = meetUrl(created);
   let event = created;
   for (let i = 0; !url && i < 3; i += 1) {
@@ -505,7 +539,17 @@ async function createMeet(accessToken, uid) {
     );
     url = meetUrl(event);
   }
-  return url;
+  if (!url) return null;
+  return { url, eventId: created.id };
+}
+
+async function deleteEvent(accessToken, eventId) {
+  if (!eventId) return;
+  await calendarJson(
+    accessToken,
+    'DELETE',
+    `/calendars/primary/events/${encodeURIComponent(eventId)}`,
+  );
 }
 
 async function talk(req, res, uid, path, bits) {
@@ -549,7 +593,7 @@ async function talk(req, res, uid, path, bits) {
       send(res, 200, {
         pairId: id,
         closed: loaded.snap.get('closed') === true,
-        messages: await talkRows(req, loaded.ref, Date.now()),
+        messages: await talkRows(req, loaded.ref, Date.now(), loaded.snap.get('closed') === true),
       });
       return true;
     }
@@ -591,12 +635,13 @@ async function talk(req, res, uid, path, bits) {
     send(res, 200, {
       pairId: bits[2],
       closed: loaded.snap.get('closed') === true,
-      messages: await talkRows(req, loaded.ref, Date.now()),
+      messages: await talkRows(req, loaded.ref, Date.now(), loaded.snap.get('closed') === true),
     });
     return true;
   }
   if (req.method === 'POST' && bits[3] === 'block') {
     await loaded.ref.update({ closed: true });
+    await talkRows(req, loaded.ref, Date.now(), true);
     send(res, 200, { closed: true });
     return true;
   }
@@ -649,30 +694,40 @@ async function startVideo(req, res, uid, owner, postId, existingId) {
       return;
     }
   }
-  if (await limited(`vid_${uid}`, 30, DAY_MS)) {
+  const now = Date.now();
+  const live = await liveVideo(room.ref, now);
+  if (live) {
+    send(res, 200, {
+      pairId: room.id,
+      message: viewMessage(live, now, ''),
+    });
+    return;
+  }
+  if (await limited(`vid_${uid}`, 5, DAY_MS)) {
     send(res, 429, { error: 'try_again' });
     return;
   }
-  const url = await createMeet(accessToken, uid);
-  if (!url) {
+  const made = await createMeet(accessToken, uid);
+  if (!made) {
     send(res, 400, { error: 'try_again' });
     return;
   }
-  const expiresAt = Date.now() + VIDEO_MS;
+  const expiresAt = now + VIDEO_MS;
   try {
     const saved = await appendTalk(
       room.ref,
       uid,
       room.snap.get('members'),
-      { kind: 'video', meetUrl: url, expiresAt },
+      { kind: 'video', meetUrl: made.url, expiresAt },
       talkPreview('video'),
     );
     await pingTalk(saved.other, 'Video', room.id);
     send(res, 200, {
       pairId: room.id,
-      message: { id: saved.id, at: saved.at, kind: 'video', from: uid, meetUrl: url, expiresAt },
+      message: { id: saved.id, at: saved.at, kind: 'video', from: uid, meetUrl: made.url, expiresAt },
     });
   } catch (err) {
+    await deleteEvent(accessToken, made.eventId);
     send(res, err.status || 500, { error: 'try_again' });
   }
 }
