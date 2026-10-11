@@ -572,6 +572,7 @@ class ExpandedCard extends StatefulWidget {
     this.categoryName,
     this.mine = false,
     this.wide = false,
+    this.tail,
     super.key,
   });
 
@@ -579,6 +580,7 @@ class ExpandedCard extends StatefulWidget {
   final String? categoryName;
   final bool mine;
   final bool wide;
+  final Widget? tail;
 
   @override
   State<ExpandedCard> createState() => _ExpandedCardState();
@@ -867,6 +869,16 @@ class _ExpandedCardState extends State<ExpandedCard> {
                     ],
                   ),
                 ),
+                if (widget.tail case final tail?)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      wide ? 16 : 0,
+                      8,
+                      wide ? 16 : 0,
+                      0,
+                    ),
+                    child: tail,
+                  ),
                 if (!widget.mine)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
