@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { extFor, publicUrl, needsThumb } = require('../lib/media');
+const { extFor, publicUrl, needsThumb, limitsFor } = require('../lib/media');
 
 test('media extensions match the upload kind', () => {
   assert.equal(extFor('image', 'image/webp'), 'webp');
@@ -10,6 +10,11 @@ test('media extensions match the upload kind', () => {
   assert.equal(extFor('audio', 'audio/wav'), null);
   assert.equal(extFor('voice', 'audio/mp4'), 'm4a');
   assert.equal(extFor('voice', 'audio/mpeg'), null);
+});
+
+test('a voice note cannot run past a minute', () => {
+  assert.equal(limitsFor('voice', { duration: 60, tracks: 1 }), null);
+  assert.equal(limitsFor('voice', { duration: 61, tracks: 1 }), 'duration');
 });
 
 test('thumbs are only for images larger than the strip', () => {
