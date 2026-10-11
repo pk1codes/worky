@@ -21,12 +21,11 @@ class _GoogleScreenState extends State<GoogleScreen> {
   void initState() {
     super.initState();
     FirebaseAnalytics.instance.logScreenView(screenName: 'google');
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
       unawaited(
         Speaker.say(session.lang, AppLocalizations.of(context).signInGoogle),
       );
-      await session.trySilent();
     });
   }
 
@@ -70,13 +69,17 @@ class _GoogleScreenState extends State<GoogleScreen> {
                   ),
                 ),
               ),
-              BigIcon(
-                icon: Icons.account_circle,
-                filled: true,
-                label: l10n.google,
-                onTap: _busy
-                    ? null
-                    : () async {
+              _busy
+                  ? const SizedBox(
+                      width: 72,
+                      height: 64,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : BigIcon(
+                      icon: Icons.account_circle,
+                      filled: true,
+                      label: l10n.google,
+                      onTap: () async {
                         setState(() => _busy = true);
                         try {
                           await session.signIn();
@@ -88,7 +91,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                           if (mounted) setState(() => _busy = false);
                         }
                       },
-              ),
+                    ),
             ],
           ),
         ),
