@@ -180,7 +180,11 @@ class _TalkScreenState extends State<TalkScreen> {
         bytes: length,
         contentType: 'audio/mp4',
       );
-      await api.putStream(ticket.uploadUrl, length, (start) => files.openAt(path, start));
+      await api.putStream(
+        ticket.uploadUrl,
+        length,
+        (start) => files.openAt(path, start),
+      );
       await api.finishUpload(ticket.finishUrl);
       if (!mounted) return;
       final sent = await _post(mediaId: ticket.mediaId, durMs: ms);
@@ -207,7 +211,10 @@ class _TalkScreenState extends State<TalkScreen> {
     if (_sending || _closed || kIsWeb) return;
     final live = _liveMeet();
     if (live != null) {
-      await launchUrl(Uri.parse(live.meetUrl), mode: LaunchMode.externalApplication);
+      await launchUrl(
+        Uri.parse(live.meetUrl),
+        mode: LaunchMode.externalApplication,
+      );
       return;
     }
     final session = SessionHost.of(context);
@@ -293,7 +300,11 @@ class _TalkScreenState extends State<TalkScreen> {
                       child: Text(
                         l10n.workyTalk,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF16332C),
+                        ),
                       ),
                     ),
                     BigIcon(
@@ -306,6 +317,27 @@ class _TalkScreenState extends State<TalkScreen> {
                   ],
                 ),
               ),
+              if (!kIsWeb && !_closed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE7F2EE),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        l10n.videoNotice,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.3,
+                          color: Color(0xFF16332C),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -315,7 +347,8 @@ class _TalkScreenState extends State<TalkScreen> {
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
-                          final message = _messages[_messages.length - 1 - index];
+                          final message =
+                              _messages[_messages.length - 1 - index];
                           return _Bubble(
                             message: message,
                             mine: message.from == mine,
@@ -331,17 +364,12 @@ class _TalkScreenState extends State<TalkScreen> {
               if (_closed)
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(l10n.blocked, style: const TextStyle(fontWeight: FontWeight.w700)),
-                )
-              else ...[
-                if (!kIsWeb)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                    child: Text(
-                      l10n.videoNotice,
-                      style: const TextStyle(fontSize: 13, height: 1.3),
-                    ),
+                  child: Text(
+                    l10n.blocked,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
+                )
+              else
                 _Composer(
                   controller: _text,
                   hint: l10n.typeMessage,
@@ -353,7 +381,6 @@ class _TalkScreenState extends State<TalkScreen> {
                   onMic: _toggleMic,
                   onVideo: _video,
                 ),
-              ],
             ],
           ),
         ),
@@ -383,7 +410,7 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = mine ? const Color(0xFF0F6E56) : Colors.white;
+    final bg = mine ? const Color(0xFF0F6E56) : const Color(0xFFE7F2EE);
     final fg = mine ? Colors.white : const Color(0xFF16332C);
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -394,7 +421,6 @@ class _Bubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(18),
-          border: mine ? null : Border.all(color: const Color(0xFFE7F2EE)),
         ),
         child: message.kind == 'text'
             ? Text(message.text, style: TextStyle(color: fg, fontSize: 16))
@@ -424,7 +450,10 @@ class _Bubble extends StatelessWidget {
                   children: [
                     Icon(Icons.videocam, color: fg),
                     const SizedBox(width: 6),
-                    Text(join, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+                    Text(
+                      join,
+                      style: TextStyle(color: fg, fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
               )
@@ -474,7 +503,10 @@ class _Composer extends StatelessWidget {
                 hintText: recording ? '${seconds}s' : hint,
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,
