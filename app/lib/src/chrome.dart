@@ -11,7 +11,7 @@ class Speaker {
   static final AudioPlayer _clips = AudioPlayer();
 
   static Future<void> say(String? lang, String text) async {
-    if (lang == null || text.isEmpty) return;
+    if (kIsWeb || lang == null || text.isEmpty) return;
     try {
       await _tts.stop();
       await _tts.setLanguage(kVoice[lang] ?? 'en-IN');
@@ -20,6 +20,7 @@ class Speaker {
   }
 
   static Future<void> clip(String code) async {
+    if (kIsWeb) return;
     try {
       await _clips.stop();
       await _clips.play(AssetSource('lang/$code.mp3'));

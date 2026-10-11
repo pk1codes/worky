@@ -41,6 +41,23 @@ class _GoogleScreenState extends State<GoogleScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Text(
+                'Worky',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 32,
+                  color: Color(0xFF16332C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: Text(
+                  'Find nearby work. Message, call, or start Worky Talk. The exact place stays hidden.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Color(0xFF16332C)),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                 child: Text(
