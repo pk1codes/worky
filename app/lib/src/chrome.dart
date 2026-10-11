@@ -221,6 +221,7 @@ class LangTile extends StatelessWidget {
     required this.onTap,
     this.compact = false,
     this.extent,
+    this.uniform = false,
     super.key,
   });
 
@@ -229,10 +230,14 @@ class LangTile extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
   final double? extent;
+  final bool uniform;
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(kLangColor[code] ?? 0xFF0F6E56);
+    const mint = Color(0xFFE7F2EE);
+    const ink = Color(0xFF16332C);
+    const brand = Color(0xFF0F6E56);
+    final color = uniform ? brand : Color(kLangColor[code] ?? 0xFF0F6E56);
     final side = extent ?? (compact ? 72.0 : null);
     return Semantics(
       button: true,
@@ -244,13 +249,18 @@ class LangTile extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           width: side ?? double.infinity,
-          height: side ?? 96,
+          height: side ?? double.infinity,
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: selected ? 1 : 0.16),
+            color: uniform
+                ? (selected ? brand : mint)
+                : color.withValues(alpha: selected ? 1 : 0.16),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color, width: selected ? 4 : 1),
+            border: Border.all(
+              color: uniform ? (selected ? brand : mint) : color,
+              width: selected && !uniform ? 4 : 1,
+            ),
           ),
           child: Text(
             kAutonym[code] ?? code,
@@ -259,7 +269,7 @@ class LangTile extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: extent != null ? 11 : (compact ? 14 : 22),
-              color: selected ? Colors.white : const Color(0xFF16332C),
+              color: selected ? Colors.white : ink,
               fontWeight: FontWeight.w700,
             ),
           ),

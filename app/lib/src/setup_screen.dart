@@ -28,7 +28,7 @@ class _SetupScreenState extends State<SetupScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
       final l10n = AppLocalizations.of(context);
-      Speaker.say(session.lang, l10n.contactNotice);
+      Speaker.say(session.lang, l10n.contactLine);
     });
   }
 
@@ -82,37 +82,31 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      '+91 $_digits',
-                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  BigIcon(
-                    icon: Icons.check,
-                    filled: _digits.length == 10 && _accepted,
-                    label: l10n.continueAction,
-                    onTap: _go,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-              const SizedBox(height: 8),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  l10n.contactNotice,
-                  style: const TextStyle(fontSize: 16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '+91 $_digits',
+                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l10n.contactLine,
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 3,
-                  childAspectRatio: 1.8,
+                  childAspectRatio: 1.2,
                   padding: const EdgeInsets.all(24),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
@@ -133,6 +127,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       if (key == 'del')
                         BigIcon(
                           icon: Icons.backspace,
+                          label: l10n.delete,
                           onTap: () {
                             if (_digits.isEmpty) return;
                             setState(
@@ -152,91 +147,81 @@ class _SetupScreenState extends State<SetupScreen> {
                   ],
                 ),
               ),
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  BigIcon(
-                    icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
-                    label: l10n.accept,
-                    color: _accepted ? const Color(0xFF0F6E56) : null,
-                    onTap: () async {
-                      final next = !_accepted;
-                      setState(() => _accepted = next);
-                      if (next) await _askPermissions();
-                    },
-                  ),
-                  BigIcon(
-                    icon: Icons.description,
-                    label: l10n.terms,
-                    onTap: () {
-                      unawaited(
-                        Speaker.say(
-                          session.lang,
-                          '${l10n.termsBody} ${l10n.contactNotice}',
-                        ),
-                      );
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) => Paged(
-                            page: 3,
-                            child: Scaffold(
-                              body: SafeArea(
-                                child: Column(
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: BigIcon(
-                                        icon: Icons.arrow_back,
-                                        label: l10n.back,
-                                        onTap: () => Navigator.pop(context),
-                                      ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: BigIcon(
+                        icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
+                        label: l10n.accept,
+                        color: _accepted ? const Color(0xFF0F6E56) : null,
+                        compact: true,
+                        stretch: true,
+                        onTap: () async {
+                          final next = !_accepted;
+                          setState(() => _accepted = next);
+                          if (next) await _askPermissions();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: BigIcon(
+                        icon: Icons.description,
+                        label: l10n.terms,
+                        compact: true,
+                        stretch: true,
+                        onTap: () {
+                          unawaited(
+                            Speaker.say(
+                              session.lang,
+                              '${l10n.termsBody} ${l10n.contactNotice}',
+                            ),
+                          );
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => Paged(
+                                page: 3,
+                                child: Scaffold(
+                                  body: SafeArea(
+                                    child: Column(
+                                      children: [
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: BigIcon(
+                                            icon: Icons.arrow_back,
+                                            label: l10n.back,
+                                            onTap: () => Navigator.pop(context),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Text(
+                                            '${l10n.termsBody} ${l10n.contactNotice}',
+                                            style: const TextStyle(fontSize: 22),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Text(
-                                        '${l10n.termsBody} ${l10n.contactNotice}',
-                                        style: const TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Wrap(
-                  alignment: WrapAlignment.spaceEvenly,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    BigIcon(
-                      icon: Icons.place,
-                      label: l10n.location,
-                      onTap: () => _askPermissions(speak: l10n.location),
+                          );
+                        },
+                      ),
                     ),
-                    BigIcon(
-                      icon: Icons.photo_camera,
-                      label: l10n.camera,
-                      onTap: () => _askPermissions(speak: l10n.camera),
-                    ),
-                    BigIcon(
-                      icon: Icons.mic,
-                      label: l10n.mic,
-                      onTap: () => _askPermissions(speak: l10n.mic),
-                    ),
-                    BigIcon(
-                      icon: Icons.photo,
-                      label: l10n.photos,
-                      onTap: () => _askPermissions(speak: l10n.photos),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: BigIcon(
+                        icon: Icons.check,
+                        filled: _digits.length == 10 && _accepted,
+                        label: l10n.continueAction,
+                        compact: true,
+                        stretch: true,
+                        onTap: _go,
+                      ),
                     ),
                   ],
                 ),
