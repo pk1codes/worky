@@ -319,6 +319,9 @@ class Session extends ChangeNotifier {
     admin = false;
     await _prefs?.remove('whatsapp');
     await _analyticsUser(null);
+    if (!kUseEmulator && !kIsWeb) {
+      await GoogleSignIn.instance.signOut();
+    }
     await auth.signOut();
     notifyListeners();
   }
