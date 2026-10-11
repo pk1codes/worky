@@ -762,9 +762,12 @@ class _ExpandedCardState extends State<ExpandedCard> {
     return Padding(
       padding: EdgeInsets.all(wide ? 12 : 0),
       child: Material(
-        color: const Color(0xFFD5E5DF),
+        color: Colors.white,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE7F2EE)),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(_openInnerPad),
           child: SizedBox(
@@ -813,128 +816,134 @@ class _ExpandedCardState extends State<ExpandedCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if ((widget.categoryName ?? '').isNotEmpty)
+                      if ((widget.categoryName ?? '').isNotEmpty) ...[
                         Text(
                           widget.categoryName!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 20,
+                            color: Color(0xFF16332C),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 22),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              _when(context),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            widget.post.band == 'near'
-                                ? Icons.place
-                                : widget.post.band == 'mid'
-                                ? Icons.directions_walk
-                                : Icons.public,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.post.km == null
-                                ? _bandLabel(l10n)
-                                : '${widget.post.km} km',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (widget.post.langs.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.translate, size: 22),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                '${l10n.speaks} ${widget.post.langs.map((code) => kAutonym[code] ?? code).join(' · ')}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        const SizedBox(height: 8),
                       ],
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE7F2EE),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _fact(Icons.calendar_today, _when(context)),
+                              const SizedBox(height: 4),
+                              _fact(
+                                widget.post.band == 'near'
+                                    ? Icons.place
+                                    : widget.post.band == 'mid'
+                                    ? Icons.directions_walk
+                                    : Icons.public,
+                                widget.post.km == null
+                                    ? _bandLabel(l10n)
+                                    : '${widget.post.km} km',
+                              ),
+                              if (widget.post.langs.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                _fact(
+                                  Icons.translate,
+                                  '${l10n.speaks} ${widget.post.langs.map((code) => kAutonym[code] ?? code).join(' · ')}',
+                                  maxLines: null,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 if (!widget.mine)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: BigIcon(
-                          icon: Icons.forum,
-                          label: l10n.workyTalk,
-                          filled: true,
-                          compact: true,
-                          stretch: true,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  TalkScreen(postId: widget.post.id),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: BigIcon(
+                            icon: Icons.forum,
+                            label: l10n.workyTalk,
+                            filled: true,
+                            compact: true,
+                            stretch: true,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    TalkScreen(postId: widget.post.id),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: BigIcon(
-                          icon: Icons.chat,
-                          label: 'WhatsApp',
-                          filled: true,
-                          compact: true,
-                          stretch: true,
-                          color: const Color(0xFF25D366),
-                          onTap: () => _open('whatsapp'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: BigIcon(
+                            icon: Icons.chat,
+                            label: 'WhatsApp',
+                            filled: true,
+                            compact: true,
+                            stretch: true,
+                            color: const Color(0xFF25D366),
+                            onTap: () => _open('whatsapp'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: BigIcon(
-                          icon: Icons.call,
-                          label: l10n.call,
-                          filled: true,
-                          compact: true,
-                          stretch: true,
-                          color: const Color(0xFF1A73E8),
-                          onTap: () => _open('phone'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: BigIcon(
+                            icon: Icons.call,
+                            label: l10n.call,
+                            filled: true,
+                            compact: true,
+                            stretch: true,
+                            color: const Color(0xFF1A73E8),
+                            onTap: () => _open('phone'),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _fact(IconData icon, String text, {int? maxLines = 1}) {
+    return Row(
+      crossAxisAlignment: maxLines == 1
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 22, color: const Color(0xFF0F6E56)),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: maxLines,
+            overflow: maxLines == null
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Color(0xFF16332C),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
