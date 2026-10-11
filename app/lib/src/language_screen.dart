@@ -37,6 +37,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                     for (final code in kLangs)
                       LangTile(
                         code: code,
+                        uniform: true,
                         selected: _armed == code,
                         onTap: () async {
                           if (widget.popOnPick) {

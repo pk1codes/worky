@@ -116,6 +116,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.';
 
   @override
+  String get contactLine => 'People nearby can message or call this number.';
+
+  @override
   String get block => 'Block';
 
   @override
