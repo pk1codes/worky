@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
-const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm } = require('./lib/geo');
+const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm, isoCountry } = require('./lib/geo');
 const { categoryTrail } = require('./lib/categories');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
 const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
@@ -305,6 +305,7 @@ async function acceptUpload(kind, buf) {
 
 function card(req, doc, distanceKm) {
   const data = doc.data();
+  const country = isoCountry(data.lat, data.lng);
   return {
     id: doc.id,
     posterUrl: data.posterUrl || (data.posterPath ? fileUrl(req, `poster:${doc.id}`) : ''),
@@ -319,6 +320,7 @@ function card(req, doc, distanceKm) {
     lng: data.lng,
     categoryId: data.categoryId,
     status: data.status,
+    ...(country ? { country } : {}),
   };
 }
 

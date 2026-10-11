@@ -1,3 +1,5 @@
+const { iso1A2Code } = require('@rapideditor/country-coder');
+
 const BASE = '0123456789bcdefghjkmnpqrstuvwxyz';
 const LANGS = ['hi', 'en', 'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'ur', 'or'];
 
@@ -74,6 +76,17 @@ function publicKm(km) {
   return Math.max(2, Math.round(Number(km)));
 }
 
+function isoCountry(lat, lng) {
+  const latN = Number(lat);
+  const lngN = Number(lng);
+  if (!Number.isFinite(latN) || !Number.isFinite(lngN)) return null;
+  if (Math.abs(latN) > 90 || Math.abs(lngN) > 180) return null;
+  const code = iso1A2Code([lngN, latN], {});
+  if (typeof code !== 'string') return null;
+  const iso = code.toUpperCase();
+  return /^[A-Z]{2}$/.test(iso) ? iso : null;
+}
+
 module.exports = {
   BASE,
   LANGS,
@@ -84,4 +97,5 @@ module.exports = {
   daysAgo,
   publicPoint,
   publicKm,
+  isoCountry,
 };

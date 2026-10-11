@@ -63,6 +63,7 @@ class FeedPost {
     this.mediaIds = const [],
     this.contactsOpen = true,
     this.reaches = const [],
+    this.country,
   });
 
   final String id;
@@ -82,6 +83,7 @@ class FeedPost {
   final List<String> mediaIds;
   final bool contactsOpen;
   final List<Reach> reaches;
+  final String? country;
 
   factory FeedPost.fromJson(Map<String, dynamic> json) {
     return FeedPost(
@@ -104,8 +106,19 @@ class FeedPost {
       reaches: ((json['reaches'] as List?) ?? const [])
           .map((row) => Reach.fromJson(Map<String, dynamic>.from(row as Map)))
           .toList(),
+      country: _isoCountry(json['country']),
     );
   }
+}
+
+String? _isoCountry(Object? raw) {
+  if (raw is! String) return null;
+  final code = raw.trim().toUpperCase();
+  if (code.length != 2) return null;
+  final a = code.codeUnitAt(0);
+  final b = code.codeUnitAt(1);
+  if (a < 65 || a > 90 || b < 65 || b > 90) return null;
+  return code;
 }
 
 class FeedCategory {

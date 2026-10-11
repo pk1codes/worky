@@ -815,6 +815,8 @@ class _ExpandedCardState extends State<ExpandedCard> {
                                     videos.isEmpty ? null : videos.first.url,
                                   ),
                                 ),
+                              if (widget.post.country case final code?)
+                                _flag(code),
                             ],
                           ),
                           for (final item in videos) _videoPage(item),
@@ -1004,6 +1006,30 @@ class _ExpandedCardState extends State<ExpandedCard> {
       url: poster,
       fit: BoxFit.cover,
       cacheLogical: cacheWidth.toDouble(),
+    );
+  }
+
+  Widget _flag(String code) {
+    return Positioned(
+      top: 8,
+      right: 8,
+      child: Semantics(
+        label: code,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: CircleFlag(code, size: 18),
+        ),
+      ),
     );
   }
 

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { coarse, geohash, band, kmBetween, publicPoint, publicKm } = require('../lib/geo');
+const { coarse, geohash, band, kmBetween, publicPoint, publicKm, isoCountry } = require('../lib/geo');
 const { parseWav, parseMp4, sniff, limitsFor } = require('../lib/media');
 
 test('coarse point is about 100m', () => {
@@ -29,6 +29,12 @@ test('public km is at least 2', () => {
   assert.equal(publicKm(2.4), 2);
   assert.equal(publicKm(14.6), 15);
   assert.equal(band(publicKm(0.4)), 'mid');
+});
+
+test('country comes from the post coordinates', () => {
+  assert.equal(isoCountry(28.6139, 77.209), 'IN');
+  assert.equal(isoCountry(51.5074, -0.1278), 'GB');
+  assert.equal(isoCountry(0, -140), null);
 });
 
 test('distance bands', () => {
