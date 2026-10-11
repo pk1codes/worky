@@ -43,5 +43,7 @@
   "typeMessage": "संदेश",
   "joinVideo": "सामील व्हा",
   "videoCall": "व्हिडिओ",
-  "call": "कॉल"
+  "call": "कॉल",
+  "speakThese": "मी ही बोलतो.",
+  "signInGoogle": "Google ने साइन इन करा."
 }

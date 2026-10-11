@@ -43,5 +43,7 @@
   "typeMessage": "സന്ദേശം",
   "joinVideo": "ചേരുക",
   "videoCall": "വീഡിയോ",
-  "call": "കോൾ"
+  "call": "കോൾ",
+  "speakThese": "ഞാൻ ഇവ സംസാരിക്കും.",
+  "signInGoogle": "Google ഉപയോഗിച്ച് പ്രവേശിക്കുക."
 }

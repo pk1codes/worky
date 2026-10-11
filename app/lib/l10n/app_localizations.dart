@@ -393,6 +393,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Call'**
   String get call;
+
+  /// No description provided for @speakThese.
+  ///
+  /// In en, this message translates to:
+  /// **'I speak these.'**
+  String get speakThese;
+
+  /// No description provided for @signInGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Google.'**
+  String get signInGoogle;
 }
 
 class _AppLocalizationsDelegate

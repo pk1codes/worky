@@ -23,7 +23,9 @@ class _GoogleScreenState extends State<GoogleScreen> {
     FirebaseAnalytics.instance.logScreenView(screenName: 'google');
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final session = SessionHost.of(context);
-      unawaited(Speaker.say(session.lang, 'Google'));
+      unawaited(
+        Speaker.say(session.lang, AppLocalizations.of(context).signInGoogle),
+      );
       await session.trySilent();
     });
   }
@@ -36,23 +38,41 @@ class _GoogleScreenState extends State<GoogleScreen> {
       page: 2,
       child: Scaffold(
         body: Center(
-          child: BigIcon(
-            icon: Icons.account_circle,
-            filled: true,
-            label: l10n.google,
-            onTap: _busy
-                ? null
-                : () async {
-                    setState(() => _busy = true);
-                    try {
-                      await session.signIn();
-                    } catch (_) {
-                      if (mounted)
-                        await Speaker.say(session.lang, l10n.tryAgain);
-                    } finally {
-                      if (mounted) setState(() => _busy = false);
-                    }
-                  },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                child: Text(
+                  l10n.signInGoogle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    color: Color(0xFF16332C),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              BigIcon(
+                icon: Icons.account_circle,
+                filled: true,
+                label: l10n.google,
+                onTap: _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          await session.signIn();
+                        } catch (_) {
+                          if (mounted) {
+                            await Speaker.say(session.lang, l10n.tryAgain);
+                          }
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+              ),
+            ],
           ),
         ),
       ),

@@ -24,6 +24,7 @@ class Session extends ChangeNotifier {
 
   bool ready = false;
   String? lang;
+  Set<String> spoken = {};
   String? whatsapp;
   bool admin = false;
   User? user;
@@ -37,6 +38,10 @@ class Session extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     await outbox.attach(_prefs!);
     lang = _prefs!.getString('lang');
+    spoken = {
+      for (final code in (_prefs!.getString('spoken') ?? '').split(','))
+        if (code.isNotEmpty) code,
+    };
     whatsapp = _prefs!.getString('whatsapp');
     final cachedLat = _prefs!.getDouble('lat');
     final cachedLng = _prefs!.getDouble('lng');
@@ -81,6 +86,16 @@ class Session extends ChangeNotifier {
       ready = true;
       notifyListeners();
     });
+  }
+
+  Future<void> setSpoken(Set<String> codes) async {
+    spoken = codes;
+    final saved = codes.where((code) => code.isNotEmpty).join(',');
+    if (saved.isEmpty) {
+      await _prefs?.remove('spoken');
+    } else {
+      await _prefs?.setString('spoken', saved);
+    }
   }
 
   Future<void> setLang(String code) async {
@@ -184,8 +199,11 @@ class Session extends ChangeNotifier {
     if (kIsWeb) return null;
     final account = await GoogleSignIn.instance.authenticate();
     const scopes = ['https://www.googleapis.com/auth/calendar.events.owned'];
-    final existing = await account.authorizationClient.authorizationForScopes(scopes);
-    final auth = existing ?? await account.authorizationClient.authorizeScopes(scopes);
+    final existing = await account.authorizationClient.authorizationForScopes(
+      scopes,
+    );
+    final auth =
+        existing ?? await account.authorizationClient.authorizeScopes(scopes);
     return auth.accessToken;
   }
 

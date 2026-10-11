@@ -58,6 +58,8 @@ class _PostScreenState extends State<PostScreen> {
       _langs = {
         if (widget.edit != null)
           ...widget.edit!.langs
+        else if (session.spoken.isNotEmpty)
+          ...session.spoken
         else
           session.lang ?? 'hi',
       };
@@ -335,62 +337,72 @@ class _PostScreenState extends State<PostScreen> {
     } catch (_) {}
   }
 
+  Future<void> _useMyPlace(Session session, AppLocalizations l10n) async {
+    final ok = await session.locate();
+    if (!ok) {
+      await Speaker.say(session.lang, l10n.tryAgain);
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _lat = session.lat;
+      _lng = session.lng;
+    });
+    final lat = session.lat;
+    final lng = session.lng;
+    if (lat != null && lng != null) {
+      await _map?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
+        duration: const Duration(milliseconds: 350),
+      );
+      await _pin(lat, lng);
+    }
+  }
+
   Widget _place(Session session, AppLocalizations l10n) {
     return Column(
       children: [
-        BigIcon(
-          icon: Icons.my_location,
-          filled: true,
-          label: l10n.useMyPlace,
-          onTap: () async {
-            final ok = await session.locate();
-            if (!ok) {
-              await Speaker.say(session.lang, l10n.tryAgain);
-              return;
-            }
-            setState(() {
-              _lat = session.lat;
-              _lng = session.lng;
-            });
-            final lat = session.lat;
-            final lng = session.lng;
-            if (lat != null && lng != null) {
-              await _map?.animateCamera(
-                CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
-                duration: const Duration(milliseconds: 350),
-              );
-              await _pin(lat, lng);
-            }
-          },
-        ),
         Expanded(
-          child: MapLibreMap(
-            styleString: 'https://tiles.openfreemap.org/styles/liberty',
-            initialCameraPosition: CameraPosition(
-              target: LatLng(
-                _lat ?? session.lat ?? 20.5,
-                _lng ?? session.lng ?? 78.9,
+          child: Stack(
+            children: [
+              MapLibreMap(
+                styleString: 'https://tiles.openfreemap.org/styles/liberty',
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(
+                    _lat ?? session.lat ?? 20.5,
+                    _lng ?? session.lng ?? 78.9,
+                  ),
+                  zoom: 17,
+                ),
+                onMapCreated: (controller) => _map = controller,
+                onStyleLoadedCallback: () {
+                  final lat = _lat ?? session.lat;
+                  final lng = _lng ?? session.lng;
+                  if (lat == null || lng == null) return;
+                  _map?.animateCamera(
+                    CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
+                    duration: const Duration(milliseconds: 350),
+                  );
+                  unawaited(_pin(lat, lng));
+                },
+                onMapClick: (_, latLng) {
+                  setState(() {
+                    _lat = latLng.latitude;
+                    _lng = latLng.longitude;
+                  });
+                  unawaited(_pin(latLng.latitude, latLng.longitude));
+                },
               ),
-              zoom: 17,
-            ),
-            onMapCreated: (controller) => _map = controller,
-            onStyleLoadedCallback: () {
-              final lat = _lat ?? session.lat;
-              final lng = _lng ?? session.lng;
-              if (lat == null || lng == null) return;
-              _map?.animateCamera(
-                CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
-                duration: const Duration(milliseconds: 350),
-              );
-              unawaited(_pin(lat, lng));
-            },
-            onMapClick: (_, latLng) {
-              setState(() {
-                _lat = latLng.latitude;
-                _lng = latLng.longitude;
-              });
-              unawaited(_pin(latLng.latitude, latLng.longitude));
-            },
+              Align(
+                alignment: const Alignment(0, 0.2),
+                child: BigIcon(
+                  icon: Icons.my_location,
+                  filled: true,
+                  label: l10n.useMyPlace,
+                  onTap: () => _useMyPlace(session, l10n),
+                ),
+              ),
+            ],
           ),
         ),
         SizedBox(

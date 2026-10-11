@@ -148,4 +148,10 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get call => 'কল';
+
+  @override
+  String get speakThese => 'আমি এগুলো বলি.';
+
+  @override
+  String get signInGoogle => 'Google দিয়ে সাইন ইন করুন.';
 }

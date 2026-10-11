@@ -149,4 +149,10 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get call => 'கால்';
+
+  @override
+  String get speakThese => 'நான் இவை பேசுவேன்.';
+
+  @override
+  String get signInGoogle => 'Google மூலம் உள்நுழையுங்கள்.';
 }

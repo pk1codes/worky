@@ -148,4 +148,10 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get call => 'کال';
+
+  @override
+  String get speakThese => 'میں یہ بولتا ہوں.';
+
+  @override
+  String get signInGoogle => 'Google سے سائن ان کریں.';
 }

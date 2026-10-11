@@ -149,4 +149,10 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get call => 'കോൾ';
+
+  @override
+  String get speakThese => 'ഞാൻ ഇവ സംസാരിക്കും.';
+
+  @override
+  String get signInGoogle => 'Google ഉപയോഗിച്ച് പ്രവേശിക്കുക.';
 }
