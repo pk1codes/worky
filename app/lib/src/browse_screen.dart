@@ -170,6 +170,15 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           }
                         },
                       ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Image(
+                        image: AssetImage('assets/worky.png'),
+                        height: 40,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'Worky',
+                      ),
+                    ),
                     const Spacer(),
                     if (!widget.picking)
                       BigIcon(
