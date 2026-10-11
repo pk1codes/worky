@@ -220,6 +220,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         posts: posts,
                         lat: session.lat ?? 20.5,
                         lng: session.lng ?? 78.9,
+                        showHere: session.lat != null && session.lng != null,
                         pinId: _pinId,
                         openId: _openId,
                         nameFor: _nameFor,
@@ -1064,6 +1065,7 @@ class _MapPane extends StatefulWidget {
     required this.posts,
     required this.lat,
     required this.lng,
+    required this.showHere,
     required this.pinId,
     required this.openId,
     required this.nameFor,
@@ -1075,6 +1077,7 @@ class _MapPane extends StatefulWidget {
   final List<FeedPost> posts;
   final double lat;
   final double lng;
+  final bool showHere;
   final String? pinId;
   final String? openId;
   final String? Function(FeedPost post) nameFor;
@@ -1090,10 +1093,10 @@ class _MapPaneState extends State<_MapPane> {
   MapLibreMapController? _controller;
 
   static const _zoom = 17.0;
-  static const _control = 48.0;
+  static const _control = 40.0;
   static const _gap = 4.0;
-  static const _pad = _control * 4 + _gap * 3;
-  static const _padClear = _pad + 8;
+  static const _padClear = 12.0;
+  static const _sideClear = _control * 3 + _gap * 2 + 16;
 
   Future<void> _center() async {
     final controller = _controller;
@@ -1126,9 +1129,9 @@ class _MapPaneState extends State<_MapPane> {
             southwest: LatLng(minLat, minLng),
             northeast: LatLng(maxLat, maxLng),
           ),
-          left: 48,
-          top: 48,
-          right: 48,
+          left: 24,
+          top: 24,
+          right: _sideClear,
           bottom: _padClear,
         ),
         duration: const Duration(milliseconds: 350),
@@ -1211,14 +1214,32 @@ class _MapPaneState extends State<_MapPane> {
     if (controller == null) return;
     try {
       await controller.clearCircles();
+      if (widget.showHere) {
+        await controller.addCircle(
+          CircleOptions(
+            geometry: LatLng(widget.lat, widget.lng),
+            circleColor: '#16332C',
+            circleRadius: 8,
+          ),
+        );
+      }
+      final counts = <(int, int), int>{};
+      for (final post in widget.posts) {
+        final cell = pinCell(post.lat, post.lng);
+        counts[cell] = (counts[cell] ?? 0) + 1;
+      }
       final drawn = <(int, int)>{};
       for (final post in widget.posts) {
-        if (!drawn.add(pinCell(post.lat, post.lng))) continue;
+        final cell = pinCell(post.lat, post.lng);
+        if (!drawn.add(cell)) continue;
+        final cluster = (counts[cell] ?? 0) > 1;
         await controller.addCircle(
           CircleOptions(
             geometry: LatLng(post.lat, post.lng),
             circleColor: '#0F6E56',
-            circleRadius: 18,
+            circleRadius: cluster ? 22 : 14,
+            circleStrokeWidth: cluster ? 6 : 0,
+            circleStrokeColor: '#E7F2EE',
           ),
           {'postId': post.id},
         );
@@ -1236,8 +1257,10 @@ class _MapPaneState extends State<_MapPane> {
     super.didUpdateWidget(oldWidget);
     final moved = oldWidget.lat != widget.lat || oldWidget.lng != widget.lng;
     final postsChanged = !_samePosts(oldWidget.posts, widget.posts);
-    if (moved || postsChanged) _center();
-    if (postsChanged) _draw();
+    if (moved || postsChanged) {
+      _center();
+      _draw();
+    }
     final wasOpen = _listed(oldWidget.posts, oldWidget.pinId);
     final isOpen = _listed(widget.posts, widget.pinId);
     if (wasOpen != isOpen || oldWidget.openId != widget.openId) {
@@ -1380,55 +1403,53 @@ class _MapPaneState extends State<_MapPane> {
           rotateGesturesEnabled: false,
           tiltGesturesEnabled: false,
         ),
-        Positioned(left: 0, right: 0, bottom: 8, child: _controls()),
+        Positioned(right: 8, bottom: 8, child: _controls()),
       ],
     );
   }
 
   Widget _controls() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _controlButton(Icons.arrow_upward, () {
-            _nudge(0, -160);
-          }),
-          const SizedBox(height: _gap),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _controlButton(Icons.arrow_back, () {
-                _nudge(-160, 0);
-              }),
-              const SizedBox(width: _gap),
-              _controlButton(Icons.my_location, () {
-                _center();
-              }, filled: true),
-              const SizedBox(width: _gap),
-              _controlButton(Icons.arrow_forward, () {
-                _nudge(160, 0);
-              }),
-            ],
-          ),
-          const SizedBox(height: _gap),
-          _controlButton(Icons.arrow_downward, () {
-            _nudge(0, 160);
-          }),
-          const SizedBox(height: _gap),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _controlButton(Icons.remove, () {
-                _stepZoom(-1);
-              }),
-              const SizedBox(width: _control),
-              _controlButton(Icons.add, () {
-                _stepZoom(1);
-              }),
-            ],
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _controlButton(Icons.arrow_upward, () {
+          _nudge(0, -160);
+        }),
+        const SizedBox(height: _gap),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _controlButton(Icons.arrow_back, () {
+              _nudge(-160, 0);
+            }),
+            const SizedBox(width: _gap),
+            _controlButton(Icons.my_location, () {
+              _center();
+            }, filled: true),
+            const SizedBox(width: _gap),
+            _controlButton(Icons.arrow_forward, () {
+              _nudge(160, 0);
+            }),
+          ],
+        ),
+        const SizedBox(height: _gap),
+        _controlButton(Icons.arrow_downward, () {
+          _nudge(0, 160);
+        }),
+        const SizedBox(height: _gap),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _controlButton(Icons.remove, () {
+              _stepZoom(-1);
+            }),
+            const SizedBox(width: _control),
+            _controlButton(Icons.add, () {
+              _stepZoom(1);
+            }),
+          ],
+        ),
+      ],
     );
   }
 
