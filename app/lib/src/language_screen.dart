@@ -15,17 +15,43 @@ class LanguageScreen extends StatefulWidget {
 }
 
 class _LanguageScreenState extends State<LanguageScreen> {
-  String? _armed;
+  final _picked = <String>[];
+
+  String? get _first => _picked.isEmpty ? null : _picked.first;
+
+  Future<void> _save(Session session) async {
+    final first = _first;
+    if (first == null) return;
+    await session.setSpoken(_picked.toSet());
+    await session.setLang(first);
+  }
 
   @override
   Widget build(BuildContext context) {
     final session = SessionHost.of(context);
+    final l10n = AppLocalizations.of(context);
+    final first = _first;
     return Paged(
       page: 1,
       child: Scaffold(
         body: SafeArea(
           child: Column(
             children: [
+              if (!widget.popOnPick)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.speakThese,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF16332C),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
@@ -38,32 +64,33 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       LangTile(
                         code: code,
                         uniform: true,
-                        selected: _armed == code,
+                        selected: _picked.contains(code),
                         onTap: () async {
                           if (widget.popOnPick) {
                             await session.setLang(code);
                             if (context.mounted) Navigator.pop(context);
                             return;
                           }
-                          if (_armed != code) {
-                            setState(() => _armed = code);
-                            await Speaker.clip(code);
-                            return;
-                          }
-                          await session.setLang(code);
+                          final added = !_picked.contains(code);
+                          setState(() {
+                            if (added) {
+                              _picked.add(code);
+                            } else if (_picked.length > 1) {
+                              _picked.remove(code);
+                            }
+                          });
+                          if (_picked.contains(code)) await Speaker.clip(code);
                         },
                       ),
                   ],
                 ),
               ),
-              if (_armed != null)
+              if (first != null)
                 BigIcon(
                   icon: Icons.check,
                   filled: true,
-                  label: lookupAppLocalizations(
-                    Locale(_armed!),
-                  ).continueAction,
-                  onTap: () => session.setLang(_armed!),
+                  label: lookupAppLocalizations(Locale(first)).continueAction,
+                  onTap: () => _save(session),
                 ),
             ],
           ),

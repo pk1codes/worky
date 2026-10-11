@@ -43,5 +43,7 @@
   "typeMessage": "ਸੁਨੇਹਾ",
   "joinVideo": "ਜੁੜੋ",
   "videoCall": "ਵੀਡੀਓ",
-  "call": "ਕਾਲ"
+  "call": "ਕਾਲ",
+  "speakThese": "ਮੈਂ ਇਹ ਬੋਲਦਾ ਹਾਂ.",
+  "signInGoogle": "Google ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ."
 }

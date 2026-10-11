@@ -148,4 +148,10 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get call => 'ಕರೆ';
+
+  @override
+  String get speakThese => 'ನಾನು ಇವುಗಳನ್ನು ಮಾತನಾಡುತ್ತೇನೆ.';
+
+  @override
+  String get signInGoogle => 'Google ನೊಂದಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.';
 }

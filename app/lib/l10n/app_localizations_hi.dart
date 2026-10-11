@@ -149,4 +149,10 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get call => 'कॉल';
+
+  @override
+  String get speakThese => 'मैं ये बोलता हूँ.';
+
+  @override
+  String get signInGoogle => 'Google से साइन इन करें.';
 }

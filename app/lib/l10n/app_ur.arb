@@ -43,5 +43,7 @@
   "typeMessage": "پیغام",
   "joinVideo": "شامل ہوں",
   "videoCall": "ویڈیو",
-  "call": "کال"
+  "call": "کال",
+  "speakThese": "میں یہ بولتا ہوں.",
+  "signInGoogle": "Google سے سائن ان کریں."
 }

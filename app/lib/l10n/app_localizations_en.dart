@@ -148,4 +148,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get call => 'Call';
+
+  @override
+  String get speakThese => 'I speak these.';
+
+  @override
+  String get signInGoogle => 'Sign in with Google.';
 }

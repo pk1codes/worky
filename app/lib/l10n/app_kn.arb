@@ -43,5 +43,7 @@
   "typeMessage": "ಸಂದೇಶ",
   "joinVideo": "ಸೇರಿ",
   "videoCall": "ವೀಡಿಯೊ",
-  "call": "ಕರೆ"
+  "call": "ಕರೆ",
+  "speakThese": "ನಾನು ಇವುಗಳನ್ನು ಮಾತನಾಡುತ್ತೇನೆ.",
+  "signInGoogle": "Google ನೊಂದಿಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ."
 }

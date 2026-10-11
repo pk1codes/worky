@@ -43,5 +43,7 @@
   "typeMessage": "ବାର୍ତ୍ତା",
   "joinVideo": "ଯୋଗ ଦିଅନ୍ତୁ",
   "videoCall": "ଭିଡିଓ",
-  "call": "କଲ୍"
+  "call": "କଲ୍",
+  "speakThese": "ମୁଁ ଏଗୁଡ଼ିକ କହେ.",
+  "signInGoogle": "Google ରେ ସାଇନ ଇନ କରନ୍ତୁ."
 }

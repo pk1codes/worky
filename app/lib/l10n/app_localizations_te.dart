@@ -149,4 +149,10 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get call => 'కాల్';
+
+  @override
+  String get speakThese => 'నేను ఇవి మాట్లాడతాను.';
+
+  @override
+  String get signInGoogle => 'Google తో సైన్ ఇన్ చేయండి.';
 }

@@ -43,5 +43,7 @@
   "typeMessage": "సందేశం",
   "joinVideo": "చేరండి",
   "videoCall": "వీడియో",
-  "call": "కాల్"
+  "call": "కాల్",
+  "speakThese": "నేను ఇవి మాట్లాడతాను.",
+  "signInGoogle": "Google తో సైన్ ఇన్ చేయండి."
 }
