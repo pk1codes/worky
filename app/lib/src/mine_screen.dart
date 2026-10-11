@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import 'admin_screen.dart';
 import 'api.dart';
+import 'browse_screen.dart';
 import 'chrome.dart';
 import 'langs.dart';
 import 'language_screen.dart';
@@ -130,8 +131,248 @@ class _MineScreenState extends State<MineScreen> {
   String _reachWhen(BuildContext context, int at) {
     if (at <= 0) return '';
     final locale = Localizations.localeOf(context).toString();
-    return DateFormat.MMMd(locale).add_jm().format(
-      DateTime.fromMillisecondsSinceEpoch(at),
+    return DateFormat.MMMd(
+      locale,
+    ).add_jm().format(DateTime.fromMillisecondsSinceEpoch(at));
+  }
+
+  String? _jobName(Session session, String categoryId) {
+    if (categoryId.isEmpty) return null;
+    for (final rows in session.feedCache.values) {
+      for (final row in rows) {
+        if (row.id == categoryId && row.name.isNotEmpty) return row.name;
+      }
+    }
+    return null;
+  }
+
+  String _talkTitle(TalkPreview talk, AppLocalizations l10n) {
+    if (talk.kind == 'video' || talk.kind == 'voice' || talk.preview.isEmpty) {
+      return l10n.workyTalk;
+    }
+    return talk.preview;
+  }
+
+  Widget _talkRow(TalkPreview talk, AppLocalizations l10n) {
+    final icon = talk.kind == 'video'
+        ? Icons.videocam
+        : talk.kind == 'voice'
+        ? Icons.mic
+        : Icons.forum;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => TalkScreen(pairId: talk.id),
+              ),
+            );
+            await _load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE7F2EE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(icon, color: const Color(0xFF0F6E56)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _talkTitle(talk, l10n),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF16332C),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (talk.unread > 0)
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: const Color(0xFF0F6E56),
+                    child: Text(
+                      '${talk.unread}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mineAction(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool filled = false,
+    Color? color,
+  }) {
+    return BigIcon(
+      icon: icon,
+      label: label,
+      compact: true,
+      stretch: true,
+      filled: filled,
+      color: color,
+      onTap: onTap,
+    );
+  }
+
+  Widget _cardTail(Session session, FeedPost post, AppLocalizations l10n) {
+    final armed = _armedDelete == post.id;
+    return Column(
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7F2EE),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _mineAction(Icons.edit, l10n.edit, () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PostScreen(edit: post),
+                      ),
+                    );
+                    await _load();
+                  }),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _mineAction(
+                    post.status == 'paused' ? Icons.play_arrow : Icons.pause,
+                    post.status == 'paused' ? l10n.resume : l10n.pause,
+                    () async {
+                      await session.api.pause(post.id, post.status != 'paused');
+                      session.dropFeed();
+                      await _load();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _mineAction(
+                    Icons.block,
+                    post.contactsOpen ? l10n.block : l10n.blocked,
+                    () async {
+                      final blocking = post.contactsOpen;
+                      try {
+                        await session.api.blockIncoming(post.id, blocking);
+                        if (mounted) {
+                          await Speaker.say(
+                            session.lang,
+                            blocking ? l10n.blocked : l10n.allowed,
+                          );
+                        }
+                        await _load();
+                      } catch (_) {
+                        if (mounted) {
+                          await Speaker.say(session.lang, l10n.tryAgain);
+                        }
+                      }
+                    },
+                    filled: !post.contactsOpen,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _mineAction(
+                    Icons.delete,
+                    l10n.delete,
+                    () async {
+                      if (_armedDelete != post.id) {
+                        setState(() => _armedDelete = post.id);
+                        await Speaker.say(session.lang, l10n.delete);
+                        return;
+                      }
+                      await session.api.deletePost(post.id);
+                      session.dropFeed();
+                      await _load();
+                    },
+                    filled: armed,
+                    color: armed ? Colors.red : null,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _mineAction(Icons.share, l10n.share, () {
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: post.posterUrl.isNotEmpty
+                            ? post.posterUrl
+                            : post.categoryId,
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+        for (final reach in post.reaches)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${reach.number}\n${_reachWhen(context, reach.at)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF16332C),
+                    ),
+                  ),
+                ),
+                BigIcon(
+                  icon: Icons.block,
+                  label: reach.blocked ? l10n.blocked : l10n.block,
+                  filled: reach.blocked,
+                  compact: true,
+                  onTap: () async {
+                    final blocking = !reach.blocked;
+                    try {
+                      await session.api.blockNumber(reach.number, blocking);
+                      if (mounted) {
+                        await Speaker.say(
+                          session.lang,
+                          blocking ? l10n.blocked : l10n.allowed,
+                        );
+                      }
+                      await _load();
+                    } catch (_) {
+                      if (mounted) {
+                        await Speaker.say(session.lang, l10n.tryAgain);
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -194,49 +435,11 @@ class _MineScreenState extends State<MineScreen> {
                         l10n.mine,
                         style: const TextStyle(
                           fontSize: 22,
+                          color: Color(0xFF16332C),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                    for (final draft in session.outbox.drafts)
-                      _draft(session, draft, l10n),
-                    for (final talk in _talks)
-                      Card(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: ListTile(
-                          leading: Icon(
-                            talk.kind == 'video'
-                                ? Icons.videocam
-                                : talk.kind == 'voice'
-                                ? Icons.mic
-                                : Icons.forum,
-                            color: const Color(0xFF0F6E56),
-                          ),
-                          title: Text(
-                            talk.preview.isEmpty ? l10n.workyTalk : talk.preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: talk.unread > 0
-                              ? CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: const Color(0xFF0F6E56),
-                                  child: Text(
-                                    '${talk.unread}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                                  ),
-                                )
-                              : null,
-                          onTap: () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => TalkScreen(pairId: talk.id),
-                              ),
-                            );
-                            await _load();
-                          },
-                        ),
-                      ),
                     if (_loading) const LinearProgressIndicator(),
                     if (_failed && _posts.isEmpty)
                       BigIcon(
@@ -266,171 +469,20 @@ class _MineScreenState extends State<MineScreen> {
                           await _load();
                         },
                       ),
+                    for (final draft in session.outbox.drafts)
+                      _draft(session, draft, l10n),
                     for (final post in _posts)
-                      Card(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            NetImage(
-                              url: post.posterUrl,
-                              height: 180,
-                              width: double.infinity,
-                              cacheLogical: MediaQuery.sizeOf(context).width,
-                              error: const SizedBox(height: 80),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  BigIcon(
-                                    icon: Icons.edit,
-                                    label: l10n.edit,
-                                    onTap: () async {
-                                      await Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) =>
-                                              PostScreen(edit: post),
-                                        ),
-                                      );
-                                      await _load();
-                                    },
-                                  ),
-                                  BigIcon(
-                                    icon: post.status == 'paused'
-                                        ? Icons.play_arrow
-                                        : Icons.pause,
-                                    label: post.status == 'paused'
-                                        ? l10n.resume
-                                        : l10n.pause,
-                                    onTap: () async {
-                                      await session.api.pause(
-                                        post.id,
-                                        post.status != 'paused',
-                                      );
-                                      session.dropFeed();
-                                      await _load();
-                                    },
-                                  ),
-                                  BigIcon(
-                                    icon: Icons.block,
-                                    label: post.contactsOpen
-                                        ? l10n.block
-                                        : l10n.blocked,
-                                    filled: !post.contactsOpen,
-                                    onTap: () async {
-                                      final blocking = post.contactsOpen;
-                                      try {
-                                        await session.api.blockIncoming(
-                                          post.id,
-                                          blocking,
-                                        );
-                                        if (mounted) {
-                                          await Speaker.say(
-                                            session.lang,
-                                            blocking
-                                                ? l10n.blocked
-                                                : l10n.allowed,
-                                          );
-                                        }
-                                        await _load();
-                                      } catch (_) {
-                                        if (mounted) {
-                                          await Speaker.say(
-                                            session.lang,
-                                            l10n.tryAgain,
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                  BigIcon(
-                                    icon: Icons.delete,
-                                    label: l10n.delete,
-                                    filled: _armedDelete == post.id,
-                                    color: _armedDelete == post.id
-                                        ? Colors.red
-                                        : null,
-                                    onTap: () async {
-                                      if (_armedDelete != post.id) {
-                                        setState(() => _armedDelete = post.id);
-                                        await Speaker.say(
-                                          session.lang,
-                                          l10n.delete,
-                                        );
-                                        return;
-                                      }
-                                      await session.api.deletePost(post.id);
-                                      session.dropFeed();
-                                      await _load();
-                                    },
-                                  ),
-                                  BigIcon(
-                                    icon: Icons.share,
-                                    label: l10n.share,
-                                    onTap: () => SharePlus.instance.share(
-                                      ShareParams(
-                                        text: post.posterUrl.isNotEmpty
-                                            ? post.posterUrl
-                                            : post.categoryId,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            for (final reach in post.reaches)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${reach.number}\n${_reachWhen(context, reach.at)}',
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                    ),
-                                    BigIcon(
-                                      icon: Icons.block,
-                                      label: reach.blocked
-                                          ? l10n.blocked
-                                          : l10n.block,
-                                      filled: reach.blocked,
-                                      onTap: () async {
-                                        final blocking = !reach.blocked;
-                                        try {
-                                          await session.api.blockNumber(
-                                            reach.number,
-                                            blocking,
-                                          );
-                                          if (mounted) {
-                                            await Speaker.say(
-                                              session.lang,
-                                              blocking
-                                                  ? l10n.blocked
-                                                  : l10n.allowed,
-                                            );
-                                          }
-                                          await _load();
-                                        } catch (_) {
-                                          if (mounted) {
-                                            await Speaker.say(
-                                              session.lang,
-                                              l10n.tryAgain,
-                                            );
-                                          }
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: ExpandedCard(
+                          post: post,
+                          categoryName: _jobName(session, post.categoryId),
+                          mine: true,
+                          wide: true,
+                          tail: _cardTail(session, post, l10n),
                         ),
                       ),
+                    for (final talk in _talks) _talkRow(talk, l10n),
                   ],
                 ),
               ),
