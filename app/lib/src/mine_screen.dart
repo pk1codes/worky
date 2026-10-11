@@ -166,9 +166,15 @@ class _MineScreenState extends State<MineScreen> {
     ).add_jm().format(DateTime.fromMillisecondsSinceEpoch(at));
   }
 
-  String? _postedPath(FeedPost post) {
+  String? _postedJob(FeedPost post) {
     if (post.categoryPath.isEmpty) return null;
-    return '$_kWorld / ${post.categoryPath.join(' / ')}';
+    return post.categoryPath.last;
+  }
+
+  String? _postedTrail(FeedPost post) {
+    if (post.categoryPath.isEmpty) return null;
+    final parents = post.categoryPath.sublist(0, post.categoryPath.length - 1);
+    return [_kWorld, ...parents].join(' / ');
   }
 
   String _talkTitle(TalkPreview talk, AppLocalizations l10n) {
@@ -541,7 +547,8 @@ class _MineScreenState extends State<MineScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: ExpandedCard(
                           post: post,
-                          categoryName: _postedPath(post),
+                          categoryName: _postedJob(post),
+                          categoryPath: _postedTrail(post),
                           mine: true,
                           wide: true,
                           tail: _cardTail(session, post, l10n),

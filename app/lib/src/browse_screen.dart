@@ -582,6 +582,7 @@ class ExpandedCard extends StatefulWidget {
   const ExpandedCard({
     required this.post,
     this.categoryName,
+    this.categoryPath,
     this.mine = false,
     this.wide = false,
     this.tail,
@@ -590,6 +591,7 @@ class ExpandedCard extends StatefulWidget {
 
   final FeedPost post;
   final String? categoryName;
+  final String? categoryPath;
   final bool mine;
   final bool wide;
   final Widget? tail;
@@ -834,14 +836,27 @@ class _ExpandedCardState extends State<ExpandedCard> {
                       if ((widget.categoryName ?? '').isNotEmpty) ...[
                         Text(
                           widget.categoryName!,
-                          maxLines: widget.mine ? 2 : 1,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: widget.mine ? 16 : 20,
-                            color: const Color(0xFF16332C),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Color(0xFF16332C),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        if ((widget.categoryPath ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.categoryPath!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF16332C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                       ],
                       DecoratedBox(
