@@ -291,25 +291,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
   }
 }
 
-const _tileColors = <Color>[
-  Color(0xFF0F6E56),
-  Color(0xFF1A73E8),
-  Color(0xFFB45309),
-  Color(0xFF7C3AED),
-  Color(0xFF0F766E),
-  Color(0xFFBE185D),
-  Color(0xFF0369A1),
-  Color(0xFF3F6212),
-];
-
-Color _tileColor(String id) {
-  var hash = 0;
-  for (final unit in id.codeUnits) {
-    hash = (hash + unit) & 0x7fffffff;
-  }
-  return _tileColors[hash % _tileColors.length];
-}
-
 const _collapsedPoster = 150.0;
 const _stripGap = 12.0;
 const _stripPad = 12.0;
@@ -383,64 +364,84 @@ class _CategoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final job = row.isJob;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  Speaker.say(SessionHost.of(context).lang, row.name);
-                  if (!job) {
-                    onDrill();
-                  } else if (picking) {
-                    onPick();
-                  }
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: _tileColor(row.id),
-                        shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    Speaker.say(SessionHost.of(context).lang, row.name);
+                    if (!job) {
+                      onDrill();
+                    } else if (picking) {
+                      onPick();
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE7F2EE),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _rowIcon(row),
+                          color: const Color(0xFF0F6E56),
+                          size: 36,
+                        ),
                       ),
-                      child: Icon(_rowIcon(row), color: Colors.white, size: 36),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        row.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          row.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Color(0xFF16332C),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (!job)
-                      const Icon(Icons.chevron_right, size: 28)
-                    else if (picking)
-                      const Icon(Icons.arrow_forward, size: 28),
-                  ],
+                      if (!job)
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 28,
+                          color: Color(0xFF16332C),
+                        )
+                      else if (picking)
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 28,
+                          color: Color(0xFF16332C),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        if (job && !picking)
-          SizedBox(
-            height: openId != null && row.posts.any((post) => post.id == openId)
-                ? 560
-                : 210,
-            child: _JobStrip(
-              posts: row.posts,
-              categoryName: row.name,
-              openId: openId,
-              onOpen: onOpen,
-            ),
+            ],
           ),
-      ],
+          if (job && !picking)
+            SizedBox(
+              height:
+                  openId != null && row.posts.any((post) => post.id == openId)
+                  ? 560
+                  : 210,
+              child: _JobStrip(
+                posts: row.posts,
+                categoryName: row.name,
+                openId: openId,
+                onOpen: onOpen,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
