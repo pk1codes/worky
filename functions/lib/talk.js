@@ -28,7 +28,7 @@ function googleMatch(sub, providerData) {
 
 function meetBody(now, requestId) {
   return {
-    summary: 'Worky Talk',
+    summary: 'Worky',
     start: { dateTime: new Date(now).toISOString() },
     end: { dateTime: new Date(now + VIDEO_MS).toISOString() },
     conferenceData: {

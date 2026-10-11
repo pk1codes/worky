@@ -36,7 +36,7 @@ test('a meet event asks Calendar to create a conference', () => {
   const body = meetBody(1_700_000_000_000, 'req-1');
   assert.equal(body.conferenceData.createRequest.requestId, 'req-1');
   assert.equal(body.conferenceData.createRequest.conferenceSolutionKey.type, 'hangoutsMeet');
-  assert.equal(body.summary, 'Worky Talk');
+  assert.equal(body.summary, 'Worky');
   assert.ok(!body.attendees);
 });
 

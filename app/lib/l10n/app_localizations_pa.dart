@@ -113,7 +113,7 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'ਨੇੜੇ ਦੇ ਲੋਕ ਇਸ ਨੰਬਰ ਤੇ WhatsApp ਜਾਂ ਕਾਲ ਕਰ ਸਕਦੇ ਹਨ। ਹਰ ਵਿਅਕਤੀ ਦਿਨ ਵਿੱਚ ਸਿਰਫ਼ 3 ਵਾਰ। ਉਹ ਤੁਹਾਨੂੰ ਲਗਭਗ 2 ਕਿਮੀ ਦੂਰ ਦੇਖਦੇ ਹਨ, ਠੀਕ ਥਾਂ ਨਹੀਂ। ਪੋਸਟ ਰੋਕ ਸਕਦੇ ਹੋ ਜਾਂ ਖਾਤਾ ਕਦੇ ਵੀ ਮਿਟਾ ਸਕਦੇ ਹੋ। ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਨੂੰ ਸੰਪਰਕ ਕਰਦੇ ਹੋ ਤਾਂ ਉਹ ਤੁਹਾਡਾ ਨੰਬਰ ਦੇਖ ਕੇ ਤੁਹਾਨੂੰ ਰੋਕ ਸਕਦੇ ਹਨ। ਨੇੜੇ ਦੇ ਲੋਕ Worky Talk ਵਿੱਚ ਵੀ ਸੁਨੇਹਾ ਭੇਜ ਸਕਦੇ ਹਨ।';
+      'ਨੇੜੇ ਦੇ ਲੋਕ ਇਸ ਨੰਬਰ ਤੇ WhatsApp ਜਾਂ ਕਾਲ ਕਰ ਸਕਦੇ ਹਨ। ਹਰ ਵਿਅਕਤੀ ਦਿਨ ਵਿੱਚ ਸਿਰਫ਼ 3 ਵਾਰ। ਉਹ ਤੁਹਾਨੂੰ ਲਗਭਗ 2 ਕਿਮੀ ਦੂਰ ਦੇਖਦੇ ਹਨ, ਠੀਕ ਥਾਂ ਨਹੀਂ। ਪੋਸਟ ਰੋਕ ਸਕਦੇ ਹੋ ਜਾਂ ਖਾਤਾ ਕਦੇ ਵੀ ਮਿਟਾ ਸਕਦੇ ਹੋ। ਜੇ ਤੁਸੀਂ ਕਿਸੇ ਨੂੰ ਸੰਪਰਕ ਕਰਦੇ ਹੋ ਤਾਂ ਉਹ ਤੁਹਾਡਾ ਨੰਬਰ ਦੇਖ ਕੇ ਤੁਹਾਨੂੰ ਰੋਕ ਸਕਦੇ ਹਨ। ਨੇੜੇ ਦੇ ਲੋਕ Worky ਵਿੱਚ ਵੀ ਸੁਨੇਹਾ ਭੇਜ ਸਕਦੇ ਹਨ।';
 
   @override
   String get block => 'ਬਲਾਕ';
@@ -128,7 +128,7 @@ class AppLocalizationsPa extends AppLocalizations {
   String get speaks => 'ਬੋਲਦੇ ਹਨ';
 
   @override
-  String get workyTalk => 'Worky Talk';
+  String get workyTalk => 'Worky';
 
   @override
   String get typeMessage => 'ਸੁਨੇਹਾ';
@@ -141,7 +141,7 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get videoNotice =>
-      'Worky can see, create, change, and delete events on calendars you own. Worky uses that only to add one Worky Talk event on your primary calendar, share that Meet link with the other person in this talk, and delete that event if the call is not saved. Worky deletes the stored link when the talk is closed and when the talk is next opened after two hours, does not send the link after two hours, and keeps the stored link if the talk is not opened again. Worky\'s use of information from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.';
+      'Worky can see, create, change, and delete events on calendars you own. Worky uses that only to add one Worky event on your primary calendar, share that Meet link with the other person in this talk, and delete that event if the call is not saved. Worky deletes the stored link when the talk is closed and when the talk is next opened after two hours, does not send the link after two hours, and keeps the stored link if the talk is not opened again. Worky\'s use of information from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.';
 
   @override
   String get call => 'ਕਾਲ';

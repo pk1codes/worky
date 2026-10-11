@@ -456,7 +456,7 @@ async function pingTalk(other, body, id) {
   try {
     const result = await admin.messaging().sendEachForMulticast({
       tokens,
-      notification: { title: 'Worky Talk', body },
+      notification: { title: 'Worky', body },
       data: { pairId: id },
       android: { priority: 'high' },
     });
