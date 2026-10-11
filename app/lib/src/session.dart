@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +13,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
 import 'config.dart';
 import 'media_queue.dart';
+
+String? _isoCountry(String? raw) {
+  if (raw == null) return null;
+  final code = raw.trim().toUpperCase();
+  if (code.length != 2) return null;
+  final a = code.codeUnitAt(0);
+  final b = code.codeUnitAt(1);
+  if (a < 65 || a > 90 || b < 65 || b > 90) return null;
+  return code;
+}
 
 class Session extends ChangeNotifier {
   Session(this.auth) : api = WorkyApi(auth) {
@@ -30,6 +42,11 @@ class Session extends ChangeNotifier {
   User? user;
   double? lat;
   double? lng;
+  String? country;
+  String? countryName;
+  double? _flagLat;
+  double? _flagLng;
+  var _flagGen = 0;
   static const feedTtl = Duration(hours: 1);
   final Map<String, List<FeedCategory>> feedCache = {};
   final Map<String, int> _feedAt = {};
@@ -49,6 +66,10 @@ class Session extends ChangeNotifier {
       lat = cachedLat;
       lng = cachedLng;
     }
+    country = _isoCountry(_prefs!.getString('country'));
+    countryName = _prefs!.getString('countryName');
+    _flagLat = _prefs!.getDouble('flagLat');
+    _flagLng = _prefs!.getDouble('flagLng');
     if (kIsWeb && !kUseEmulator) {
       try {
         final result = await auth.getRedirectResult();
@@ -61,6 +82,7 @@ class Session extends ChangeNotifier {
     }
     ready = true;
     notifyListeners();
+    unawaited(_resolveCountry());
     if (user != null) outbox.kick();
     auth.authStateChanges().listen((next) async {
       user = next;
@@ -146,12 +168,67 @@ class Session extends ChangeNotifier {
     await _prefs?.setDouble('lat', lat!);
     await _prefs?.setDouble('lng', lng!);
     notifyListeners();
+    unawaited(_resolveCountry());
     if (user != null) {
       try {
         await api.saveMe(lang: lang, whatsapp: whatsapp, lat: lat, lng: lng);
       } catch (_) {}
     }
     return true;
+  }
+
+  Future<void> _resolveCountry() async {
+    if (kIsWeb) return;
+    final hereLat = lat;
+    final hereLng = lng;
+    if (hereLat == null || hereLng == null) return;
+    final anchorLat = _flagLat;
+    final anchorLng = _flagLng;
+    if (anchorLat != null &&
+        anchorLng != null &&
+        (hereLat - anchorLat).abs() <= 0.1 &&
+        (hereLng - anchorLng).abs() <= 0.1) {
+      return;
+    }
+    final gen = ++_flagGen;
+    String? iso;
+    String? name;
+    try {
+      final marks = await Geocoding().placemarkFromCoordinates(
+        hereLat,
+        hereLng,
+      );
+      if (gen != _flagGen || lat != hereLat || lng != hereLng) return;
+      if (marks.isNotEmpty) {
+        iso = _isoCountry(marks.first.isoCountryCode);
+        final label = marks.first.country?.trim();
+        if (iso != null && label != null && label.isNotEmpty) name = label;
+      }
+    } catch (_) {
+      if (gen != _flagGen || lat != hereLat || lng != hereLng) return;
+    }
+    _flagLat = hereLat;
+    _flagLng = hereLng;
+    final changed = country != iso || countryName != name;
+    country = iso;
+    countryName = name;
+    final prefs = _prefs;
+    if (prefs != null) {
+      await prefs.setDouble('flagLat', hereLat);
+      await prefs.setDouble('flagLng', hereLng);
+      if (iso == null) {
+        await prefs.remove('country');
+        await prefs.remove('countryName');
+      } else {
+        await prefs.setString('country', iso);
+        if (name == null) {
+          await prefs.remove('countryName');
+        } else {
+          await prefs.setString('countryName', name);
+        }
+      }
+    }
+    if (changed) notifyListeners();
   }
 
   Future<void> signIn() async {

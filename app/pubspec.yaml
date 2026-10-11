@@ -59,6 +59,8 @@ dependencies:
   light_compressor: ^2.2.0
   path_provider: ^2.1.6
   cached_network_image: ^4.0.3
+  geocoding: ^5.0.0
+  circle_flags: 5.0.1
 
 dev_dependencies:
   flutter_test:

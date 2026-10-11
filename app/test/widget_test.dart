@@ -1,3 +1,4 @@
+import 'package:circle_flags/circle_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worky/src/browse_screen.dart';
@@ -113,5 +114,28 @@ void main() {
     final size = tester.getSize(find.byType(IconButton));
     expect(size.width, 72);
     expect(size.height, lessThanOrEqualTo(64));
+  });
+
+  testWidgets('header flag is a 16px named circle', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Semantics(
+            label: 'India',
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black12),
+              ),
+              child: CircleFlag('IN', size: 16),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.bySemanticsLabel('India'), findsOneWidget);
+    expect(tester.getSize(find.byType(CircleFlag)), const Size(16, 16));
+    expect(tester.takeException(), isNull);
   });
 }

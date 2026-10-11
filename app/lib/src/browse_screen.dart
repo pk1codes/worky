@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:circle_flags/circle_flags.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -179,6 +180,17 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         semanticLabel: 'Worky',
                       ),
                     ),
+                    if (session.lat != null && session.country != null)
+                      Semantics(
+                        label: session.countryName ?? session.country!,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black12),
+                          ),
+                          child: CircleFlag(session.country!, size: 16),
+                        ),
+                      ),
                     const Spacer(),
                     if (!widget.picking)
                       BigIcon(
