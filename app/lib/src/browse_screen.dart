@@ -844,19 +844,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        if ((widget.categoryPath ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.categoryPath!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF16332C),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 8),
                       ],
                       DecoratedBox(
@@ -869,6 +856,14 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if ((widget.categoryPath ?? '').isNotEmpty) ...[
+                                _fact(
+                                  Icons.category,
+                                  widget.categoryPath!,
+                                  maxLines: 2,
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                               _fact(Icons.calendar_today, _when(context)),
                               const SizedBox(height: 4),
                               _fact(
