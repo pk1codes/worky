@@ -266,7 +266,7 @@ class Session extends ChangeNotifier {
     }
     final account = await GoogleSignIn.instance.authenticate();
     final idToken = account.authentication.idToken;
-    if (idToken == null) return;
+    if (idToken == null) throw StateError('sign-in');
     await auth.signInWithCredential(
       GoogleAuthProvider.credential(idToken: idToken),
     );

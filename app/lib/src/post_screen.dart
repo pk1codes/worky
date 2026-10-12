@@ -41,7 +41,9 @@ class _PostScreenState extends State<PostScreen> {
   MediaQueue? _box;
   List<MediaItem> _library = [];
   MapLibreMapController? _map;
-  var _placeMap = false;
+  var _mapReady = false;
+  var _langsReady = false;
+  var _holdPicker = false;
 
   @override
   void initState() {
@@ -66,7 +68,6 @@ class _PostScreenState extends State<PostScreen> {
       };
       _lat ??= session.lat;
       _lng ??= session.lng;
-      if (mounted) setState(() {});
       unawaited(Speaker.say(session.lang, AppLocalizations.of(context).post));
       try {
         final library = await session.api.library();
@@ -300,11 +301,42 @@ class _PostScreenState extends State<PostScreen> {
                 ),
               ),
               Expanded(
-                child: _step == 0
-                    ? _pickCategory()
-                    : _step == 1
-                    ? _place(session, l10n)
-                    : _media(session, l10n),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final mapHeight = (constraints.maxHeight - 88).clamp(
+                      1.0,
+                      constraints.maxHeight,
+                    );
+                    return Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        const ColoredBox(color: Color(0xFFE7F2EE)),
+                        if (_mapReady)
+                          Positioned(
+                            left: _step == 1 && !_holdPicker
+                                ? 0
+                                : constraints.maxWidth,
+                            top: 0,
+                            width: constraints.maxWidth,
+                            height: mapHeight,
+                            child: _keptMap(session),
+                          ),
+                        if (_step == 0 || _holdPicker)
+                          Positioned.fill(
+                            child: Offstage(
+                              offstage: _holdPicker,
+                              child: _pickCategory(),
+                            ),
+                          ),
+                        if (_step == 1)
+                          Positioned.fill(child: _place(session, l10n)),
+                        if (_step == 2)
+                          Positioned.fill(child: _media(session, l10n)),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -314,16 +346,39 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   void _enter(int step, {String? categoryId}) {
+    final fromPicker = _step == 0 && step == 1;
     setState(() {
       if (categoryId != null) _categoryId = categoryId;
       _step = step;
-      _placeMap = false;
-      _map = null;
+      if (step != 1) {
+        _langsReady = false;
+        _holdPicker = false;
+      } else if (fromPicker) {
+        _holdPicker = true;
+        _langsReady = false;
+      }
     });
     if (step != 1) return;
+    if (!fromPicker) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _step != 1) return;
+        setState(() {
+          _mapReady = true;
+          _langsReady = true;
+        });
+      });
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _step != 1 || _placeMap) return;
-      setState(() => _placeMap = true);
+      if (!mounted || _step != 1) return;
+      setState(() => _holdPicker = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _step != 1) return;
+        setState(() {
+          _mapReady = true;
+          _langsReady = true;
+        });
+      });
     });
   }
 
@@ -371,91 +426,85 @@ class _PostScreenState extends State<PostScreen> {
     }
   }
 
+  Widget _keptMap(Session session) {
+    return MapLibreMap(
+      styleString: 'https://tiles.openfreemap.org/styles/liberty',
+      initialCameraPosition: CameraPosition(
+        target: LatLng(
+          _lat ?? session.lat ?? 20.5,
+          _lng ?? session.lng ?? 78.9,
+        ),
+        zoom: 17,
+      ),
+      onMapCreated: (controller) => _map = controller,
+      onStyleLoadedCallback: () {
+        final lat = _lat ?? session.lat;
+        final lng = _lng ?? session.lng;
+        if (lat == null || lng == null) return;
+        unawaited(_pin(lat, lng));
+      },
+      onMapClick: (_, latLng) {
+        setState(() {
+          _lat = latLng.latitude;
+          _lng = latLng.longitude;
+        });
+        unawaited(_pin(latLng.latitude, latLng.longitude));
+      },
+    );
+  }
+
   Widget _place(Session session, AppLocalizations l10n) {
     return Column(
       children: [
         Expanded(
-          child: Stack(
-            children: [
-              if (_placeMap)
-                MapLibreMap(
-                  styleString: 'https://tiles.openfreemap.org/styles/liberty',
-                  initialCameraPosition: CameraPosition(
-                    target: LatLng(
-                      _lat ?? session.lat ?? 20.5,
-                      _lng ?? session.lng ?? 78.9,
-                    ),
-                    zoom: 17,
-                  ),
-                  onMapCreated: (controller) => _map = controller,
-                  onStyleLoadedCallback: () {
-                    final lat = _lat ?? session.lat;
-                    final lng = _lng ?? session.lng;
-                    if (lat == null || lng == null) return;
-                    _map?.animateCamera(
-                      CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
-                      duration: const Duration(milliseconds: 350),
-                    );
-                    unawaited(_pin(lat, lng));
-                  },
-                  onMapClick: (_, latLng) {
-                    setState(() {
-                      _lat = latLng.latitude;
-                      _lng = latLng.longitude;
-                    });
-                    unawaited(_pin(latLng.latitude, latLng.longitude));
-                  },
-                )
-              else
-                const ColoredBox(color: Color(0xFFE7F2EE)),
-              Align(
-                alignment: const Alignment(0, 0.2),
-                child: BigIcon(
-                  icon: Icons.my_location,
-                  filled: true,
-                  label: l10n.useMyPlace,
-                  onTap: () => _useMyPlace(session, l10n),
-                ),
-              ),
-            ],
+          child: Align(
+            alignment: const Alignment(0, 0.2),
+            child: BigIcon(
+              icon: Icons.my_location,
+              filled: true,
+              label: l10n.useMyPlace,
+              onTap: () => _useMyPlace(session, l10n),
+            ),
           ),
         ),
         SizedBox(
           height: 88,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(8),
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Center(
-                  child: Text(
-                    l10n.speaks,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+          child: _langsReady
+              ? ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.all(8),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Center(
+                        child: Text(
+                          l10n.speaks,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              for (final code in kLangs)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: LangTile(
-                    code: code,
-                    compact: true,
-                    selected: _langs.contains(code),
-                    onTap: () => setState(() {
-                      if (_langs.contains(code) && _langs.length > 1) {
-                        _langs.remove(code);
-                      } else {
-                        _langs.add(code);
-                      }
-                    }),
-                  ),
-                ),
-            ],
-          ),
+                    for (final code in kLangs)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: LangTile(
+                          code: code,
+                          compact: true,
+                          selected: _langs.contains(code),
+                          onTap: () => setState(() {
+                            if (_langs.contains(code) && _langs.length > 1) {
+                              _langs.remove(code);
+                            } else {
+                              _langs.add(code);
+                            }
+                          }),
+                        ),
+                      ),
+                  ],
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
