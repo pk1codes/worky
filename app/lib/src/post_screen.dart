@@ -41,6 +41,7 @@ class _PostScreenState extends State<PostScreen> {
   MediaQueue? _box;
   List<MediaItem> _library = [];
   MapLibreMapController? _map;
+  var _placeMap = false;
 
   @override
   void initState() {
@@ -251,7 +252,7 @@ class _PostScreenState extends State<PostScreen> {
                         if (_step == 0) {
                           Navigator.pop(context);
                         } else {
-                          setState(() => _step -= 1);
+                          _enter(_step - 1);
                         }
                       },
                     ),
@@ -274,7 +275,7 @@ class _PostScreenState extends State<PostScreen> {
                         compact: true,
                         onTap: _step == 0 && _categoryId == null
                             ? null
-                            : () => setState(() => _step += 1),
+                            : () => _enter(_step + 1),
                       )
                     else
                       BigIcon(
@@ -312,13 +313,24 @@ class _PostScreenState extends State<PostScreen> {
     );
   }
 
+  void _enter(int step, {String? categoryId}) {
+    setState(() {
+      if (categoryId != null) _categoryId = categoryId;
+      _step = step;
+      _placeMap = false;
+      _map = null;
+    });
+    if (step != 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _step != 1 || _placeMap) return;
+      setState(() => _placeMap = true);
+    });
+  }
+
   Widget _pickCategory() {
     return BrowseScreen(
       picking: true,
-      onPicked: (id) => setState(() {
-        _categoryId = id;
-        _step = 1;
-      }),
+      onPicked: (id) => _enter(1, categoryId: id),
     );
   }
 
@@ -365,34 +377,37 @@ class _PostScreenState extends State<PostScreen> {
         Expanded(
           child: Stack(
             children: [
-              MapLibreMap(
-                styleString: 'https://tiles.openfreemap.org/styles/liberty',
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(
-                    _lat ?? session.lat ?? 20.5,
-                    _lng ?? session.lng ?? 78.9,
+              if (_placeMap)
+                MapLibreMap(
+                  styleString: 'https://tiles.openfreemap.org/styles/liberty',
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(
+                      _lat ?? session.lat ?? 20.5,
+                      _lng ?? session.lng ?? 78.9,
+                    ),
+                    zoom: 17,
                   ),
-                  zoom: 17,
-                ),
-                onMapCreated: (controller) => _map = controller,
-                onStyleLoadedCallback: () {
-                  final lat = _lat ?? session.lat;
-                  final lng = _lng ?? session.lng;
-                  if (lat == null || lng == null) return;
-                  _map?.animateCamera(
-                    CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
-                    duration: const Duration(milliseconds: 350),
-                  );
-                  unawaited(_pin(lat, lng));
-                },
-                onMapClick: (_, latLng) {
-                  setState(() {
-                    _lat = latLng.latitude;
-                    _lng = latLng.longitude;
-                  });
-                  unawaited(_pin(latLng.latitude, latLng.longitude));
-                },
-              ),
+                  onMapCreated: (controller) => _map = controller,
+                  onStyleLoadedCallback: () {
+                    final lat = _lat ?? session.lat;
+                    final lng = _lng ?? session.lng;
+                    if (lat == null || lng == null) return;
+                    _map?.animateCamera(
+                      CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
+                      duration: const Duration(milliseconds: 350),
+                    );
+                    unawaited(_pin(lat, lng));
+                  },
+                  onMapClick: (_, latLng) {
+                    setState(() {
+                      _lat = latLng.latitude;
+                      _lng = latLng.longitude;
+                    });
+                    unawaited(_pin(latLng.latitude, latLng.longitude));
+                  },
+                )
+              else
+                const ColoredBox(color: Color(0xFFE7F2EE)),
               Align(
                 alignment: const Alignment(0, 0.2),
                 child: BigIcon(
