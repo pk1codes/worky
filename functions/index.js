@@ -7,6 +7,7 @@ const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm,
 const { categoryTrail } = require('./lib/categories');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
 const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
+const { allow, clientIp, overCap } = require('./lib/gate');
 
 admin.initializeApp({
   projectId: 'worky-93fbc',
@@ -135,6 +136,33 @@ async function authed(req, res) {
   }
 }
 
+function pace(key, max, windowMs) {
+  const hit = allow(key, max, windowMs);
+  return hit.ok ? 0 : hit.retryAfter;
+}
+
+function tooFast(res, retryAfter) {
+  res.set('Retry-After', String(retryAfter || 1));
+  send(res, 429, { error: 'try_again' });
+}
+
+function fail(res, status, retryAfter) {
+  if (status === 429) {
+    tooFast(res, retryAfter);
+    return;
+  }
+  send(res, status, { error: 'try_again' });
+}
+
+async function alreadyOver(key, max) {
+  const snap = await db.collection('limits').doc(key).get();
+  if (!snap.exists) return 0;
+  const now = Date.now();
+  const reset = snap.get('reset') || 0;
+  if (!overCap(snap.get('n') || 0, reset, now, max)) return 0;
+  return Math.max(1, Math.ceil((reset - now) / 1000));
+}
+
 async function limited(key, max, windowMs) {
   const ref = db.collection('limits').doc(key);
   const now = Date.now();
@@ -146,10 +174,27 @@ async function limited(key, max, windowMs) {
       n = snap.get('n') || 0;
       reset = snap.get('reset');
     }
+    if (overCap(n, reset, now, max)) {
+      return Math.max(1, Math.ceil((reset - now) / 1000));
+    }
     n += 1;
     tx.set(ref, { n, reset });
-    return n > max;
+    return 0;
   });
+}
+
+function pipeFile(res, filePath, contentType) {
+  const stream = bucket.file(filePath).createReadStream();
+  stream.on('error', (err) => {
+    console.error(err);
+    if (!res.headersSent) send(res, 500, { error: 'try_again' });
+    else res.destroy();
+  });
+  res.status(200);
+  res.set('Content-Type', contentType);
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Cache-Control', 'private, max-age=3600');
+  stream.pipe(res);
 }
 
 function numberList(value) {
@@ -417,7 +462,10 @@ async function ensurePair(uid, owner, postId) {
   const post = await db.collection('posts').doc(postId).get();
   if (!post.exists || post.get('uid') !== owner || post.get('status') !== 'active') return { status: 404 };
   if (post.get('contactsOpen') === false) return { status: 404 };
-  if (await limited(`pair_${uid}`, 3, DAY_MS)) return { status: 429 };
+  const burstWait = pace(`pair_${uid}`, 3, 10_000);
+  if (burstWait) return { status: 429, retryAfter: burstWait };
+  const capped = await limited(`pair_${uid}`, 3, DAY_MS);
+  if (capped) return { status: 429, retryAfter: capped };
   try {
     await ref.create({
       members: [uid, owner].sort(),
@@ -476,12 +524,16 @@ async function messageFrom(req, uid) {
   const text = cleanText(req.body?.text);
   const mediaId = typeof req.body?.mediaId === 'string' ? req.body.mediaId : '';
   if (text && mediaId) return { status: 400 };
+  if (!text && !mediaId) return { status: 400 };
+  const burstWait = pace(`send_${uid}`, 8, 10_000);
+  if (burstWait) return { status: 429, retryAfter: burstWait };
   if (text) {
-    if (await limited(`txt_${uid}`, 400, DAY_MS)) return { status: 429 };
+    const capped = await limited(`txt_${uid}`, 400, DAY_MS);
+    if (capped) return { status: 429, retryAfter: capped };
     return { msg: { kind: 'text', text }, preview: talkPreview('text', text) };
   }
-  if (!mediaId) return { status: 400 };
-  if (await limited(`voi_${uid}`, 60, DAY_MS)) return { status: 429 };
+  const capped = await limited(`voi_${uid}`, 60, DAY_MS);
+  if (capped) return { status: 429, retryAfter: capped };
   const media = await db.collection('media').doc(mediaId).get();
   if (!media.exists || media.get('uid') !== uid || media.get('kind') !== 'voice' || media.get('status') !== 'ready') {
     return { status: 400 };
@@ -562,6 +614,11 @@ async function talk(req, res, uid, path, bits) {
       send(res, 400, { error: 'try_again' });
       return true;
     }
+    const wait = pace(`push_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return true;
+    }
     const user = await db.collection('users').doc(uid).get();
     const tokens = numberList(user.get('pushTokens')).filter((item) => item !== token);
     tokens.push(token);
@@ -587,6 +644,11 @@ async function talk(req, res, uid, path, bits) {
       return true;
     }
     if (req.method === 'GET' && !bits[4]) {
+      const wait = pace(`talk_${uid}`, 6, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return true;
+      }
       const loaded = await loadTalk(id, uid);
       if (!loaded || loaded.missing) {
         send(res, 200, { pairId: '', closed: false, messages: [] });
@@ -603,12 +665,12 @@ async function talk(req, res, uid, path, bits) {
     if (req.method === 'POST' && !bits[4]) {
       const made = await messageFrom(req, uid);
       if (made.status) {
-        send(res, made.status, { error: 'try_again' });
+        fail(res, made.status, made.retryAfter);
         return true;
       }
       const room = await ensurePair(uid, owner, post.id);
       if (room.status) {
-        send(res, room.status, { error: 'try_again' });
+        fail(res, room.status, room.retryAfter);
         return true;
       }
       try {
@@ -628,6 +690,20 @@ async function talk(req, res, uid, path, bits) {
     return true;
   }
 
+  if (req.method === 'GET' && !bits[3]) {
+    const wait = pace(`talk_${uid}`, 6, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return true;
+    }
+  }
+  if (req.method === 'POST' && bits[3] === 'block') {
+    const wait = pace(`tblock_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return true;
+    }
+  }
   const loaded = await loadTalk(bits[2], uid);
   if (!loaded || loaded.missing) {
     send(res, 404, { error: 'try_again' });
@@ -655,7 +731,7 @@ async function talk(req, res, uid, path, bits) {
   if (req.method === 'POST' && !bits[3]) {
     const made = await messageFrom(req, uid);
     if (made.status) {
-      send(res, made.status, { error: 'try_again' });
+      fail(res, made.status, made.retryAfter);
       return true;
     }
     try {
@@ -693,7 +769,7 @@ async function startVideo(req, res, uid, owner, postId, existingId) {
   } else {
     room = await ensurePair(uid, owner, postId);
     if (room.status) {
-      send(res, room.status, { error: 'try_again' });
+      fail(res, room.status, room.retryAfter);
       return;
     }
   }
@@ -706,8 +782,14 @@ async function startVideo(req, res, uid, owner, postId, existingId) {
     });
     return;
   }
-  if (await limited(`vid_${uid}`, 5, DAY_MS)) {
-    send(res, 429, { error: 'try_again' });
+  const burstWait = pace(`vid_${uid}`, 3, 10_000);
+  if (burstWait) {
+    tooFast(res, burstWait);
+    return;
+  }
+  const capped = await limited(`vid_${uid}`, 5, DAY_MS);
+  if (capped) {
+    tooFast(res, capped);
     return;
   }
   const made = await createMeet(accessToken, uid);
@@ -798,8 +880,20 @@ async function handle(req, res) {
 
   if (req.method === 'GET' && bits[0] === 'v1' && bits[1] === 'files' && bits[2]) {
     const id = decodeURIComponent(bits[2]);
+    const ip = clientIp(req.get('x-forwarded-for'), req.ip);
     if (!tokenOk(id, req.query.t)) {
+      const wait = pace(`bad_${ip}`, 30, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return;
+      }
       send(res, 403, { error: 'try_again' });
+      return;
+    }
+    const shared = id.startsWith('poster:') || id.startsWith('cover:');
+    const wait = shared ? pace(`pub_${id}`, 80, 10_000) : pace(`file_${ip}_${id}`, 6, 30_000);
+    if (wait) {
+      tooFast(res, wait);
       return;
     }
     let filePath = null;
@@ -832,11 +926,7 @@ async function handle(req, res) {
         contentType = 'audio/wav';
       }
     }
-    const [buf] = await bucket.file(filePath).download();
-    res.set('Content-Type', contentType);
-    res.set('X-Content-Type-Options', 'nosniff');
-    res.set('Cache-Control', 'private, max-age=3600');
-    res.status(200).send(buf);
+    pipeFile(res, filePath, contentType);
     return;
   }
 
@@ -855,6 +945,11 @@ async function handle(req, res) {
   if (await talk(req, res, uid, path, bits)) return;
 
   if (req.method === 'GET' && path === '/v1/me') {
+    const wait = pace(`me_${uid}`, 6, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const snap = await db.collection('users').doc(uid).get();
     send(res, 200, {
       lang: snap.exists ? snap.get('lang') || null : null,
@@ -877,6 +972,11 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
+    const wait = pace(`mew_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const prev = await db.collection('users').doc(uid).get();
     const next = {
       lang: lang || (prev.exists ? prev.get('lang') : null),
@@ -894,6 +994,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'DELETE' && path === '/v1/me') {
+    const wait = pace(`delme_${uid}`, 10, 1000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : '';
     const step = await deleteStep(uid, cursor);
     send(res, 200, step.done ? { ok: true } : { cursor: step.cursor });
@@ -901,6 +1006,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && path === '/v1/me/media') {
+    const wait = pace(`mlib_${uid}`, 6, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const media = await db.collection('media').where('uid', '==', uid).get();
     const rows = media.docs
       .filter((d) => d.get('status') === 'ready' && d.get('kind') !== 'voice')
@@ -914,6 +1024,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && path === '/v1/me/posts') {
+    const wait = pace(`mine_${uid}`, 6, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const posts = await db.collection('posts').where('uid', '==', uid).get();
     const me = await db.collection('users').doc(uid).get();
     const blocked = new Set(numberList(me.get('blockedNumbers')));
@@ -960,6 +1075,11 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
+    const wait = pace(`blocks_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const posts = await db.collection('posts').where('uid', '==', uid).get();
     const known = posts.docs.some((doc) =>
       Object.values(doc.get('reaches') || {}).some((row) => row && row.number === number),
@@ -982,8 +1102,9 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && path === '/v1/feed') {
-    if (await limited(`feed_${uid}`, 180, 3600_000)) {
-      send(res, 429, { error: 'try_again' });
+    const wait = pace(`feed_${uid}`, 8, 5_000);
+    if (wait) {
+      tooFast(res, wait);
       return;
     }
     const lang = LANGS.includes(req.query.lang) ? req.query.lang : 'en';
@@ -1050,8 +1171,9 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && !bits[3]) {
-    if (await limited(`detail_${uid}`, 180, 3600_000)) {
-      send(res, 429, { error: 'try_again' });
+    const wait = pace(`detail_${uid}`, 8, 5_000);
+    if (wait) {
+      tooFast(res, wait);
       return;
     }
     const doc = await db.collection('posts').doc(bits[2]).get();
@@ -1094,6 +1216,16 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
+    const burstWait = pace(`revb_${uid}`, 3, 10_000);
+    if (burstWait) {
+      tooFast(res, burstWait);
+      return;
+    }
+    const early = await alreadyOver(`rev_u_${uid}`, 3);
+    if (early) {
+      tooFast(res, early);
+      return;
+    }
     const postRef = db.collection('posts').doc(bits[2]);
     const doc = await postRef.get();
     if (!doc.exists || doc.get('status') !== 'active' || doc.get('uid') === uid) {
@@ -1119,8 +1251,9 @@ async function handle(req, res) {
       send(res, 404, { error: 'try_again' });
       return;
     }
-    if (await limited(`rev_u_${uid}`, 3, 86400_000)) {
-      send(res, 429, { error: 'try_again' });
+    const capped = await limited(`rev_u_${uid}`, 3, 86400_000);
+    if (capped) {
+      tooFast(res, capped);
       return;
     }
     await db.runTransaction(async (tx) => {
@@ -1140,6 +1273,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'POST' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'pause') {
+    const wait = pace(`pause_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const doc = await db.collection('posts').doc(bits[2]).get();
     if (!doc.exists || doc.get('uid') !== uid) {
       send(res, 404, { error: 'try_again' });
@@ -1152,6 +1290,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'POST' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'block') {
+    const wait = pace(`pblock_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const doc = await db.collection('posts').doc(bits[2]).get();
     if (!doc.exists || doc.get('uid') !== uid) {
       send(res, 404, { error: 'try_again' });
@@ -1164,8 +1307,14 @@ async function handle(req, res) {
   }
 
   if (req.method === 'POST' && path === '/v1/media/upload-url') {
-    if (await limited(`up_${uid}`, 40, 86400_000)) {
-      send(res, 429, { error: 'try_again' });
+    const burstWait = pace(`up_${uid}`, 12, 10_000);
+    if (burstWait) {
+      tooFast(res, burstWait);
+      return;
+    }
+    const capped = await limited(`up_${uid}`, 40, 86400_000);
+    if (capped) {
+      tooFast(res, capped);
       return;
     }
     const kind = req.body?.kind;
@@ -1213,6 +1362,11 @@ async function handle(req, res) {
     const id = bits[3];
     if (!tokenOk(id, req.query.t)) {
       send(res, 403, { error: 'try_again' });
+      return;
+    }
+    const wait = pace(`raw_${uid}`, 12, 10_000);
+    if (wait) {
+      tooFast(res, wait);
       return;
     }
     const doc = await db.collection('media').doc(id).get();
@@ -1295,9 +1449,23 @@ async function handle(req, res) {
   }
 
   if ((req.method === 'POST' || req.method === 'PATCH') && (path === '/v1/posts' || (bits[1] === 'posts' && bits[2] && !bits[3]))) {
-    if (req.method === 'POST' && (await limited(`post_${uid}`, 20, 86400_000))) {
-      send(res, 429, { error: 'try_again' });
-      return;
+    if (req.method === 'POST') {
+      const burstWait = pace(`post_${uid}`, 3, 10_000);
+      if (burstWait) {
+        tooFast(res, burstWait);
+        return;
+      }
+      const capped = await limited(`post_${uid}`, 20, 86400_000);
+      if (capped) {
+        tooFast(res, capped);
+        return;
+      }
+    } else {
+      const wait = pace(`edit_${uid}`, 8, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return;
+      }
     }
     const saved = await savePost(req, uid, req.method === 'PATCH' ? bits[2] : null);
     send(res, saved.error ? saved.status : 200, saved.error ? { error: 'try_again' } : saved.body);
@@ -1305,6 +1473,11 @@ async function handle(req, res) {
   }
 
   if (req.method === 'DELETE' && bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && !bits[3]) {
+    const wait = pace(`delp_${uid}`, 8, 10_000);
+    if (wait) {
+      tooFast(res, wait);
+      return;
+    }
     const doc = await db.collection('posts').doc(bits[2]).get();
     if (!doc.exists || doc.get('uid') !== uid) {
       send(res, 404, { error: 'try_again' });
@@ -1338,16 +1511,31 @@ async function handle(req, res) {
       return;
     }
     if (req.method === 'POST' && path === '/v1/admin/categories') {
+      const wait = pace(`admin_${uid}`, 20, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return;
+      }
       const made = await writeCategory(req, null);
       send(res, made.error ? 400 : 200, made.error ? { error: made.error } : made.body);
       return;
     }
     if (req.method === 'PATCH' && bits[2] === 'categories' && bits[3] && !bits[4]) {
+      const wait = pace(`admin_${uid}`, 20, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return;
+      }
       const made = await writeCategory(req, bits[3]);
       send(res, made.error ? 400 : 200, made.error ? { error: made.error } : made.body);
       return;
     }
     if (req.method === 'POST' && bits[2] === 'categories' && bits[3] && bits[4] === 'hide') {
+      const wait = pace(`admin_${uid}`, 20, 10_000);
+      if (wait) {
+        tooFast(res, wait);
+        return;
+      }
       await db.collection('categories').doc(bits[3]).update({ active: req.body?.active === true });
       send(res, 200, { ok: true });
       return;
