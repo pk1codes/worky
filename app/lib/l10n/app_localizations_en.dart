@@ -157,4 +157,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'Log out';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'Privacy';
+
+  @override
+  String get accountDeletion => 'Account deletion';
+
+  @override
+  String get posts => 'Posts';
+
+  @override
+  String get talks => 'Talks';
+
+  @override
+  String get pages => 'Pages';
 }

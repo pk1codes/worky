@@ -158,4 +158,28 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'வெளியேறு';
+
+  @override
+  String get email => 'மின்னஞ்சல்';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'தனியுரிமை';
+
+  @override
+  String get accountDeletion => 'கணக்கு நீக்கம்';
+
+  @override
+  String get posts => 'பதிவுகள்';
+
+  @override
+  String get talks => 'உரையாடல்';
+
+  @override
+  String get pages => 'பக்கங்கள்';
 }

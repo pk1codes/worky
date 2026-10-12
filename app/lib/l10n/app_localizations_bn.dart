@@ -157,4 +157,28 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'বের হন';
+
+  @override
+  String get email => 'ইমেল';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'গোপনীয়তা';
+
+  @override
+  String get accountDeletion => 'অ্যাকাউন্ট মুছে ফেলা';
+
+  @override
+  String get posts => 'পোস্ট';
+
+  @override
+  String get talks => 'কথা';
+
+  @override
+  String get pages => 'পাতা';
 }

@@ -158,4 +158,28 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'പുറത്തുകടക്കുക';
+
+  @override
+  String get email => 'ഇമെയിൽ';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'സ്വകാര്യത';
+
+  @override
+  String get accountDeletion => 'അക്കൗണ്ട് നീക്കം';
+
+  @override
+  String get posts => 'പോസ്റ്റുകൾ';
+
+  @override
+  String get talks => 'സംസാരം';
+
+  @override
+  String get pages => 'പേജുകൾ';
 }

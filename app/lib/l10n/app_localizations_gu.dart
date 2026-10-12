@@ -157,4 +157,28 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'બહાર નીકળો';
+
+  @override
+  String get email => 'ઇમેઇલ';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'ગોપનીયતા';
+
+  @override
+  String get accountDeletion => 'ખાતું કાઢવું';
+
+  @override
+  String get posts => 'પોસ્ટ';
+
+  @override
+  String get talks => 'વાતો';
+
+  @override
+  String get pages => 'પાનાં';
 }

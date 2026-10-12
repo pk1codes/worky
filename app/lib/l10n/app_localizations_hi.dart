@@ -158,4 +158,28 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'बाहर निकलें';
+
+  @override
+  String get email => 'ईमेल';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'गोपनीयता';
+
+  @override
+  String get accountDeletion => 'खाता हटाना';
+
+  @override
+  String get posts => 'पोस्ट';
+
+  @override
+  String get talks => 'बातें';
+
+  @override
+  String get pages => 'पन्ने';
 }

@@ -48,5 +48,13 @@
   "call": "Call",
   "speakThese": "I speak these.",
   "signInGoogle": "Sign in with Google.",
-  "updateAvailable": "Update"
+  "updateAvailable": "Update",
+  "logOut": "Log out",
+  "email": "Email",
+  "whatsapp": "WhatsApp",
+  "privacy": "Privacy",
+  "accountDeletion": "Account deletion",
+  "posts": "Posts",
+  "talks": "Talks",
+  "pages": "Pages"
 }

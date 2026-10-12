@@ -158,4 +158,28 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'నిష్క్రమించు';
+
+  @override
+  String get email => 'ఈమెయిల్';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'గోప్యత';
+
+  @override
+  String get accountDeletion => 'ఖాతా తొలగింపు';
+
+  @override
+  String get posts => 'పోస్టులు';
+
+  @override
+  String get talks => 'మాటలు';
+
+  @override
+  String get pages => 'పేజీలు';
 }

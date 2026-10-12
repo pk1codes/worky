@@ -45,5 +45,13 @@
   "videoCall": "വീഡിയോ",
   "call": "കോൾ",
   "speakThese": "ഞാൻ ഇവ സംസാരിക്കും.",
-  "signInGoogle": "Google ഉപയോഗിച്ച് പ്രവേശിക്കുക."
+  "signInGoogle": "Google ഉപയോഗിച്ച് പ്രവേശിക്കുക.",
+  "logOut": "പുറത്തുകടക്കുക",
+  "email": "ഇമെയിൽ",
+  "whatsapp": "WhatsApp",
+  "privacy": "സ്വകാര്യത",
+  "accountDeletion": "അക്കൗണ്ട് നീക്കം",
+  "posts": "പോസ്റ്റുകൾ",
+  "talks": "സംസാരം",
+  "pages": "പേജുകൾ"
 }

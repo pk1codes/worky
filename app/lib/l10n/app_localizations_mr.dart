@@ -157,4 +157,28 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'बाहेर पडा';
+
+  @override
+  String get email => 'ईमेल';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'गोपनीयता';
+
+  @override
+  String get accountDeletion => 'खाते काढणे';
+
+  @override
+  String get posts => 'पोस्ट';
+
+  @override
+  String get talks => 'गप्पा';
+
+  @override
+  String get pages => 'पाने';
 }

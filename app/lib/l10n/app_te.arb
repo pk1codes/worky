@@ -45,5 +45,13 @@
   "videoCall": "వీడియో",
   "call": "కాల్",
   "speakThese": "నేను ఇవి మాట్లాడతాను.",
-  "signInGoogle": "Google తో సైన్ ఇన్ చేయండి."
+  "signInGoogle": "Google తో సైన్ ఇన్ చేయండి.",
+  "logOut": "నిష్క్రమించు",
+  "email": "ఈమెయిల్",
+  "whatsapp": "WhatsApp",
+  "privacy": "గోప్యత",
+  "accountDeletion": "ఖాతా తొలగింపు",
+  "posts": "పోస్టులు",
+  "talks": "మాటలు",
+  "pages": "పేజీలు"
 }
