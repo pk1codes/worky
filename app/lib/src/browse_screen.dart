@@ -1016,56 +1016,72 @@ class _ExpandedCardState extends State<ExpandedCard> {
                     ),
                     child: tail,
                   ),
-                if (!widget.mine && _detailMine == false)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: BigIcon(
-                            icon: Icons.forum,
-                            label: l10n.workyTalk,
-                            filled: true,
-                            compact: true,
-                            stretch: true,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    TalkScreen(postId: widget.post.id),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: BigIcon(
-                            icon: Icons.chat,
-                            label: 'WhatsApp',
-                            filled: true,
-                            compact: true,
-                            stretch: true,
-                            color: const Color(0xFF25D366),
-                            onTap: () => _open('whatsapp'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: BigIcon(
-                            icon: Icons.call,
-                            label: l10n.call,
-                            filled: true,
-                            compact: true,
-                            stretch: true,
-                            color: const Color(0xFF1A73E8),
-                            onTap: () => _open('phone'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                if (!widget.mine) _contactActions(l10n),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contactActions(AppLocalizations l10n) {
+    final own = _detailMine == true;
+    final row = Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: BigIcon(
+              icon: Icons.forum,
+              label: l10n.workyTalk,
+              filled: true,
+              compact: true,
+              stretch: true,
+              onTap: own
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TalkScreen(postId: widget.post.id),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: BigIcon(
+              icon: Icons.chat,
+              label: 'WhatsApp',
+              filled: true,
+              compact: true,
+              stretch: true,
+              color: const Color(0xFF25D366),
+              onTap: own ? null : () => _open('whatsapp'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: BigIcon(
+              icon: Icons.call,
+              label: l10n.call,
+              filled: true,
+              compact: true,
+              stretch: true,
+              color: const Color(0xFF1A73E8),
+              onTap: own ? null : () => _open('phone'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!own) return row;
+    return ExcludeSemantics(
+      child: Opacity(
+        opacity: 0.45,
+        child: GestureDetector(
+          onTap: () {},
+          behavior: HitTestBehavior.opaque,
+          child: row,
         ),
       ),
     );
