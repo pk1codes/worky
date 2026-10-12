@@ -281,7 +281,12 @@ class Session extends ChangeNotifier {
     final account = await GoogleSignIn.instance.authenticate();
     _google = account;
     final idToken = account.authentication.idToken;
-    if (idToken == null) return;
+    if (idToken == null || idToken.isEmpty) {
+      throw const GoogleSignInException(
+        code: GoogleSignInExceptionCode.unknownError,
+        description: 'Google did not return a sign-in token.',
+      );
+    }
     await auth.signInWithCredential(
       GoogleAuthProvider.credential(idToken: idToken),
     );

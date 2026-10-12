@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
@@ -15,22 +17,21 @@ class LanguageScreen extends StatefulWidget {
 }
 
 class _LanguageScreenState extends State<LanguageScreen> {
-  final _picked = <String>[];
+  var _busy = false;
 
-  String? get _first => _picked.isEmpty ? null : _picked.first;
-
-  Future<void> _save(Session session) async {
-    final first = _first;
-    if (first == null) return;
-    await session.setSpoken(_picked.toSet());
-    await session.setLang(first);
+  Future<void> _pick(Session session, String code) async {
+    if (_busy) return;
+    _busy = true;
+    unawaited(Speaker.clip(code));
+    await session.setSpoken({code});
+    await session.setLang(code);
+    if (widget.popOnPick && mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final session = SessionHost.of(context);
     final l10n = AppLocalizations.of(context);
-    final first = _first;
     return Paged(
       page: 1,
       child: Scaffold(
@@ -64,34 +65,12 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       LangTile(
                         code: code,
                         uniform: true,
-                        selected: _picked.contains(code),
-                        onTap: () async {
-                          if (widget.popOnPick) {
-                            await session.setLang(code);
-                            if (context.mounted) Navigator.pop(context);
-                            return;
-                          }
-                          final added = !_picked.contains(code);
-                          setState(() {
-                            if (added) {
-                              _picked.add(code);
-                            } else if (_picked.length > 1) {
-                              _picked.remove(code);
-                            }
-                          });
-                          if (_picked.contains(code)) await Speaker.clip(code);
-                        },
+                        selected: session.lang == code,
+                        onTap: () => _pick(session, code),
                       ),
                   ],
                 ),
               ),
-              if (first != null)
-                BigIcon(
-                  icon: Icons.check,
-                  filled: true,
-                  label: lookupAppLocalizations(Locale(first)).continueAction,
-                  onTap: () => _save(session),
-                ),
             ],
           ),
         ),

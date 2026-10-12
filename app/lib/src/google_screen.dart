@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../l10n/app_localizations.dart';
 import 'chrome.dart';
@@ -16,6 +17,7 @@ class GoogleScreen extends StatefulWidget {
 
 class _GoogleScreenState extends State<GoogleScreen> {
   var _busy = false;
+  String? _error;
 
   @override
   void initState() {
@@ -80,22 +82,47 @@ class _GoogleScreenState extends State<GoogleScreen> {
                       filled: true,
                       label: l10n.google,
                       onTap: () async {
-                        setState(() => _busy = true);
+                        setState(() {
+                          _busy = true;
+                          _error = null;
+                        });
                         try {
                           await session.signIn();
-                        } catch (_) {
-                          if (mounted) {
-                            await Speaker.say(session.lang, l10n.tryAgain);
-                          }
+                        } catch (error) {
+                          if (!mounted) return;
+                          setState(() => _error = _signInError(error));
+                          await Speaker.say(session.lang, l10n.tryAgain);
                         } finally {
                           if (mounted) setState(() => _busy = false);
                         }
                       },
                     ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF16332C),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+String _signInError(Object error) {
+  if (error is GoogleSignInException) {
+    final detail = error.description;
+    final code = error.code.name;
+    if (detail == null || detail.isEmpty) return code;
+    return '$code: $detail';
+  }
+  return error.toString();
 }
