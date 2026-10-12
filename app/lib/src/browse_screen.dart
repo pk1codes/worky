@@ -374,73 +374,54 @@ class _CategoryRow extends StatelessWidget {
   final VoidCallback onPick;
   final ValueChanged<String> onOpen;
 
+  void _activate(BuildContext context) {
+    Speaker.say(SessionHost.of(context).lang, row.name);
+    if (!row.isJob) {
+      onDrill();
+    } else if (picking) {
+      onPick();
+    }
+  }
+
+  Widget _name() {
+    return Text(
+      row.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 20,
+        color: Color(0xFF16332C),
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final job = row.isJob;
+    if (!row.isJob) return _folder(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    Speaker.say(SessionHost.of(context).lang, row.name);
-                    if (!job) {
-                      onDrill();
-                    } else if (picking) {
-                      onPick();
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE7F2EE),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _rowIcon(row),
-                          color: const Color(0xFF0F6E56),
-                          size: 36,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          row.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            color: Color(0xFF16332C),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (!job)
-                        const Icon(
-                          Icons.chevron_right,
-                          size: 28,
-                          color: Color(0xFF16332C),
-                        )
-                      else if (picking)
-                        const Icon(
-                          Icons.arrow_forward,
-                          size: 28,
-                          color: Color(0xFF16332C),
-                        ),
-                    ],
-                  ),
-                ),
+          InkWell(
+            onTap: () => _activate(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: _name()),
+                  if (picking)
+                    const Icon(
+                      Icons.arrow_forward,
+                      size: 28,
+                      color: Color(0xFF16332C),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-          if (job && !picking)
+          if (!picking)
             SizedBox(
               height:
                   openId != null && row.posts.any((post) => post.id == openId)
@@ -455,6 +436,92 @@ class _CategoryRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _folder(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFD5E7DF)),
+        ),
+        child: SizedBox(
+          height: 96,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 84,
+                  height: 68,
+                  child: Stack(
+                    children: [
+                      const Positioned(
+                        left: 28,
+                        top: 0,
+                        child: _Peek(color: Color(0xFFD5E7DF)),
+                      ),
+                      const Positioned(
+                        left: 14,
+                        top: 6,
+                        child: _Peek(color: Color(0xFFE7F2EE)),
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: 12,
+                        child: BigIcon(
+                          icon: _rowIcon(row),
+                          extent: 56,
+                          onTap: () => _activate(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _activate(context),
+                    child: SizedBox(
+                      height: 96,
+                      child: Row(
+                        children: [
+                          Expanded(child: _name()),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 28,
+                            color: Color(0xFF16332C),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Peek extends StatelessWidget {
+  const _Peek({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const SizedBox(width: 44, height: 48),
     );
   }
 }
