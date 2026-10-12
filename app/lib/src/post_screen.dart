@@ -43,7 +43,6 @@ class _PostScreenState extends State<PostScreen> {
   MapLibreMapController? _map;
   var _mapReady = false;
   var _langsReady = false;
-  var _holdPicker = false;
 
   @override
   void initState() {
@@ -68,6 +67,7 @@ class _PostScreenState extends State<PostScreen> {
       };
       _lat ??= session.lat;
       _lng ??= session.lng;
+      if (mounted) setState(() => _mapReady = true);
       unawaited(Speaker.say(session.lang, AppLocalizations.of(context).post));
       try {
         final library = await session.api.library();
@@ -314,21 +314,14 @@ class _PostScreenState extends State<PostScreen> {
                         const ColoredBox(color: Color(0xFFE7F2EE)),
                         if (_mapReady)
                           Positioned(
-                            left: _step == 1 && !_holdPicker
-                                ? 0
-                                : constraints.maxWidth,
+                            left: _step == 1 ? 0 : constraints.maxWidth,
                             top: 0,
                             width: constraints.maxWidth,
                             height: mapHeight,
                             child: _keptMap(session),
                           ),
-                        if (_step == 0 || _holdPicker)
-                          Positioned.fill(
-                            child: Offstage(
-                              offstage: _holdPicker,
-                              child: _pickCategory(),
-                            ),
-                          ),
+                        if (_step == 0)
+                          Positioned.fill(child: _pickCategory()),
                         if (_step == 1)
                           Positioned.fill(child: _place(session, l10n)),
                         if (_step == 2)
@@ -346,39 +339,15 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   void _enter(int step, {String? categoryId}) {
-    final fromPicker = _step == 0 && step == 1;
     setState(() {
       if (categoryId != null) _categoryId = categoryId;
       _step = step;
-      if (step != 1) {
-        _langsReady = false;
-        _holdPicker = false;
-      } else if (fromPicker) {
-        _holdPicker = true;
-        _langsReady = false;
-      }
+      if (step != 1) _langsReady = false;
     });
     if (step != 1) return;
-    if (!fromPicker) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _step != 1) return;
-        setState(() {
-          _mapReady = true;
-          _langsReady = true;
-        });
-      });
-      return;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _step != 1) return;
-      setState(() => _holdPicker = false);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _step != 1) return;
-        setState(() {
-          _mapReady = true;
-          _langsReady = true;
-        });
-      });
+      if (!mounted || _step != 1 || _langsReady) return;
+      setState(() => _langsReady = true);
     });
   }
 

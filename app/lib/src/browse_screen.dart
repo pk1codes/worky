@@ -38,8 +38,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
   String? _pinId;
   String? _openId;
   var _failed = false;
-  var _stripGen = 0;
-  var _stripsReady = true;
 
   @override
   void initState() {
@@ -116,15 +114,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
   }
 
-  void _deferStrips() {
-    final gen = ++_stripGen;
-    _stripsReady = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || gen != _stripGen) return;
-      setState(() => _stripsReady = true);
-    });
-  }
-
   void _drill(String id) {
     final session = SessionHost.of(context);
     setState(() {
@@ -132,7 +121,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
       _pinId = null;
       _openId = null;
       _paintCached(session);
-      _deferStrips();
     });
     _load();
   }
@@ -176,7 +164,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
                               _pinId = null;
                               _openId = null;
                               _paintCached(session);
-                              _deferStrips();
                             });
                             _load();
                           } else {
@@ -268,7 +255,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
                                 row: row,
                                 picking: widget.picking,
                                 openId: _openId,
-                                strips: _stripsReady,
                                 onDrill: () => _drill(row.id),
                                 onPick: () => widget.onPicked?.call(row.id),
                                 onOpen: (id) => setState(
@@ -376,7 +362,6 @@ class _CategoryRow extends StatelessWidget {
     required this.row,
     required this.picking,
     required this.openId,
-    required this.strips,
     required this.onDrill,
     required this.onPick,
     required this.onOpen,
@@ -385,7 +370,6 @@ class _CategoryRow extends StatelessWidget {
   final FeedCategory row;
   final bool picking;
   final String? openId;
-  final bool strips;
   final VoidCallback onDrill;
   final VoidCallback onPick;
   final ValueChanged<String> onOpen;
@@ -456,7 +440,7 @@ class _CategoryRow extends StatelessWidget {
               ),
             ],
           ),
-          if (job && !picking && strips)
+          if (job && !picking)
             SizedBox(
               height:
                   openId != null && row.posts.any((post) => post.id == openId)
@@ -553,26 +537,22 @@ class _JobStripState extends State<_JobStrip> {
         final post = widget.posts[index];
         final open = post.id == openId;
         final name = widget.nameOf?.call(post) ?? widget.categoryName;
-        if (open) {
-          final card = ExpandedCard(
-            post: post,
-            categoryName: name,
-            onToggle: () => widget.onOpen(post.id),
-          );
-          return widget.scrollOpen
-              ? SizedBox(
-                  width: _openOuterWidth,
-                  child: SingleChildScrollView(child: card),
-                )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  widthFactor: 1,
-                  child: card,
-                );
-        }
         return GestureDetector(
           onTap: () => widget.onOpen(post.id),
-          child: Align(
+          child: open
+              ? widget.scrollOpen
+                    ? SizedBox(
+                        width: _openOuterWidth,
+                        child: SingleChildScrollView(
+                          child: ExpandedCard(post: post, categoryName: name),
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.topCenter,
+                        widthFactor: 1,
+                        child: ExpandedCard(post: post, categoryName: name),
+                      )
+              : Align(
                   alignment: Alignment.topCenter,
                   widthFactor: 1,
                   child: ClipRRect(
@@ -606,7 +586,6 @@ class ExpandedCard extends StatefulWidget {
     this.mine = false,
     this.wide = false,
     this.tail,
-    this.onToggle,
     super.key,
   });
 
@@ -616,7 +595,6 @@ class ExpandedCard extends StatefulWidget {
   final bool mine;
   final bool wide;
   final Widget? tail;
-  final VoidCallback? onToggle;
 
   @override
   State<ExpandedCard> createState() => _ExpandedCardState();
@@ -814,13 +792,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: widget.onToggle,
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(wide ? 16 : 0),
@@ -918,9 +890,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
                     ],
                   ),
                 ),
@@ -1352,6 +1321,21 @@ class _MapPaneState extends State<_MapPane> {
       _center();
       _draw();
     }
+    final wasOpen = _listed(oldWidget.posts, oldWidget.pinId);
+    final isOpen = _listed(widget.posts, widget.pinId);
+    if (wasOpen != isOpen || oldWidget.openId != widget.openId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller?.forceResizeWebMap();
+      });
+    }
+  }
+
+  bool _listed(List<FeedPost> posts, String? id) {
+    if (id == null) return false;
+    for (final post in posts) {
+      if (post.id == id) return true;
+    }
+    return false;
   }
 
   bool _samePosts(List<FeedPost> a, List<FeedPost> b) {
@@ -1392,16 +1376,11 @@ class _MapPaneState extends State<_MapPane> {
         final wanted = 48.0 + (expanded ? 560.0 : 210.0);
         final sheetHeight = math.min(wanted, cap);
         final showSheet = pin != null && cell.isNotEmpty && sheetHeight >= 48;
-        return Stack(
+        return Column(
           children: [
-            Positioned.fill(
-              child: _map(bottomInset: showSheet ? sheetHeight : 0),
-            ),
+            Expanded(child: _map()),
             if (showSheet)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
+              SizedBox(
                 height: sheetHeight,
                 child: Material(
                   color: Colors.white,
@@ -1460,7 +1439,7 @@ class _MapPaneState extends State<_MapPane> {
     );
   }
 
-  Widget _map({required double bottomInset}) {
+  Widget _map() {
     return Stack(
       children: [
         MapLibreMap(
@@ -1484,7 +1463,7 @@ class _MapPaneState extends State<_MapPane> {
           rotateGesturesEnabled: false,
           tiltGesturesEnabled: false,
         ),
-        Positioned(right: 8, bottom: 8 + bottomInset, child: _controls()),
+        Positioned(right: 8, bottom: 8, child: _controls()),
       ],
     );
   }

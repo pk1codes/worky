@@ -36,7 +36,7 @@ class _MineScreenState extends State<MineScreen> {
   List<TalkPreview> _talks = [];
   var _loading = true;
   var _failed = false;
-  final _armedDelete = ValueNotifier<String?>(null);
+  String? _armedDelete;
   var _armedAccount = false;
   MediaQueue? _box;
   var _seenDrafts = 0;
@@ -70,7 +70,6 @@ class _MineScreenState extends State<MineScreen> {
   @override
   void dispose() {
     _box?.removeListener(_onBox);
-    _armedDelete.dispose();
     super.dispose();
   }
 
@@ -270,6 +269,7 @@ class _MineScreenState extends State<MineScreen> {
   }
 
   Widget _cardTail(Session session, FeedPost post, AppLocalizations l10n) {
+    final armed = _armedDelete == post.id;
     return Column(
       children: [
         DecoratedBox(
@@ -330,28 +330,21 @@ class _MineScreenState extends State<MineScreen> {
                 ),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: ValueListenableBuilder<String?>(
-                    valueListenable: _armedDelete,
-                    builder: (context, armedId, _) {
-                      final armed = armedId == post.id;
-                      return _mineAction(
-                        Icons.delete,
-                        l10n.delete,
-                        () async {
-                          if (armedId != post.id) {
-                            _armedDelete.value = post.id;
-                            await Speaker.say(session.lang, l10n.delete);
-                            return;
-                          }
-                          await session.api.deletePost(post.id);
-                          session.dropFeed();
-                          _armedDelete.value = null;
-                          await _load();
-                        },
-                        filled: armed,
-                        color: armed ? Colors.red : null,
-                      );
+                  child: _mineAction(
+                    Icons.delete,
+                    l10n.delete,
+                    () async {
+                      if (_armedDelete != post.id) {
+                        setState(() => _armedDelete = post.id);
+                        await Speaker.say(session.lang, l10n.delete);
+                        return;
+                      }
+                      await session.api.deletePost(post.id);
+                      session.dropFeed();
+                      await _load();
                     },
+                    filled: armed,
+                    color: armed ? Colors.red : null,
                   ),
                 ),
                 const SizedBox(width: 4),
