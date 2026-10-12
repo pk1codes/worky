@@ -7,12 +7,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'config.dart';
 import 'media_queue.dart';
+
+bool validPhone(String value) {
+  try {
+    return PhoneNumber.parse(value).isValid();
+  } catch (_) {
+    return false;
+  }
+}
 
 String? _isoCountry(String? raw) {
   if (raw == null) return null;
@@ -26,7 +35,7 @@ String? _isoCountry(String? raw) {
 
 class Session extends ChangeNotifier {
   Session(this.auth) : api = WorkyApi(auth) {
-    outbox = MediaQueue(api, onPublished: dropFeed);
+    outbox = MediaQueue(api, onPublished: _published);
   }
 
   final FirebaseAuth auth;
@@ -134,6 +143,9 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> setWhatsapp(String value) async {
+    if (value.isNotEmpty && !validPhone(value)) {
+      throw const FormatException('number');
+    }
     final first = whatsapp == null || whatsapp!.isEmpty;
     whatsapp = value;
     notifyListeners();
@@ -327,7 +339,8 @@ class Session extends ChangeNotifier {
   bool feedIsFresh(String key, double lat, double lng) {
     final hold = feedCache[key];
     if (hold == null) return false;
-    if (DateTime.now().millisecondsSinceEpoch - hold.at >= feedTtl.inMilliseconds) {
+    if (DateTime.now().millisecondsSinceEpoch - hold.at >=
+        feedTtl.inMilliseconds) {
       return false;
     }
     return !needsRing(hold.page, lat, lng);
@@ -346,6 +359,11 @@ class Session extends ChangeNotifier {
           posts: row.isJob ? nearestPosts(row.posts, lat, lng) : const [],
         ),
     ];
+  }
+
+  void _published() {
+    dropFeed();
+    notifyListeners();
   }
 
   void dropFeed() {

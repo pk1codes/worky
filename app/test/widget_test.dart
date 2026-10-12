@@ -4,8 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:worky/src/browse_screen.dart';
 import 'package:worky/src/chrome.dart';
 import 'package:worky/src/langs.dart';
+import 'package:worky/src/session.dart';
 
 void main() {
+  test('whatsapp numbers use a real mobile check', () {
+    expect(validPhone('+919876543210'), isTrue);
+    expect(validPhone('+91910000101'), isFalse);
+  });
+
   test('third card scrolls fully into a phone-width row', () {
     const viewport = 336.0;
     const maxExtent = 308.0;
@@ -80,7 +86,9 @@ void main() {
     }
   });
 
-  testWidgets('labeled icon keeps the word inside the 72px button', (tester) async {
+  testWidgets('labeled icon keeps the word inside the 72px button', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -93,7 +101,10 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    expect(tester.getSize(find.byType(IconButton)).height, greaterThanOrEqualTo(64));
+    expect(
+      tester.getSize(find.byType(IconButton)).height,
+      greaterThanOrEqualTo(64),
+    );
     expect(find.text('Delete account'), findsOneWidget);
   });
 

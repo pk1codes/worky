@@ -74,7 +74,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
       _seenLng = lng;
       return;
     }
-    if (lat == _seenLat && lng == _seenLng) return;
+    if (lat == _seenLat && lng == _seenLng) {
+      if (session.feedBypass) unawaited(_load());
+      return;
+    }
     _seenLat = lat;
     _seenLng = lng;
     final key = session.cacheKey(_parents.last);
@@ -130,7 +133,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         lng: lng,
         lang: session.lang ?? 'en',
         headersOnly: widget.picking,
-        fresh: bypass,
+        fresh: force || bypass,
       );
       if (!mounted) return;
       if (fresh == null) {
@@ -714,6 +717,8 @@ class _ExpandedCardState extends State<ExpandedCard> {
   List<MediaItem> _media = [];
   VideoPlayerController? _video;
   String? _playingUrl;
+  String? _preparingUrl;
+  Future<void>? _prepareTask;
   bool _showPause = false;
   int _playToken = 0;
   bool _ready = false;
@@ -744,6 +749,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
         _ready = true;
         _detailMine = detail.mine;
       });
+      _kickPrepare(detail.media);
       return detail.media;
     } catch (_) {
       _detail = null;
@@ -754,6 +760,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   @override
   void dispose() {
+    _preparingUrl = null;
     _pages.dispose();
     _video?.dispose();
     unawaited(_audio.dispose());
@@ -763,6 +770,40 @@ class _ExpandedCardState extends State<ExpandedCard> {
   Future<void> _playAudio(String url) async {
     await _audio.stop();
     await _audio.play(UrlSource(url));
+  }
+
+  void _kickPrepare(List<MediaItem> media) {
+    for (final item in media) {
+      if (item.kind != 'video' || item.url.isEmpty) continue;
+      if (_preparingUrl == item.url || _playingUrl == item.url) return;
+      _preparingUrl = item.url;
+      _prepareTask = _prepare(item.url);
+      return;
+    }
+  }
+
+  Future<void> _prepare(String url) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      _watch(controller);
+    } catch (_) {
+      await controller.dispose();
+      if (mounted && _preparingUrl == url) {
+        _preparingUrl = null;
+        _prepareTask = null;
+      }
+      return;
+    }
+    if (!mounted || _preparingUrl != url) {
+      await controller.dispose();
+      return;
+    }
+    setState(() {
+      _video = controller;
+      _playingUrl = url;
+    });
   }
 
   Future<void> _play(String url) async {
@@ -817,6 +858,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   }
 
   Future<void> _toggle(String url) async {
+    if (_preparingUrl == url && _video == null) await _prepareTask;
     final controller = _video;
     if (controller == null ||
         _playingUrl != url ||
@@ -1130,11 +1172,27 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   Widget _poster(int cacheWidth) {
     final poster = widget.post.posterUrl;
-    if (poster.isEmpty) return const ColoredBox(color: Color(0xFFE7F2EE));
-    return NetImage(
-      url: poster,
-      fit: BoxFit.cover,
-      cacheLogical: cacheWidth.toDouble(),
+    final thumb = widget.post.thumbUrl;
+    if (poster.isEmpty && thumb.isEmpty) {
+      return const ColoredBox(color: Color(0xFFE7F2EE));
+    }
+    final showPoster = poster.isNotEmpty && poster != thumb;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (thumb.isNotEmpty)
+          NetImage(
+            url: thumb,
+            fit: BoxFit.cover,
+            cacheLogical: cacheWidth.toDouble(),
+          ),
+        if (showPoster || thumb.isEmpty)
+          NetImage(
+            url: poster,
+            fit: BoxFit.cover,
+            cacheLogical: cacheWidth.toDouble(),
+          ),
+      ],
     );
   }
 
@@ -1226,6 +1284,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   }
 
   Future<bool> _openWhatsApp(String digits) async {
+    if (!validPhone('+$digits')) return false;
     final note = _reachNote ?? _composeNote();
     final app = Uri.parse(
       'whatsapp://send?phone=$digits&text=${Uri.encodeComponent(note)}',
