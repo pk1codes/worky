@@ -14,6 +14,43 @@
       },
       "oauth_client": [
         {
+          "client_id": "69334014512-niq1146cmn7f640386fr153h5ln175ai.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lifestations.app",
+            "certificate_hash": "54703c24d81d9d0add50f82213e008e99a0515b3"
+          }
+        },
+        {
+          "client_id": "69334014512-9ldp8s43vq4jj22jhlk1j26f35dfpfap.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADMOPKBm89MTfbPLG3zirL6U-l_-KYHKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "69334014512-9ldp8s43vq4jj22jhlk1j26f35dfpfap.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:69334014512:android:01d200740d8bbf03766bf5",
+        "android_client_info": {
+          "package_name": "com.pk1codes.worky"
+        }
+      },
+      "oauth_client": [
+        {
           "client_id": "69334014512-9ldp8s43vq4jj22jhlk1j26f35dfpfap.apps.googleusercontent.com",
           "client_type": 3
         }
