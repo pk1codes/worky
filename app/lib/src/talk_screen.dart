@@ -165,8 +165,22 @@ class _TalkScreenState extends State<TalkScreen> {
     if (!mounted) return;
     setState(() => _recording = false);
     if (path == null) return;
-    setState(() => _sending = true);
-    final api = SessionHost.of(context).api;
+    final localId = 'local-voice-${DateTime.now().millisecondsSinceEpoch}';
+    final session = SessionHost.of(context);
+    setState(() {
+      _sending = true;
+      _messages = [
+        ..._messages,
+        TalkMessage(
+          id: localId,
+          from: session.user?.uid ?? '',
+          at: DateTime.now().millisecondsSinceEpoch,
+          kind: 'voice',
+          durMs: ms,
+        ),
+      ];
+    });
+    final api = session.api;
     try {
       final length = await files.byteLength(path);
       final ticket = await api.openUpload(
@@ -183,9 +197,23 @@ class _TalkScreenState extends State<TalkScreen> {
       if (!mounted) return;
       final sent = await _post(mediaId: ticket.mediaId, durMs: ms);
       if (!mounted) return;
-      setState(() => _pairId = sent.pairId);
-      await _load();
+      setState(() {
+        _pairId = sent.pairId;
+        _messages = [
+          for (final message in _messages)
+            if (message.id != localId) message,
+          ...sent.messages,
+        ];
+      });
     } catch (_) {
+      if (mounted) {
+        setState(() {
+          _messages = [
+            for (final message in _messages)
+              if (message.id != localId) message,
+          ];
+        });
+      }
       await _fail();
     } finally {
       if (mounted) setState(() => _sending = false);
