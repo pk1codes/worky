@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
+import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
@@ -43,6 +45,14 @@ class _PostScreenState extends State<PostScreen> {
   MapLibreMapController? _map;
   var _mapReady = false;
   var _langsReady = false;
+  var _dpr = 1.0;
+  Offset? _drop;
+  Uint8List? _pinBytes;
+  var _pinSent = false;
+  CameraController? _camera;
+  Future<void>? _opening;
+  var _captureGen = 0;
+  var _takingVideo = false;
 
   @override
   void initState() {
@@ -67,7 +77,6 @@ class _PostScreenState extends State<PostScreen> {
       };
       _lat ??= session.lat;
       _lng ??= session.lng;
-      if (mounted) setState(() => _mapReady = true);
       unawaited(Speaker.say(session.lang, AppLocalizations.of(context).post));
       try {
         final library = await session.api.library();
@@ -92,6 +101,10 @@ class _PostScreenState extends State<PostScreen> {
 
   @override
   void dispose() {
+    _captureGen++;
+    final cam = _camera;
+    _camera = null;
+    if (cam != null) unawaited(cam.dispose());
     _box?.removeListener(_onBox);
     unawaited(_recorder.dispose());
     super.dispose();
@@ -131,6 +144,116 @@ class _PostScreenState extends State<PostScreen> {
     );
     if (file == null || !mounted) return;
     _take(SessionHost.of(context), 'video', file.path);
+  }
+
+  Future<void> _openCapture() {
+    if (kIsWeb) return Future<void>.value();
+    final pending = _opening;
+    if (pending != null) return pending;
+    final run = _openCaptureBody();
+    _opening = run;
+    return run.whenComplete(() {
+      if (identical(_opening, run)) _opening = null;
+    });
+  }
+
+  Future<void> _openCaptureBody() async {
+    final gen = ++_captureGen;
+    try {
+      final cameras = await availableCameras();
+      if (!mounted || gen != _captureGen) return;
+      CameraDescription? back;
+      for (final camera in cameras) {
+        if (camera.lensDirection == CameraLensDirection.back) {
+          back = camera;
+          break;
+        }
+      }
+      back ??= cameras.isEmpty ? null : cameras.first;
+      if (back == null) return;
+      final controller = CameraController(
+        back,
+        ResolutionPreset.medium,
+        enableAudio: true,
+      );
+      await controller.initialize();
+      if (!mounted || gen != _captureGen) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _camera = controller);
+    } catch (_) {}
+  }
+
+  Future<void> _closeCapture() async {
+    _captureGen++;
+    _opening = null;
+    final cam = _camera;
+    _camera = null;
+    _takingVideo = false;
+    if (cam == null) return;
+    try {
+      if (cam.value.isRecordingVideo) await cam.stopVideoRecording();
+    } catch (_) {}
+    await cam.dispose();
+  }
+
+  Future<CameraController?> _readyCamera() async {
+    if (kIsWeb) return null;
+    final current = _camera;
+    if (current != null && current.value.isInitialized) return current;
+    await _openCapture();
+    final opened = _camera;
+    if (opened != null && opened.value.isInitialized) return opened;
+    return null;
+  }
+
+  Future<void> _shootStill() async {
+    if (_takingVideo) return;
+    final cam = await _readyCamera();
+    if (cam == null) {
+      await _pickImage(ImageSource.camera);
+      return;
+    }
+    try {
+      final file = await cam.takePicture();
+      if (!mounted) return;
+      _take(SessionHost.of(context), 'image', file.path);
+    } catch (_) {
+      if (mounted) await _pickImage(ImageSource.camera);
+    }
+  }
+
+  Future<void> _toggleVideo() async {
+    if (_takingVideo) {
+      final cam = _camera;
+      if (cam == null) return;
+      try {
+        final file = await cam.stopVideoRecording();
+        if (!mounted) return;
+        setState(() => _takingVideo = false);
+        _take(SessionHost.of(context), 'video', file.path);
+      } catch (_) {
+        if (mounted) setState(() => _takingVideo = false);
+      }
+      return;
+    }
+    if (_recording) {
+      await _finishMic(SessionHost.of(context));
+      if (mounted) setState(() {});
+    }
+    final cam = await _readyCamera();
+    if (cam == null) {
+      await _pickVideo(ImageSource.camera);
+      return;
+    }
+    try {
+      await cam.startVideoRecording();
+      if (!mounted) return;
+      setState(() => _takingVideo = true);
+    } catch (_) {
+      if (mounted) await _pickVideo(ImageSource.camera);
+    }
   }
 
   Future<void> _finishMic(Session session) async {
@@ -235,6 +358,7 @@ class _PostScreenState extends State<PostScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final session = SessionHost.of(context);
+    _dpr = MediaQuery.devicePixelRatioOf(context);
     return Paged(
       page: 5,
       child: Scaffold(
@@ -320,8 +444,13 @@ class _PostScreenState extends State<PostScreen> {
                             height: mapHeight,
                             child: _keptMap(session),
                           ),
-                        if (_step == 0)
-                          Positioned.fill(child: _pickCategory()),
+                        if (_drop != null)
+                          Positioned(
+                            left: _drop!.dx - _pinWidth / 2,
+                            top: _drop!.dy - _pinHeight,
+                            child: const IgnorePointer(child: _DropPin()),
+                          ),
+                        if (_step == 0) Positioned.fill(child: _pickCategory()),
                         if (_step == 1)
                           Positioned.fill(child: _place(session, l10n)),
                         if (_step == 2)
@@ -339,16 +468,30 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   void _enter(int step, {String? categoryId}) {
+    final leavingCapture = _step == 2 && step != 2;
+    final enteringCapture = step == 2 && _step != 2;
     setState(() {
       if (categoryId != null) _categoryId = categoryId;
       _step = step;
-      if (step != 1) _langsReady = false;
+      if (step != 1) {
+        _langsReady = false;
+        _mapReady = false;
+        _map = null;
+        _drop = null;
+        _pinSent = false;
+      }
     });
-    if (step != 1) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _step != 1 || _langsReady) return;
-      setState(() => _langsReady = true);
-    });
+    if (leavingCapture) unawaited(_closeCapture());
+    if (step == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _step != 1) return;
+        setState(() {
+          _mapReady = true;
+          _langsReady = true;
+        });
+      });
+    }
+    if (enteringCapture) unawaited(_openCapture());
   }
 
   Widget _pickCategory() {
@@ -362,14 +505,22 @@ class _PostScreenState extends State<PostScreen> {
     final controller = _map;
     if (controller == null) return;
     try {
-      await controller.clearCircles();
-      await controller.addCircle(
-        CircleOptions(
+      final bytes = _pinBytes ??= await _dropPng(_dpr);
+      if (!_pinSent) {
+        await controller.addImage('worky-pin', bytes);
+        _pinSent = true;
+      }
+      await controller.clearSymbols();
+      await controller.addSymbol(
+        SymbolOptions(
           geometry: LatLng(lat, lng),
-          circleColor: '#0F6E56',
-          circleRadius: 18,
+          iconImage: 'worky-pin',
+          iconAnchor: 'bottom',
+          iconSize: 1,
         ),
       );
+      if (!mounted || _map != controller) return;
+      setState(() => _drop = null);
     } catch (_) {}
   }
 
@@ -412,10 +563,14 @@ class _PostScreenState extends State<PostScreen> {
         if (lat == null || lng == null) return;
         unawaited(_pin(lat, lng));
       },
-      onMapClick: (_, latLng) {
+      onMapClick: (point, latLng) {
+        final scale = !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+            ? _dpr
+            : 1.0;
         setState(() {
           _lat = latLng.latitude;
           _lng = latLng.longitude;
+          _drop = Offset(point.x / scale, point.y / scale);
         });
         unawaited(_pin(latLng.latitude, latLng.longitude));
       },
@@ -483,13 +638,24 @@ class _PostScreenState extends State<PostScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        if (_camera != null && _camera!.value.isInitialized)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: SizedBox(
+              height: 240,
+              width: double.infinity,
+              child: CameraPreview(_camera!),
+            ),
+          ),
+        if (_camera != null && _camera!.value.isInitialized)
+          const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           children: [
             BigIcon(
               icon: Icons.photo_camera,
               label: l10n.camera,
-              onTap: () => _pickImage(ImageSource.camera),
+              onTap: _shootStill,
             ),
             BigIcon(
               icon: Icons.photo,
@@ -497,9 +663,10 @@ class _PostScreenState extends State<PostScreen> {
               onTap: () => _pickImage(ImageSource.gallery),
             ),
             BigIcon(
-              icon: Icons.videocam,
+              icon: _takingVideo ? Icons.stop : Icons.videocam,
               label: l10n.addVideo,
-              onTap: () => _pickVideo(ImageSource.camera),
+              filled: _takingVideo,
+              onTap: _toggleVideo,
             ),
             BigIcon(
               icon: Icons.video_library,
@@ -608,4 +775,68 @@ class _PostScreenState extends State<PostScreen> {
       ],
     );
   }
+}
+
+const _pinWidth = 28.0;
+const _pinHeight = 36.0;
+const _pinGreen = Color(0xFF0F6E56);
+
+class _DropPin extends StatelessWidget {
+  const _DropPin();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CustomPaint(
+      size: Size(_pinWidth, _pinHeight),
+      painter: _DropPainter(),
+    );
+  }
+}
+
+class _DropPainter extends CustomPainter {
+  const _DropPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) => _paintDrop(canvas, size);
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+void _paintDrop(Canvas canvas, Size size) {
+  final w = size.width;
+  final h = size.height;
+  final fill = Paint()..color = _pinGreen;
+  final radius = w * 0.46;
+  final center = Offset(w / 2, radius + 1);
+  final path = Path()
+    ..moveTo(w / 2, h - 1)
+    ..quadraticBezierTo(w * 0.02, h * 0.58, center.dx - radius, center.dy)
+    ..arcToPoint(
+      Offset(center.dx + radius, center.dy),
+      radius: Radius.circular(radius),
+      largeArc: true,
+    )
+    ..quadraticBezierTo(w * 0.98, h * 0.58, w / 2, h - 1)
+    ..close();
+  canvas.drawPath(path, fill);
+  canvas.drawCircle(
+    center,
+    radius * 0.38,
+    Paint()..color = const Color(0xFFFFFFFF),
+  );
+}
+
+Future<Uint8List> _dropPng(double dpr) async {
+  final scale = dpr < 1 ? 1.0 : dpr;
+  final width = (_pinWidth * scale).round();
+  final height = (_pinHeight * scale).round();
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.scale(scale);
+  _paintDrop(canvas, const Size(_pinWidth, _pinHeight));
+  final image = await recorder.endRecording().toImage(width, height);
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  return data!.buffer.asUint8List();
 }
