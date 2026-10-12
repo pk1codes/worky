@@ -38,6 +38,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
   String? _pinId;
   String? _openId;
   var _failed = false;
+  Session? _session;
+  double? _seenLat;
+  double? _seenLng;
 
   @override
   void initState() {
@@ -45,6 +48,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
     FirebaseAnalytics.instance.logScreenView(screenName: 'browse');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = SessionHost.of(context);
+      _session = session;
+      session.addListener(_onSession);
       final l10n = AppLocalizations.of(context);
       unawaited(Speaker.say(session.lang, l10n.near));
       unawaited(_load());
@@ -52,10 +57,38 @@ class _BrowseScreenState extends State<BrowseScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _session?.removeListener(_onSession);
+    super.dispose();
+  }
+
+  void _onSession() {
+    final session = _session;
+    if (!mounted || session == null) return;
+    final lat = session.lat;
+    final lng = session.lng;
+    if (lat == null || lng == null) return;
+    if (_seenLat == null) {
+      _seenLat = lat;
+      _seenLng = lng;
+      return;
+    }
+    if (lat == _seenLat && lng == _seenLng) return;
+    _seenLat = lat;
+    _seenLng = lng;
+    final key = session.cacheKey(_parents.last);
+    if (!session.feedIsFresh(key, lat, lng)) {
+      unawaited(_load());
+      return;
+    }
+    setState(() => _rows = session.visible(key, lat, lng));
+  }
+
   void _paintCached(Session session) {
-    final cached = session.feedCache[session.cacheKey(_parents.last)];
-    if (cached != null) {
-      _rows = cached;
+    final key = session.cacheKey(_parents.last);
+    if (session.feedCache.containsKey(key) && session.lat != null) {
+      _rows = session.visible(key, session.lat!, session.lng!);
       _loading = false;
     } else {
       _loading = true;
@@ -76,35 +109,45 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
     final parent = _parents.last;
     final key = session.cacheKey(parent);
-    final cached = session.feedCache[key];
-    if (cached != null && mounted) {
+    final lat = session.lat!;
+    final lng = session.lng!;
+    _seenLat = lat;
+    _seenLng = lng;
+    if (session.feedCache.containsKey(key) && mounted) {
       setState(() {
-        _rows = cached;
+        _rows = session.visible(key, lat, lng);
         _loading = false;
         _failed = false;
       });
-      if (!force && session.feedIsFresh(key)) return;
+      if (!force && session.feedIsFresh(key, lat, lng)) return;
     }
+    final bypass = session.feedBypass;
+    session.feedBypass = false;
     try {
       final fresh = await session.api.feed(
         parentId: parent,
-        lat: session.lat!,
-        lng: session.lng!,
+        lat: lat,
+        lng: lng,
         lang: session.lang ?? 'en',
         headersOnly: widget.picking,
+        fresh: bypass,
       );
       if (!mounted) return;
       if (fresh == null) {
-        setState(() => _loading = false);
+        setState(() {
+          _rows = session.visible(key, lat, lng);
+          _loading = false;
+        });
         return;
       }
       if (!widget.picking) session.rememberFeed(key, fresh);
       setState(() {
-        _rows = fresh;
+        _rows = session.visible(key, lat, lng);
         _loading = false;
         _failed = false;
       });
     } catch (_) {
+      if (bypass) session.feedBypass = true;
       if (!mounted) return;
       setState(() {
         _loading = false;

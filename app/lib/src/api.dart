@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -138,6 +139,16 @@ class FeedCategory {
 
   bool get isJob => kind == 'job';
 
+  FeedCategory copyWith({List<FeedPost>? posts}) {
+    return FeedCategory(
+      id: id,
+      name: name,
+      coverUrl: coverUrl,
+      kind: kind,
+      posts: posts ?? this.posts,
+    );
+  }
+
   factory FeedCategory.fromJson(Map<String, dynamic> json) {
     return FeedCategory(
       id: json['id'] as String,
@@ -151,6 +162,114 @@ class FeedCategory {
           .toList(),
     );
   }
+}
+
+class FeedBox {
+  FeedBox({
+    required this.id,
+    required this.south,
+    required this.north,
+    required this.west,
+    required this.east,
+    required this.included,
+  });
+
+  final String id;
+  final double south;
+  final double north;
+  final double west;
+  final double east;
+  final bool included;
+
+  factory FeedBox.fromJson(Map<String, dynamic> json) {
+    return FeedBox(
+      id: (json['id'] as String?) ?? '',
+      south: (json['south'] as num?)?.toDouble() ?? 0,
+      north: (json['north'] as num?)?.toDouble() ?? 0,
+      west: (json['west'] as num?)?.toDouble() ?? 0,
+      east: (json['east'] as num?)?.toDouble() ?? 0,
+      included: json['in'] == true,
+    );
+  }
+}
+
+class FeedPage {
+  FeedPage({required this.categories, required this.ring});
+
+  final List<FeedCategory> categories;
+  final List<FeedBox> ring;
+}
+
+class FeedHold {
+  FeedHold(this.page, this.at);
+
+  final FeedPage page;
+  final int at;
+}
+
+double kmBetween(double aLat, double aLng, double bLat, double bLng) {
+  const r = 6371.0;
+  final dLat = (bLat - aLat) * math.pi / 180;
+  final dLng = (bLng - aLng) * math.pi / 180;
+  final s =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(aLat * math.pi / 180) *
+          math.cos(bLat * math.pi / 180) *
+          math.sin(dLng / 2) *
+          math.sin(dLng / 2);
+  return 2 * r * math.asin(math.min(1, math.sqrt(s)));
+}
+
+FeedPost placePost(FeedPost post, double lat, double lng) {
+  final shown = math.max(2, kmBetween(lat, lng, post.lat, post.lng).round());
+  return FeedPost(
+    id: post.id,
+    posterUrl: post.posterUrl,
+    thumbUrl: post.thumbUrl,
+    daysAgo: post.daysAgo,
+    createdAt: post.createdAt,
+    km: shown,
+    band: shown < 15 ? 'mid' : 'far',
+    langs: post.langs,
+    hasVideo: post.hasVideo,
+    lat: post.lat,
+    lng: post.lng,
+    categoryId: post.categoryId,
+    categoryPath: post.categoryPath,
+    status: post.status,
+    mediaIds: post.mediaIds,
+    contactsOpen: post.contactsOpen,
+    reaches: post.reaches,
+    country: post.country,
+  );
+}
+
+List<FeedPost> nearestPosts(List<FeedPost> posts, double lat, double lng) {
+  final placed = [for (final post in posts) placePost(post, lat, lng)];
+  placed.sort((a, b) => (a.km ?? 0).compareTo(b.km ?? 0));
+  if (placed.length <= 12) return placed;
+  return placed.sublist(0, 12);
+}
+
+double closestBox(double lat, double lng, FeedBox box) {
+  final cLat = math.min(box.north, math.max(box.south, lat));
+  final cLng = math.min(box.east, math.max(box.west, lng));
+  return kmBetween(lat, lng, cLat, cLng);
+}
+
+bool needsRing(FeedPage page, double lat, double lng) {
+  for (final box in page.ring) {
+    if (box.included) continue;
+    final edge = closestBox(lat, lng, box);
+    for (final row in page.categories) {
+      if (!row.isJob) continue;
+      if (row.posts.length < 12) return true;
+      final distances = [for (final post in row.posts) kmBetween(lat, lng, post.lat, post.lng)]
+        ..sort();
+      if (edge < distances[11]) return true;
+    }
+  }
+  return false;
 }
 
 class TalkPreview {
@@ -348,23 +467,31 @@ class WorkyApi {
     throw ApiException(500);
   }
 
-  Future<List<FeedCategory>?> feed({
+  Future<FeedPage?> feed({
     required String parentId,
     required double lat,
     required double lng,
     required String lang,
     bool headersOnly = false,
+    bool fresh = false,
   }) async {
     final cards = headersOnly ? '&cards=0' : '';
+    final live = fresh ? '&fresh=1' : '';
     final path =
-        '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang$cards';
+        '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang$cards$live';
     final json = await _json('GET', path, cache: true);
     if (json == null) return null;
-    return ((json['categories'] as List?) ?? const [])
-        .map(
-          (row) => FeedCategory.fromJson(Map<String, dynamic>.from(row as Map)),
-        )
-        .toList();
+    return FeedPage(
+      categories: ((json['categories'] as List?) ?? const [])
+          .map(
+            (row) =>
+                FeedCategory.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList(),
+      ring: ((json['ring'] as List?) ?? const [])
+          .map((row) => FeedBox.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(),
+    );
   }
 
   Future<({List<MediaItem> media, bool mine, List<String> mediaIds})> post(
@@ -390,22 +517,46 @@ class WorkyApi {
     return json['url'] as String;
   }
 
-  Future<({List<FeedPost> posts, List<TalkPreview> talks})> mine() async {
-    final json = (await _json('GET', '/v1/me/posts'))!;
+  Future<({List<FeedPost> posts, List<TalkPreview> talks, String? cursor})>
+  mine({String? cursor}) async {
+    final path = cursor == null
+        ? '/v1/me/posts'
+        : '/v1/me/posts?cursor=${Uri.encodeQueryComponent(cursor)}';
+    final json = (await _json('GET', path))!;
     final posts = ((json['posts'] as List?) ?? const [])
         .map((row) => FeedPost.fromJson(Map<String, dynamic>.from(row as Map)))
         .toList();
     final talks = ((json['talks'] as List?) ?? const [])
         .map((row) => TalkPreview.fromJson(Map<String, dynamic>.from(row as Map)))
         .toList();
-    return (posts: posts, talks: talks);
+    return (posts: posts, talks: talks, cursor: json['cursor'] as String?);
+  }
+
+  Future<({List<MediaItem> media, String? cursor})> libraryPage({
+    String? cursor,
+  }) async {
+    final path = cursor == null
+        ? '/v1/me/media'
+        : '/v1/me/media?cursor=${Uri.encodeQueryComponent(cursor)}';
+    final json = (await _json('GET', path))!;
+    return (
+      media: ((json['media'] as List?) ?? const [])
+          .map((row) => MediaItem.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(),
+      cursor: json['cursor'] as String?,
+    );
   }
 
   Future<List<MediaItem>> library() async {
-    final json = (await _json('GET', '/v1/me/media'))!;
-    return ((json['media'] as List?) ?? const [])
-        .map((row) => MediaItem.fromJson(Map<String, dynamic>.from(row as Map)))
-        .toList();
+    final rows = <MediaItem>[];
+    String? cursor;
+    for (var i = 0; i < 3; i += 1) {
+      final page = await libraryPage(cursor: cursor);
+      rows.addAll(page.media);
+      cursor = page.cursor;
+      if (cursor == null) break;
+    }
+    return rows;
   }
 
   Future<UploadTicket> openUpload({
@@ -530,8 +681,12 @@ class WorkyApi {
     await _json('POST', '/v1/posts/$id/block', body: {'blocked': blocked});
   }
 
-  Future<void> blockNumber(String number, bool blocked) async {
-    await _json('POST', '/v1/me/blocks', body: {'number': number, 'blocked': blocked});
+  Future<void> blockNumber(String postId, String number, bool blocked) async {
+    await _json(
+      'POST',
+      '/v1/me/blocks',
+      body: {'postId': postId, 'number': number, 'blocked': blocked},
+    );
   }
 
   Future<void> deletePost(String id) async {

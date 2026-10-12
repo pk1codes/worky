@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { coarse, geohash, band, kmBetween, publicPoint, publicKm, isoCountry } = require('../lib/geo');
+const { coarse, geohash, band, kmBetween, publicPoint, publicKm, isoCountry, hashBounds, ring, closestKm } = require('../lib/geo');
+const { packShelf, wantNeighbor, capBlocks } = require('../lib/shelf');
 const { parseWav, parseMp4, sniff, limitsFor } = require('../lib/media');
 
 test('coarse point is about 100m', () => {
@@ -35,6 +36,64 @@ test('country comes from the post coordinates', () => {
   assert.equal(isoCountry(28.6139, 77.209), 'IN');
   assert.equal(isoCountry(51.5074, -0.1278), 'GB');
   assert.equal(isoCountry(0, -140), null);
+});
+
+test('a point sits inside its cell and the ring touches it', () => {
+  const lat = coarse(12.9716);
+  const lng = coarse(77.5946);
+  const cell = geohash(lat, lng, 4);
+  const box = hashBounds(cell);
+  assert.ok(lat >= box.south && lat <= box.north);
+  assert.ok(lng >= box.west && lng <= box.east);
+  assert.equal(closestKm(lat, lng, cell), 0);
+  const neighbors = ring(cell);
+  assert.equal(neighbors.length, 8);
+  assert.equal(new Set(neighbors).size, 8);
+  for (const neighbor of neighbors) {
+    assert.ok(closestKm(lat, lng, neighbor) < 80);
+  }
+});
+
+test('a shelf keeps small lists and splits past the byte cap', () => {
+  const cell = geohash(12.97, 77.59, 4);
+  const one = [{ id: 'a', categoryId: 'cook', lat: 12.97, lng: 77.59, createdAt: 1, langs: [], thumbUrl: '', posterUrl: '', hasVideo: false }];
+  assert.equal(packShelf(one, cell, 500).sharded, false);
+  const many = Array.from({ length: 30 }, (_, i) => ({
+    id: `p${i}`,
+    categoryId: 'cook',
+    lat: 12.97,
+    lng: 77.59,
+    createdAt: i,
+    langs: ['en'],
+    thumbUrl: '',
+    posterUrl: '',
+    hasVideo: false,
+  }));
+  const packed = packShelf(many, cell, 200);
+  assert.equal(packed.sharded, true);
+  assert.ok(packed.groups.size >= 1);
+});
+
+test('a neighbor is read when a category has fewer than 12 cards', () => {
+  const cell = geohash(12.97, 77.59, 4);
+  const neighbor = ring(cell)[0];
+  const cards = [{ id: 'a', categoryId: 'cook', lat: 12.97, lng: 77.59 }];
+  assert.equal(wantNeighbor(cards, ['cook'], 12.97, 77.59, neighbor), true);
+  const full = Array.from({ length: 12 }, (_, i) => ({
+    id: `p${i}`,
+    categoryId: 'cook',
+    lat: 12.97,
+    lng: 77.59,
+  }));
+  assert.equal(wantNeighbor(full, ['cook'], 12.97, 77.59, neighbor), false);
+});
+
+test('block list keeps the newest 50', () => {
+  const list = Array.from({ length: 52 }, (_, i) => `+1555000${i}`);
+  const capped = capBlocks(list);
+  assert.equal(capped.length, 50);
+  assert.equal(capped[0], list[2]);
+  assert.equal(capped[49], list[51]);
 });
 
 test('distance bands', () => {
