@@ -1989,6 +1989,7 @@ exports.api = onRequest(
     cors: true,
     memory: '512MiB',
     timeoutSeconds: 60,
+    maxInstances: 1,
     invoker: 'public',
     region: 'us-central1',
     secrets: [fileTokenKey],
