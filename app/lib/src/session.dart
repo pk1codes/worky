@@ -49,8 +49,8 @@ class Session extends ChangeNotifier {
   double? _flagLng;
   var _flagGen = 0;
   static const feedTtl = Duration(hours: 1);
-  final Map<String, List<FeedCategory>> feedCache = {};
-  final Map<String, int> _feedAt = {};
+  final Map<String, FeedHold> feedCache = {};
+  bool feedBypass = false;
 
   Future<void> boot() async {
     _prefs = await SharedPreferences.getInstance();
@@ -324,20 +324,33 @@ class Session extends ChangeNotifier {
     );
   }
 
-  bool feedIsFresh(String key) {
-    final at = _feedAt[key];
-    if (at == null || !feedCache.containsKey(key)) return false;
-    return DateTime.now().millisecondsSinceEpoch - at < feedTtl.inMilliseconds;
+  bool feedIsFresh(String key, double lat, double lng) {
+    final hold = feedCache[key];
+    if (hold == null) return false;
+    if (DateTime.now().millisecondsSinceEpoch - hold.at >= feedTtl.inMilliseconds) {
+      return false;
+    }
+    return !needsRing(hold.page, lat, lng);
   }
 
-  void rememberFeed(String key, List<FeedCategory> rows) {
-    feedCache[key] = rows;
-    _feedAt[key] = DateTime.now().millisecondsSinceEpoch;
+  void rememberFeed(String key, FeedPage page) {
+    feedCache[key] = FeedHold(page, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  List<FeedCategory> visible(String key, double lat, double lng) {
+    final hold = feedCache[key];
+    if (hold == null) return const [];
+    return [
+      for (final row in hold.page.categories)
+        row.copyWith(
+          posts: row.isJob ? nearestPosts(row.posts, lat, lng) : const [],
+        ),
+    ];
   }
 
   void dropFeed() {
     feedCache.clear();
-    _feedAt.clear();
+    feedBypass = true;
   }
 
   Future<void> deleteAccount() async {
@@ -377,8 +390,7 @@ class Session extends ChangeNotifier {
     } catch (_) {}
   }
 
-  String cacheKey(String parentId) =>
-      '$parentId|${lat?.toStringAsFixed(3)}|${lng?.toStringAsFixed(3)}|$lang';
+  String cacheKey(String parentId) => '$parentId|$lang';
 }
 
 class SessionHost extends InheritedWidget {

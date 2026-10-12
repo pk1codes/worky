@@ -201,6 +201,35 @@ function extFor(kind, contentType) {
   return null;
 }
 
+async function clipMp4(size, read) {
+  let offset = 0;
+  let ftyp = null;
+  let moov = null;
+  while (offset + 8 <= size && (ftyp == null || moov == null)) {
+    const head = await read(offset, Math.min(size - 1, offset + 15));
+    if (!head || head.length < 8) return null;
+    let boxSize = head.readUInt32BE(0);
+    let header = 8;
+    if (boxSize === 1) {
+      if (head.length < 16) return null;
+      boxSize = Number(head.readBigUInt64BE(8));
+      header = 16;
+    } else if (boxSize === 0) boxSize = size - offset;
+    if (!Number.isFinite(boxSize) || boxSize < header || offset + boxSize > size) return null;
+    const type = head.toString('latin1', 4, 8);
+    if (type === 'ftyp' || type === 'moov') {
+      if (boxSize > 2_000_000) return null;
+      const box = await read(offset, offset + boxSize - 1);
+      if (!box || box.length < boxSize) return null;
+      if (type === 'ftyp') ftyp = box.subarray(0, boxSize);
+      else moov = box.subarray(0, boxSize);
+    }
+    offset += boxSize;
+  }
+  if (!ftyp || !moov) return null;
+  return Buffer.concat([ftyp, moov]);
+}
+
 function publicUrl(bucketName, objectPath, token) {
   const name = encodeURIComponent(objectPath);
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${name}?alt=media&token=${token}`;
@@ -215,6 +244,7 @@ module.exports = {
   SERVE_TYPE,
   limitsFor,
   extFor,
+  clipMp4,
   publicUrl,
   THUMB_EDGE,
   needsThumb,

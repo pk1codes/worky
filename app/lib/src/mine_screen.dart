@@ -42,6 +42,7 @@ class _MineScreenState extends State<MineScreen> {
   List<TalkPreview> _talks = [];
   var _loading = true;
   var _failed = false;
+  String? _cursor;
   String? _armedDelete;
   var _armedAccount = false;
   MediaQueue? _box;
@@ -143,13 +144,16 @@ class _MineScreenState extends State<MineScreen> {
     } catch (_) {}
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
     try {
-      final page = await SessionHost.of(context).api.mine();
+      final page = await SessionHost.of(context).api.mine(
+        cursor: more ? _cursor : null,
+      );
       if (mounted) {
         setState(() {
-          _posts = page.posts;
-          _talks = page.talks;
+          _posts = more ? [..._posts, ...page.posts] : page.posts;
+          if (!more) _talks = page.talks;
+          _cursor = page.cursor;
           _loading = false;
           _failed = false;
         });
@@ -583,7 +587,7 @@ class _MineScreenState extends State<MineScreen> {
                   onTap: () async {
                     final blocking = !reach.blocked;
                     try {
-                      await session.api.blockNumber(reach.number, blocking);
+                      await session.api.blockNumber(post.id, reach.number, blocking);
                       if (mounted) {
                         await Speaker.say(
                           session.lang,
@@ -710,6 +714,12 @@ class _MineScreenState extends State<MineScreen> {
                           wide: true,
                           tail: _cardTail(session, post, l10n),
                         ),
+                      ),
+                    if (_cursor != null)
+                      BigIcon(
+                        icon: Icons.expand_more,
+                        label: l10n.continueAction,
+                        onTap: () => _load(more: true),
                       ),
                     if (_talks.isNotEmpty) ...[
                       _section(l10n.talks),

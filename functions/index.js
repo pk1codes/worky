@@ -3,9 +3,10 @@ const admin = require('firebase-admin');
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const sharp = require('sharp');
-const { LANGS, coarse, geohash, kmBetween, band, daysAgo, publicPoint, publicKm, isoCountry } = require('./lib/geo');
+const { LANGS, coarse, geohash, ring, hashBounds, kmBetween, band, daysAgo, publicPoint, publicKm, isoCountry } = require('./lib/geo');
+const { shelfId, shelfCard, packShelf, wantNeighbor, capBlocks } = require('./lib/shelf');
 const { categoryTrail } = require('./lib/categories');
-const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
+const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, clipMp4, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
 const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
 const { allow, clientIp, overCap } = require('./lib/gate');
 
@@ -16,6 +17,20 @@ admin.initializeApp({
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
+const SHELF_MS = 30 * 60 * 1000;
+const CATALOG_MS = 60 * 60 * 1000;
+const shelfMem = new Map();
+let catalog = null;
+let catalogAt = 0;
+
+function dropShelfCache(ids) {
+  for (const id of ids) shelfMem.delete(id);
+}
+
+function dropCatalog() {
+  catalog = null;
+  catalogAt = 0;
+}
 const fileTokenKey = defineSecret('FILE_TOKEN_KEY');
 
 function fileKey() {
@@ -178,7 +193,7 @@ async function limited(key, max, windowMs) {
       return Math.max(1, Math.ceil((reset - now) / 1000));
     }
     n += 1;
-    tx.set(ref, { n, reset });
+    tx.set(ref, { n, reset, expireAt: admin.firestore.Timestamp.fromMillis(reset) });
     return 0;
   });
 }
@@ -424,7 +439,7 @@ async function talkRows(req, ref, now, closed = false) {
       drops += 1;
       delete data.meetUrl;
     }
-    const voice = data.kind === 'voice' ? fileUrl(req, data.mediaId) : '';
+    const voice = data.kind === 'voice' ? (data.url || fileUrl(req, data.mediaId)) : '';
     rows.push(viewMessage({ id: doc.id, ...data }, now, voice));
   }
   if (drops) await batch.commit();
@@ -539,7 +554,7 @@ async function messageFrom(req, uid) {
     return { status: 400 };
   }
   const durMs = Math.min(60_000, Math.max(0, Number(req.body?.durMs) || 0));
-  return { msg: { kind: 'voice', mediaId, durMs }, preview: talkPreview('voice') };
+  return { msg: { kind: 'voice', mediaId, durMs, url: media.get('url') || '' }, preview: talkPreview('voice') };
 }
 
 const OWNED_CALENDAR = 'https://www.googleapis.com/auth/calendar.events.owned';
@@ -820,7 +835,15 @@ async function startVideo(req, res, uid, owner, postId, existingId) {
 async function deleteStep(uid, cursor) {
   if (!cursor || cursor === 'posts') {
     const snap = await db.collection('posts').where('uid', '==', uid).limit(15).get();
-    for (const doc of snap.docs) await doc.ref.delete();
+    for (const doc of snap.docs) {
+      const before = await parentFor(doc.data());
+      const written = await db.runTransaction(async (tx) => {
+        const ids = await syncShelves(tx, shelfOps(before, null, doc.id));
+        tx.delete(doc.ref);
+        return ids;
+      });
+      dropShelfCache(written);
+    }
     return { cursor: snap.size === 15 ? 'posts' : 'media' };
   }
   if (cursor === 'media') {
@@ -863,6 +886,236 @@ async function deleteStep(uid, cursor) {
     if (err.code !== 'auth/user-not-found') throw err;
   }
   return { done: true };
+}
+
+function afterCursor(query, cursor) {
+  const raw = typeof cursor === 'string' ? cursor : '';
+  const cut = raw.indexOf('|');
+  if (cut < 1) return query.limit(20);
+  const ms = Number(raw.slice(0, cut));
+  const id = raw.slice(cut + 1);
+  if (!Number.isFinite(ms) || !id) return query.limit(20);
+  return query.startAfter(ms, id).limit(20);
+}
+
+function nextCursor(docs) {
+  if (docs.length < 20) return null;
+  const last = docs[docs.length - 1];
+  const at = last.get('createdAt');
+  if (typeof at !== 'number') return null;
+  return `${at}|${last.id}`;
+}
+
+async function categoryCatalog(force = false) {
+  if (!force && catalog && Date.now() - catalogAt < CATALOG_MS) return catalog;
+  const snap = await db.collection('categories').get();
+  const rows = [];
+  for (const doc of snap.docs) {
+    let coverUrl = doc.get('coverUrl') || '';
+    if (!coverUrl && doc.get('coverPath')) coverUrl = await stampCover(doc);
+    rows.push({ id: doc.id, ...doc.data(), ...(coverUrl ? { coverUrl } : {}) });
+  }
+  catalog = rows;
+  catalogAt = Date.now();
+  return catalog;
+}
+
+async function readShelf(id, bypass) {
+  if (!bypass) {
+    const hit = shelfMem.get(id);
+    if (hit && Date.now() - hit.at < SHELF_MS) return hit.data;
+  }
+  const snap = await db.collection('feeds').doc(id).get();
+  const data = snap.exists ? snap.data() : null;
+  shelfMem.set(id, { at: Date.now(), data });
+  return data;
+}
+
+function finerTouching(cell, lat, lng) {
+  const box = hashBounds(cell);
+  const midLat = (box.south + box.north) / 2;
+  const midLng = (box.west + box.east) / 2;
+  if (lat >= box.south && lat <= box.north && lng >= box.west && lng <= box.east) {
+    return geohash(lat, lng, cell.length + 1);
+  }
+  const eps = 1e-5;
+  let cLat = Math.min(box.north, Math.max(box.south, lat));
+  let cLng = Math.min(box.east, Math.max(box.west, lng));
+  if (cLat !== lat) cLat += Math.sign(midLat - cLat) * eps;
+  if (cLng !== lng) cLng += Math.sign(midLng - cLng) * eps;
+  const hash = geohash(cLat, cLng, cell.length + 1);
+  return hash.startsWith(cell) ? hash : geohash(midLat, midLng, cell.length + 1);
+}
+
+async function childCards(parentId, hash, lat, lng, bypass) {
+  const data = await readShelf(shelfId(parentId, hash), bypass);
+  if (!data) return [];
+  if (data.sharded !== true) return Array.isArray(data.cards) ? data.cards : [];
+  return childCards(parentId, finerTouching(hash, lat, lng), lat, lng, bypass);
+}
+
+async function cardsFrom(parentId, hash, lat, lng, bypass) {
+  const parentCell = hash.slice(0, 4);
+  const data = await readShelf(shelfId(parentId, parentCell), bypass);
+  if (!data) return [];
+  if (data.sharded !== true) return Array.isArray(data.cards) ? data.cards : [];
+  const finer = hash.length > 4 ? hash : finerTouching(parentCell, lat, lng);
+  return childCards(parentId, finer, lat, lng, bypass);
+}
+
+async function feedPool(parentId, lat, lng, jobIds, bypass) {
+  const cell = geohash(lat, lng, 4);
+  const center = await readShelf(shelfId(parentId, cell), bypass);
+  const origin = center && center.sharded === true ? geohash(lat, lng, 5) : cell;
+  const centerCards = await cardsFrom(parentId, origin, lat, lng, bypass);
+  const cards = [];
+  const seen = new Set();
+  function add(list) {
+    for (const card of list) {
+      if (!card || typeof card.id !== 'string' || seen.has(card.id)) continue;
+      seen.add(card.id);
+      cards.push(card);
+    }
+  }
+  add(centerCards);
+  const boxes = [];
+  for (const neighbor of ring(origin)) {
+    const include = wantNeighbor(centerCards, jobIds, lat, lng, neighbor);
+    const box = hashBounds(neighbor);
+    boxes.push({
+      id: shelfId(parentId, neighbor),
+      south: box.south,
+      north: box.north,
+      west: box.west,
+      east: box.east,
+      in: include,
+    });
+    if (include) add(await cardsFrom(parentId, neighbor, lat, lng, bypass));
+  }
+  return { cards, ring: boxes };
+}
+
+function poolPost(item, distanceKm) {
+  const country = isoCountry(item.lat, item.lng);
+  return publicView({
+    id: item.id,
+    posterUrl: item.posterUrl || '',
+    thumbUrl: item.thumbUrl || '',
+    daysAgo: daysAgo(item.createdAt || Date.now()),
+    createdAt: item.createdAt || Date.now(),
+    km: Math.round(distanceKm),
+    band: band(distanceKm),
+    langs: item.langs || [],
+    hasVideo: !!item.hasVideo,
+    lat: item.lat,
+    lng: item.lng,
+    categoryId: item.categoryId,
+    status: 'active',
+    ...(country ? { country } : {}),
+  }, distanceKm);
+}
+
+function parentFromShelf(id) {
+  const raw = id.slice(0, id.lastIndexOf('__'));
+  return raw === 'root' ? '' : raw;
+}
+
+function writePacked(tx, ref, cards, cell) {
+  const written = [ref.id];
+  const placed = packShelf(cards, cell);
+  if (!placed.sharded) {
+    tx.set(ref, { cards: placed.cards });
+    return written;
+  }
+  tx.set(ref, { sharded: true });
+  const parentId = parentFromShelf(ref.id);
+  for (const [finer, list] of placed.groups) {
+    const child = db.collection('feeds').doc(shelfId(parentId, finer));
+    const nested = packShelf(list, finer);
+    if (!nested.sharded) {
+      tx.set(child, { cards: nested.cards });
+      written.push(child.id);
+      continue;
+    }
+    tx.set(child, { sharded: true });
+    written.push(child.id);
+    for (const [deep, deepList] of nested.groups) {
+      const grand = db.collection('feeds').doc(shelfId(parentId, deep));
+      tx.set(grand, { cards: deepList });
+      written.push(grand.id);
+    }
+  }
+  return written;
+}
+
+async function readWritable(tx, parentId, cell, lat, lng) {
+  const parentRef = db.collection('feeds').doc(shelfId(parentId, cell));
+  const parent = await tx.get(parentRef);
+  if (parent.exists && parent.get('sharded') === true) {
+    const finer = geohash(lat, lng, cell.length + 1);
+    const ref = db.collection('feeds').doc(shelfId(parentId, finer));
+    return { ref, snap: await tx.get(ref), cell: finer };
+  }
+  return { ref: parentRef, snap: parent, cell };
+}
+
+async function syncShelves(tx, ops) {
+  const rows = [];
+  for (const op of ops) {
+    if (!op.cell) continue;
+    rows.push({ op, ...(await readWritable(tx, op.parentId || '', op.cell, op.lat, op.lng)) });
+  }
+  const groups = new Map();
+  for (const row of rows) {
+    const hit = groups.get(row.ref.path);
+    if (hit) hit.ops.push(row.op);
+    else groups.set(row.ref.path, { ...row, ops: [row.op] });
+  }
+  const written = [];
+  for (const group of groups.values()) {
+    let cards = group.snap.exists && Array.isArray(group.snap.get('cards'))
+      ? group.snap.get('cards').slice()
+      : [];
+    for (const op of group.ops) {
+      cards = cards.filter((card) => card && card.id !== op.postId);
+      if (op.card) cards.push(op.card);
+    }
+    written.push(...writePacked(tx, group.ref, cards, group.cell));
+  }
+  return written;
+}
+
+function shelfOps(before, after, postId) {
+  const ops = [];
+  if (before && before.status === 'active' && before.cell) {
+    ops.push({
+      parentId: before.parentId || '',
+      cell: before.cell,
+      lat: before.lat,
+      lng: before.lng,
+      postId,
+      card: null,
+    });
+  }
+  if (after && after.status === 'active' && after.cell) {
+    ops.push({
+      parentId: after.parentId || '',
+      cell: after.cell,
+      lat: after.lat,
+      lng: after.lng,
+      postId,
+      card: shelfCard(postId, after),
+    });
+  }
+  return ops;
+}
+
+async function parentFor(data) {
+  if (!data) return null;
+  if (typeof data.parentId === 'string') return data;
+  const rows = await categoryCatalog();
+  const cat = rows.find((row) => row.id === data.categoryId);
+  return { ...data, parentId: cat ? String(cat.parentId || '') : '' };
 }
 
 async function handle(req, res) {
@@ -1011,15 +1264,20 @@ async function handle(req, res) {
       tooFast(res, wait);
       return;
     }
-    const media = await db.collection('media').where('uid', '==', uid).get();
-    const rows = media.docs
-      .filter((d) => d.get('status') === 'ready' && d.get('kind') !== 'voice')
-      .map((d) => ({
-        id: d.id,
-        kind: d.get('kind'),
-        url: d.get('url') || fileUrl(req, d.id),
-      }));
-    send(res, 200, { media: rows });
+    let mediaQuery = db.collection('media')
+      .where('uid', '==', uid)
+      .where('status', '==', 'ready')
+      .where('kind', 'in', ['image', 'video', 'audio'])
+      .orderBy('createdAt', 'desc')
+      .orderBy(admin.firestore.FieldPath.documentId(), 'desc');
+    mediaQuery = afterCursor(mediaQuery, req.query.cursor);
+    const media = await mediaQuery.get();
+    const rows = media.docs.map((d) => ({
+      id: d.id,
+      kind: d.get('kind'),
+      url: d.get('url') || fileUrl(req, d.id),
+    }));
+    send(res, 200, { media: rows, cursor: nextCursor(media.docs) });
     return;
   }
 
@@ -1029,11 +1287,16 @@ async function handle(req, res) {
       tooFast(res, wait);
       return;
     }
-    const posts = await db.collection('posts').where('uid', '==', uid).get();
+    let postQuery = db.collection('posts')
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .orderBy(admin.firestore.FieldPath.documentId(), 'desc');
+    postQuery = afterCursor(postQuery, req.query.cursor);
+    const posts = await postQuery.get();
     const me = await db.collection('users').doc(uid).get();
     const blocked = new Set(numberList(me.get('blockedNumbers')));
-    const cats = await db.collection('categories').get();
-    const byId = new Map(cats.docs.map((d) => [d.id, d.data()]));
+    const cats = await categoryCatalog();
+    const byId = new Map(cats.map((row) => [row.id, row]));
     const lang = me.get('lang') || 'en';
     let talks = [];
     try {
@@ -1064,7 +1327,8 @@ async function handle(req, res) {
           reaches,
         };
       }),
-      talks,
+      talks: req.query.cursor ? [] : talks,
+      cursor: nextCursor(posts.docs),
     });
     return;
   }
@@ -1080,10 +1344,10 @@ async function handle(req, res) {
       tooFast(res, wait);
       return;
     }
-    const posts = await db.collection('posts').where('uid', '==', uid).get();
-    const known = posts.docs.some((doc) =>
-      Object.values(doc.get('reaches') || {}).some((row) => row && row.number === number),
-    );
+    const postId = typeof req.body?.postId === 'string' ? req.body.postId : '';
+    const post = postId ? await db.collection('posts').doc(postId).get() : null;
+    const known = post && post.exists && post.get('uid') === uid &&
+      Object.values(post.get('reaches') || {}).some((row) => row && row.number === number);
     if (!known) {
       send(res, 404, { error: 'try_again' });
       return;
@@ -1095,7 +1359,7 @@ async function handle(req, res) {
       const list = new Set(numberList(snap.get('blockedNumbers')));
       if (blocked) list.add(number);
       else list.delete(number);
-      tx.set(userRef, { blockedNumbers: [...list] }, { merge: true });
+      tx.set(userRef, { blockedNumbers: capBlocks(list) }, { merge: true });
     });
     send(res, 200, { blocked });
     return;
@@ -1115,50 +1379,35 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const cats = await db.collection('categories').where('parentId', '==', parentId).get();
-    const stamped = new Map();
-    await Promise.all(cats.docs.map(async (d) => {
-      if (d.get('coverPath') && !d.get('coverUrl')) {
-        const url = await stampCover(d);
-        if (url) stamped.set(d.id, url);
-      }
-    }));
-    const children = cats.docs
-      .map((d) => d.data() && { id: d.id, ...d.data() })
-      .filter((c) => c.active !== false)
+    const all = await categoryCatalog();
+    const children = all
+      .filter((row) => (row.parentId || '') === parentId && row.active !== false)
       .sort((a, b) => (a.sort || 0) - (b.sort || 0));
     const headersOnly = req.query.cards === '0';
-    const jobs = headersOnly
+    const jobIds = headersOnly
       ? []
-      : children.filter((c) => resolvedKind(c.id, c) === 'job');
+      : children.filter((row) => resolvedKind(row.id, row) === 'job').map((row) => row.id);
+    const pool = headersOnly
+      ? { cards: [], ring: [] }
+      : await feedPool(parentId, lat, lng, jobIds, req.query.fresh === '1');
     const grouped = new Map();
-    await Promise.all(jobs.map(async (job) => {
-      const found = await db.collection('posts')
-        .where('categoryId', '==', job.id)
-        .where('status', '==', 'active')
-        .limit(12)
-        .get();
-      const list = found.docs.map((doc) => {
-        const data = doc.data();
-        return { doc, distance: kmBetween(lat, lng, data.lat, data.lng) };
-      });
-      list.sort((a, b) => a.distance - b.distance);
-      grouped.set(job.id, list);
-    }));
-    const categories = children.map((c) => {
-      const kind = resolvedKind(c.id, c);
-      const list = kind === 'job'
-        ? (grouped.get(c.id) || []).sort((a, b) => a.distance - b.distance).slice(0, 12)
-        : [];
+    for (const item of pool.cards) {
+      const list = grouped.get(item.categoryId) || [];
+      list.push(item);
+      grouped.set(item.categoryId, list);
+    }
+    const categories = children.map((row) => {
+      const kind = resolvedKind(row.id, row);
+      const list = kind === 'job' ? grouped.get(row.id) || [] : [];
       return {
-        id: c.id,
-        name: nameIn(c.names, lang),
-        coverUrl: c.coverUrl || stamped.get(c.id) || (c.coverPath ? fileUrl(req, `cover:${c.id}`) : ''),
+        id: row.id,
+        name: nameIn(row.names, lang),
+        coverUrl: row.coverUrl || (row.coverPath ? fileUrl(req, `cover:${row.id}`) : ''),
         kind,
-        posts: list.map((row) => publicView(card(req, row.doc, row.distance), row.distance)),
+        posts: list.map((item) => poolPost(item, kmBetween(lat, lng, item.lat, item.lng))),
       };
     });
-    const body = { categories };
+    const body = { categories, ring: pool.ring };
     const etag = `"${crypto.createHash('sha1').update(JSON.stringify(body)).digest('hex')}"`;
     res.set('ETag', etag);
     res.set('Cache-Control', 'private, max-age=3600');
@@ -1284,8 +1533,17 @@ async function handle(req, res) {
       return;
     }
     const paused = req.body?.paused !== false;
-    await doc.ref.update({ status: paused ? 'paused' : 'active' });
-    send(res, 200, { status: paused ? 'paused' : 'active' });
+    const before = await parentFor(doc.data());
+    const next = { ...before, status: paused ? 'paused' : 'active' };
+    const written = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(doc.ref);
+      if (!snap.exists || snap.get('uid') !== uid) return [];
+      const ids = await syncShelves(tx, shelfOps(before, next, doc.id));
+      tx.update(doc.ref, { status: next.status });
+      return ids;
+    });
+    dropShelfCache(written);
+    send(res, 200, { status: next.status });
     return;
   }
 
@@ -1335,6 +1593,7 @@ async function handle(req, res) {
       path: objectPath,
       contentType,
       createdAt: Date.now(),
+      expireAt: admin.firestore.Timestamp.fromMillis(Date.now() + 86_400_000),
     });
     let uploadUrl = '';
     try {
@@ -1342,7 +1601,10 @@ async function handle(req, res) {
       const webOrigin = origin === 'https://worky-93fbc.web.app' ||
         origin === 'https://worky-93fbc.firebaseapp.com';
       const [uri] = await bucket.file(objectPath).createResumableUpload({
-        metadata: { contentType },
+        metadata: {
+          contentType,
+          customTime: new Date(Date.now() + 86_400_000).toISOString(),
+        },
         ...(webOrigin ? { origin } : {}),
       });
       uploadUrl = uri;
@@ -1381,12 +1643,29 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const [buf] = await file.download();
-    if (buf.length < 32 || buf.length > MAX_BYTES[doc.get('kind')]) {
+    const [meta] = await file.getMetadata();
+    const bytes = Number(meta.size || 0);
+    if (bytes < 32 || bytes > MAX_BYTES[doc.get('kind')]) {
       await file.delete({ ignoreNotFound: true });
       await doc.ref.delete();
       send(res, 400, { error: 'try_again' });
       return;
+    }
+    let buf;
+    if (doc.get('kind') === 'video') {
+      buf = await clipMp4(bytes, async (start, end) => {
+        const [part] = await file.download({ start, end });
+        return part;
+      });
+      if (!buf) {
+        await file.delete({ ignoreNotFound: true });
+        await doc.ref.delete();
+        send(res, 400, { error: 'try_again' });
+        return;
+      }
+    } else {
+      const [full] = await file.download();
+      buf = full;
     }
     const accepted = await acceptUpload(doc.get('kind'), buf);
     if (accepted.error) {
@@ -1395,27 +1674,17 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    if (doc.get('kind') === 'voice') {
-      await file.setMetadata({
-        contentType: accepted.contentType,
-        cacheControl: 'private, max-age=3600',
-      });
-      await doc.ref.update({
-        status: 'ready',
-        contentType: accepted.contentType,
-        bytes: buf.length,
-      });
-      send(res, 200, { mediaId: id });
-      return;
-    }
+    const voice = doc.get('kind') === 'voice';
     const token = crypto.randomUUID();
-    const cacheControl = 'public, max-age=31536000, immutable';
+    const cacheControl = voice
+      ? 'private, max-age=3600'
+      : 'public, max-age=31536000, immutable';
     const metadata = {
       contentType: accepted.contentType,
       cacheControl,
       metadata: { firebaseStorageDownloadTokens: token },
     };
-    if (accepted.rewrite) {
+    if (!voice && accepted.rewrite) {
       await file.save(accepted.buf, { resumable: false, metadata });
     } else {
       await file.setMetadata(metadata);
@@ -1423,7 +1692,7 @@ async function handle(req, res) {
     const url = publicUrl(bucket.name, objectPath, token);
     let thumbUrl = '';
     let thumbPath = '';
-    if (accepted.thumb) {
+    if (!voice && accepted.thumb) {
       const dot = objectPath.lastIndexOf('.');
       thumbPath = `${dot === -1 ? objectPath : objectPath.slice(0, dot)}_thumb.webp`;
       const thumbToken = crypto.randomUUID();
@@ -1437,11 +1706,13 @@ async function handle(req, res) {
       });
       thumbUrl = publicUrl(bucket.name, thumbPath, thumbToken);
     }
+    await file.setMetadata({ customTime: null });
     await doc.ref.update({
       status: 'ready',
       contentType: accepted.contentType,
-      bytes: accepted.rewrite ? accepted.buf.length : buf.length,
+      bytes: voice || !accepted.rewrite ? bytes : accepted.buf.length,
       url,
+      expireAt: admin.firestore.FieldValue.delete(),
       ...(thumbUrl ? { thumbUrl, thumbPath } : {}),
     });
     send(res, 200, { mediaId: id, url });
@@ -1483,7 +1754,15 @@ async function handle(req, res) {
       send(res, 404, { error: 'try_again' });
       return;
     }
-    await doc.ref.delete();
+    const before = await parentFor(doc.data());
+    const written = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(doc.ref);
+      if (!snap.exists) return [];
+      const ids = await syncShelves(tx, shelfOps(before, null, doc.id));
+      tx.delete(doc.ref);
+      return ids;
+    });
+    dropShelfCache(written);
     send(res, 200, { ok: true });
     return;
   }
@@ -1605,16 +1884,38 @@ async function savePost(req, uid, existingId) {
     posterUrl: media.posterUrl || '',
     thumbUrl: media.thumbUrl || '',
     hasVideo: media.hasVideo,
+    parentId: String(cat.get('parentId') || ''),
     updatedAt: Date.now(),
   };
-  if (existingId) {
-    const doc = await db.collection('posts').doc(existingId).get();
-    if (!doc.exists || doc.get('uid') !== uid) return { error: true, status: 404 };
-    await doc.ref.update(payload);
-    return { body: { id: existingId } };
+  const ref = existingId
+    ? db.collection('posts').doc(existingId)
+    : db.collection('posts').doc();
+  const prevSnap = existingId ? await ref.get() : null;
+  if (existingId && (!prevSnap.exists || prevSnap.get('uid') !== uid)) {
+    return { error: true, status: 404 };
   }
-  const ref = db.collection('posts').doc();
-  await ref.set({ ...payload, status: 'active', createdAt: Date.now() });
+  const before = prevSnap ? await parentFor(prevSnap.data()) : null;
+  const written = await db.runTransaction(async (tx) => {
+    if (existingId) {
+      const snap = await tx.get(ref);
+      if (!snap.exists || snap.get('uid') !== uid) {
+        throw Object.assign(new Error('missing'), { status: 404 });
+      }
+    }
+    const createdAt = before && before.createdAt ? before.createdAt : Date.now();
+    const status = before && before.status ? before.status : 'active';
+    const next = { ...payload, status, createdAt };
+    const ops = shelfOps(before, next, ref.id);
+    const ids = await syncShelves(tx, ops);
+    if (existingId) tx.update(ref, next);
+    else tx.set(ref, next);
+    return ids;
+  }).catch((err) => {
+    if (err.status === 404) return null;
+    throw err;
+  });
+  if (!written) return { error: true, status: 404 };
+  dropShelfCache(written);
   return { body: { id: ref.id } };
 }
 
@@ -1634,13 +1935,16 @@ async function writeCategory(req, id) {
     if (!parent.exists || resolvedKind(parentId, parent.data()) !== 'parent') return { error: 'parent' };
   }
   const sort = Number(req.body?.sort || 0);
+  const ref = id ? db.collection('categories').doc(id) : db.collection('categories').doc();
   let coverPath = null;
   let coverUrl = '';
+  let previous = '';
   if (id) {
-    const prev = await db.collection('categories').doc(id).get();
+    const prev = await ref.get();
     if (!prev.exists) return { error: 'missing' };
     coverPath = prev.get('coverPath');
     coverUrl = prev.get('coverUrl') || '';
+    previous = coverPath || '';
   }
   if (req.body?.coverMediaId) {
     const media = await db.collection('media').doc(String(req.body.coverMediaId)).get();
@@ -1651,14 +1955,33 @@ async function writeCategory(req, id) {
     coverUrl = media.get('url') || '';
   }
   if (!coverPath) return { error: 'cover' };
-  const data = { parentId, sort, names: clean, coverPath, coverUrl, active: true, kind };
-  if (id) {
-    await db.collection('categories').doc(id).set(data, { merge: true });
-    return { body: { id } };
+  if (!String(coverPath).startsWith('covers/')) {
+    const owned = await ownCover(ref.id, coverPath);
+    coverPath = owned.coverPath;
+    coverUrl = owned.coverUrl;
   }
-  const ref = db.collection('categories').doc();
-  await ref.set(data);
+  if (previous.startsWith('covers/') && previous !== coverPath) {
+    await bucket.file(previous).delete({ ignoreNotFound: true });
+  }
+  const data = { parentId, sort, names: clean, coverPath, coverUrl, active: true, kind };
+  await ref.set(data, { merge: true });
+  dropCatalog();
   return { body: { id: ref.id } };
+}
+
+async function ownCover(categoryId, srcPath) {
+  const dot = srcPath.lastIndexOf('.');
+  const ext = dot === -1 ? 'jpg' : srcPath.slice(dot + 1);
+  const dest = `covers/${categoryId}.${ext}`;
+  if (srcPath !== dest) await bucket.file(srcPath).copy(bucket.file(dest));
+  const token = crypto.randomUUID();
+  const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  await bucket.file(dest).setMetadata({
+    contentType,
+    cacheControl: 'public, max-age=31536000, immutable',
+    metadata: { firebaseStorageDownloadTokens: token },
+  });
+  return { coverPath: dest, coverUrl: publicUrl(bucket.name, dest, token) };
 }
 
 exports.api = onRequest(
