@@ -609,6 +609,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
   bool _ready = false;
   Future<List<MediaItem>>? _detail;
   String? _reachNote;
+  bool? _detailMine;
   final AudioPlayer _audio = AudioPlayer();
   final PageController _pages = PageController();
 
@@ -631,10 +632,12 @@ class _ExpandedCardState extends State<ExpandedCard> {
       setState(() {
         _media = detail.media;
         _ready = true;
+        _detailMine = detail.mine;
       });
       return detail.media;
     } catch (_) {
       _detail = null;
+      if (mounted) setState(() => _detailMine = false);
       rethrow;
     }
   }
@@ -903,7 +906,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                     ),
                     child: tail,
                   ),
-                if (!widget.mine)
+                if (!widget.mine && _detailMine == false)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Row(

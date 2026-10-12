@@ -50,12 +50,6 @@ class _TalkScreenState extends State<TalkScreen> {
         try {
           await TalkPush.allow(SessionHost.of(context).api);
         } catch (_) {}
-        if (mounted) {
-          await Speaker.say(
-            SessionHost.of(context).lang,
-            AppLocalizations.of(context).videoNotice,
-          );
-        }
       }
       await _load();
     });
@@ -207,6 +201,27 @@ class _TalkScreenState extends State<TalkScreen> {
     return null;
   }
 
+  Future<bool> _acceptVideoNotice() async {
+    final l10n = AppLocalizations.of(context);
+    final allow = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: SingleChildScrollView(child: Text(l10n.videoNotice)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.back),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.accept),
+          ),
+        ],
+      ),
+    );
+    return allow == true;
+  }
+
   Future<void> _video() async {
     if (_sending || _closed || kIsWeb) return;
     final live = _liveMeet();
@@ -218,13 +233,24 @@ class _TalkScreenState extends State<TalkScreen> {
       return;
     }
     final session = SessionHost.of(context);
-    setState(() => _sending = true);
-    try {
-      final token = await session.calendarAccess();
-      if (token == null || token.isEmpty) {
-        await _fail();
+    var token = await session.calendarToken();
+    if (!mounted) return;
+    if (token == null || token.isEmpty) {
+      if (!await _acceptVideoNotice() || !mounted) return;
+      try {
+        token = await session.calendarToken(prompt: true);
+      } catch (_) {
+        if (mounted) await _fail();
         return;
       }
+    }
+    if (!mounted) return;
+    if (token == null || token.isEmpty) {
+      await _fail();
+      return;
+    }
+    setState(() => _sending = true);
+    try {
       final sent = await session.api.startVideo(
         postId: widget.postId,
         pairId: _pairId,
@@ -317,27 +343,6 @@ class _TalkScreenState extends State<TalkScreen> {
                   ],
                 ),
               ),
-              if (!kIsWeb && !_closed)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE7F2EE),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        l10n.videoNotice,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.3,
-                          color: Color(0xFF16332C),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -377,7 +382,13 @@ class _TalkScreenState extends State<TalkScreen> {
                   recording: _recording,
                   seconds: _recordMs ~/ 1000,
                   showVideo: !kIsWeb,
-                  onSend: _sendText,
+                  onSend: () {
+                    if (_recording) {
+                      unawaited(_finishMic());
+                      return;
+                    }
+                    unawaited(_sendText());
+                  },
                   onMic: _toggleMic,
                   onVideo: _video,
                 ),

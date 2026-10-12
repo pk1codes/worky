@@ -33,6 +33,7 @@ class Session extends ChangeNotifier {
   final WorkyApi api;
   late final MediaQueue outbox;
   SharedPreferences? _prefs;
+  GoogleSignInAccount? _google;
 
   bool ready = false;
   String? lang;
@@ -86,6 +87,7 @@ class Session extends ChangeNotifier {
     if (user != null) outbox.kick();
     auth.authStateChanges().listen((next) async {
       user = next;
+      if (next == null) _google = null;
       await _analyticsUser(next?.uid);
       if (next != null) {
         outbox.kick();
@@ -265,6 +267,7 @@ class Session extends ChangeNotifier {
       return;
     }
     final account = await GoogleSignIn.instance.authenticate();
+    _google = account;
     final idToken = account.authentication.idToken;
     if (idToken == null) return;
     await auth.signInWithCredential(
@@ -272,22 +275,47 @@ class Session extends ChangeNotifier {
     );
   }
 
-  Future<String?> calendarAccess() async {
-    if (kIsWeb) return null;
-    final account = await GoogleSignIn.instance.authenticate();
-    const scopes = ['https://www.googleapis.com/auth/calendar.events.owned'];
-    final existing = await account.authorizationClient.authorizationForScopes(
-      scopes,
-    );
-    final auth =
-        existing ?? await account.authorizationClient.authorizeScopes(scopes);
-    return auth.accessToken;
+  static const _calendarScopes = [
+    'https://www.googleapis.com/auth/calendar.events.owned',
+  ];
+
+  /// A calendar token for the signed-in Google account.
+  ///
+  /// [prompt] asks for the calendar permission. Sign-in runs only when no
+  /// Google account is already held.
+  Future<String?> calendarToken({bool prompt = false}) async {
+    if (kIsWeb || kUseEmulator) return null;
+    try {
+      var account = _google;
+      if (account == null) {
+        if (!prompt) return null;
+        account = await GoogleSignIn.instance
+            .attemptLightweightAuthentication();
+        if (account != null) _google = account;
+      }
+      if (account == null) {
+        account = await GoogleSignIn.instance.authenticate();
+        _google = account;
+      }
+      final existing = await account.authorizationClient
+          .authorizationForScopes(_calendarScopes);
+      if (existing != null) return existing.accessToken;
+      if (!prompt) return null;
+      final granted = await account.authorizationClient.authorizeScopes(
+        _calendarScopes,
+      );
+      return granted.accessToken;
+    } catch (_) {
+      if (!prompt) return null;
+      rethrow;
+    }
   }
 
   Future<void> trySilent() async {
     if (kUseEmulator || kIsWeb || auth.currentUser != null) return;
     final account = await GoogleSignIn.instance
         .attemptLightweightAuthentication();
+    if (account != null) _google = account;
     final idToken = account?.authentication.idToken;
     if (idToken == null) return;
     await auth.signInWithCredential(
@@ -317,6 +345,7 @@ class Session extends ChangeNotifier {
     dropFeed();
     whatsapp = null;
     admin = false;
+    _google = null;
     await _prefs?.remove('whatsapp');
     await _analyticsUser(null);
     if (!kUseEmulator && !kIsWeb) {
