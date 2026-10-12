@@ -157,4 +157,28 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'ਬਾਹਰ ਜਾਓ';
+
+  @override
+  String get email => 'ਈਮੇਲ';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'ਪਰਦੇਦਾਰੀ';
+
+  @override
+  String get accountDeletion => 'ਖਾਤਾ ਮਿਟਾਉਣਾ';
+
+  @override
+  String get posts => 'ਪੋਸਟਾਂ';
+
+  @override
+  String get talks => 'ਗੱਲਾਂ';
+
+  @override
+  String get pages => 'ਪੰਨੇ';
 }

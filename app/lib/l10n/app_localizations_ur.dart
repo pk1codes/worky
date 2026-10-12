@@ -157,4 +157,28 @@ class AppLocalizationsUr extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'باہر نکلیں';
+
+  @override
+  String get email => 'ای میل';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'رازداری';
+
+  @override
+  String get accountDeletion => 'اکاؤنٹ مٹانا';
+
+  @override
+  String get posts => 'پوسٹس';
+
+  @override
+  String get talks => 'باتیں';
+
+  @override
+  String get pages => 'صفحات';
 }

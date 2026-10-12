@@ -157,4 +157,28 @@ class AppLocalizationsOr extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'ବାହାରକୁ ଯାଆନ୍ତୁ';
+
+  @override
+  String get email => 'ଇମେଲ୍';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'ଗୋପନୀୟତା';
+
+  @override
+  String get accountDeletion => 'ଖାତା କାଢ଼ିବା';
+
+  @override
+  String get posts => 'ପୋଷ୍ଟ';
+
+  @override
+  String get talks => 'କଥା';
+
+  @override
+  String get pages => 'ପୃଷ୍ଠା';
 }

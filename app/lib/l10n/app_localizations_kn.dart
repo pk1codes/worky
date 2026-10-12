@@ -157,4 +157,28 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get updateAvailable => 'Update';
+
+  @override
+  String get logOut => 'ನಿರ್ಗಮಿಸಿ';
+
+  @override
+  String get email => 'ಇಮೇಲ್';
+
+  @override
+  String get whatsapp => 'WhatsApp';
+
+  @override
+  String get privacy => 'ಗೌಪ್ಯತೆ';
+
+  @override
+  String get accountDeletion => 'ಖಾತೆ ಅಳಿಸುವಿಕೆ';
+
+  @override
+  String get posts => 'ಪೋಸ್ಟ್‌ಗಳು';
+
+  @override
+  String get talks => 'ಮಾತುಗಳು';
+
+  @override
+  String get pages => 'ಪುಟಗಳು';
 }

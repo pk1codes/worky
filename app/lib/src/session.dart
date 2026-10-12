@@ -297,8 +297,9 @@ class Session extends ChangeNotifier {
         account = await GoogleSignIn.instance.authenticate();
         _google = account;
       }
-      final existing = await account.authorizationClient
-          .authorizationForScopes(_calendarScopes);
+      final existing = await account.authorizationClient.authorizationForScopes(
+        _calendarScopes,
+      );
       if (existing != null) return existing.accessToken;
       if (!prompt) return null;
       final granted = await account.authorizationClient.authorizeScopes(
@@ -342,6 +343,21 @@ class Session extends ChangeNotifier {
   Future<void> deleteAccount() async {
     await outbox.clear();
     await api.deleteMe();
+    dropFeed();
+    whatsapp = null;
+    admin = false;
+    _google = null;
+    await _prefs?.remove('whatsapp');
+    await _analyticsUser(null);
+    if (!kUseEmulator && !kIsWeb) {
+      await GoogleSignIn.instance.signOut();
+    }
+    await auth.signOut();
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    await outbox.clear();
     dropFeed();
     whatsapp = null;
     admin = false;

@@ -23,6 +23,12 @@ import 'session.dart';
 import 'talk_screen.dart';
 
 const _kWorld = 'World';
+const _kPrivacyUrl = 'https://worky-93fbc.web.app/privacy.html';
+const _kTermsUrl = 'https://worky-93fbc.web.app/terms.html';
+const _kDeleteUrl = 'https://worky-93fbc.web.app/delete.html';
+const _kInk = Color(0xFF16332C);
+const _kMint = Color(0xFFE7F2EE);
+const _kLine = Color(0xFFD5E7DF);
 
 class MineScreen extends StatefulWidget {
   const MineScreen({super.key});
@@ -250,6 +256,198 @@ class _MineScreenState extends State<MineScreen> {
     );
   }
 
+  Future<void> _openPage(Session session, String label, Uri url) async {
+    await Speaker.say(session.lang, label);
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _accountLine(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF5C746D),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            color: _kInk,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _accountCard(Session session, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kLine),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _kMint,
+                      shape: BoxShape.circle,
+                    ),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(Icons.person, color: Color(0xFF0F6E56)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _accountLine(l10n.email, session.user?.email ?? ''),
+                        const SizedBox(height: 10),
+                        _accountLine(l10n.whatsapp, session.whatsapp ?? ''),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: BigIcon(
+                      icon: Icons.logout,
+                      label: l10n.logOut,
+                      stretch: true,
+                      onTap: () async {
+                        await Speaker.say(session.lang, l10n.logOut);
+                        await session.signOut();
+                        if (mounted) Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _section(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 18,
+          color: _kInk,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _pageRow(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: _kMint,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(icon, color: const Color(0xFF0F6E56), size: 22),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: _kInk,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFF5C746D)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pages(Session session, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _kLine),
+        ),
+        child: Column(
+          children: [
+            _pageRow(
+              Icons.privacy_tip_outlined,
+              l10n.privacy,
+              () => _openPage(session, l10n.privacy, Uri.parse(_kPrivacyUrl)),
+            ),
+            const Divider(height: 1, color: _kLine),
+            _pageRow(
+              Icons.description_outlined,
+              l10n.terms,
+              () => _openPage(session, l10n.terms, Uri.parse(_kTermsUrl)),
+            ),
+            const Divider(height: 1, color: _kLine),
+            _pageRow(
+              Icons.person_off_outlined,
+              l10n.accountDeletion,
+              () => _openPage(
+                session,
+                l10n.accountDeletion,
+                Uri.parse(_kDeleteUrl),
+              ),
+            ),
+            const Divider(height: 1, color: _kLine),
+            _pageRow(Icons.mail_outline, l10n.contact, () {
+              _openPage(
+                session,
+                l10n.contact,
+                Uri.parse('mailto:$kSupportEmail'),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _mineAction(
     IconData icon,
     String label,
@@ -427,6 +625,14 @@ class _MineScreenState extends State<MineScreen> {
                       compact: true,
                       onTap: () => Navigator.pop(context),
                     ),
+                    Text(
+                      l10n.mine,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        color: _kInk,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const Spacer(),
                     BigIcon(
                       icon: Icons.translate,
@@ -460,57 +666,8 @@ class _MineScreenState extends State<MineScreen> {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 12),
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                      child: Text(
-                        l10n.mine,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          color: Color(0xFF16332C),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (_version.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Row(
-                          children: [
-                            Text(
-                              _version,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF16332C),
-                              ),
-                            ),
-                            if (_update) ...[
-                              const SizedBox(width: 10),
-                              Material(
-                                color: const Color(0xFF0F6E56),
-                                borderRadius: BorderRadius.circular(20),
-                                child: InkWell(
-                                  onTap: _updateNow,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    child: Text(
-                                      l10n.updateAvailable,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                    _accountCard(session, l10n),
+                    _section(l10n.posts),
                     if (_loading) const LinearProgressIndicator(),
                     if (_failed && _posts.isEmpty)
                       BigIcon(
@@ -554,44 +711,70 @@ class _MineScreenState extends State<MineScreen> {
                           tail: _cardTail(session, post, l10n),
                         ),
                       ),
-                    for (final talk in _talks) _talkRow(talk, l10n),
+                    if (_talks.isNotEmpty) ...[
+                      _section(l10n.talks),
+                      for (final talk in _talks) _talkRow(talk, l10n),
+                    ],
+                    _section(l10n.pages),
+                    _pages(session, l10n),
+                    BigIcon(
+                      icon: Icons.person_off,
+                      label: l10n.deleteAccount,
+                      filled: _armedAccount,
+                      color: Colors.red,
+                      onTap: () async {
+                        if (!_armedAccount) {
+                          setState(() => _armedAccount = true);
+                          await Speaker.say(session.lang, l10n.deleteAccount);
+                          return;
+                        }
+                        await session.deleteAccount();
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                    ),
+                    if (_version.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _version,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: _kInk,
+                              ),
+                            ),
+                            if (_update) ...[
+                              const SizedBox(width: 10),
+                              Material(
+                                color: const Color(0xFF0F6E56),
+                                borderRadius: BorderRadius.circular(20),
+                                child: InkWell(
+                                  onTap: _updateNow,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      l10n.updateAvailable,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  BigIcon(
-                    icon: Icons.description,
-                    label: l10n.terms,
-                    onTap: () => Speaker.say(
-                      session.lang,
-                      '${l10n.termsBody} ${l10n.contactNotice}',
-                    ),
-                  ),
-                  BigIcon(
-                    icon: Icons.mail_outline,
-                    label: l10n.contact,
-                    onTap: () => launchUrl(Uri.parse('mailto:$kSupportEmail')),
-                  ),
-                  BigIcon(
-                    icon: Icons.person_off,
-                    label: l10n.deleteAccount,
-                    filled: _armedAccount,
-                    color: Colors.red,
-                    onTap: () async {
-                      if (!_armedAccount) {
-                        setState(() => _armedAccount = true);
-                        await Speaker.say(session.lang, l10n.deleteAccount);
-                        return;
-                      }
-                      await session.deleteAccount();
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                ],
               ),
             ],
           ),

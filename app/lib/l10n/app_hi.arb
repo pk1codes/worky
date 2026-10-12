@@ -45,5 +45,13 @@
   "videoCall": "वीडियो",
   "call": "कॉल",
   "speakThese": "मैं ये बोलता हूँ.",
-  "signInGoogle": "Google से साइन इन करें."
+  "signInGoogle": "Google से साइन इन करें.",
+  "logOut": "बाहर निकलें",
+  "email": "ईमेल",
+  "whatsapp": "WhatsApp",
+  "privacy": "गोपनीयता",
+  "accountDeletion": "खाता हटाना",
+  "posts": "पोस्ट",
+  "talks": "बातें",
+  "pages": "पन्ने"
 }

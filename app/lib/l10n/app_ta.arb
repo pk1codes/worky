@@ -45,5 +45,13 @@
   "videoCall": "வீடியோ",
   "call": "கால்",
   "speakThese": "நான் இவை பேசுவேன்.",
-  "signInGoogle": "Google மூலம் உள்நுழையுங்கள்."
+  "signInGoogle": "Google மூலம் உள்நுழையுங்கள்.",
+  "logOut": "வெளியேறு",
+  "email": "மின்னஞ்சல்",
+  "whatsapp": "WhatsApp",
+  "privacy": "தனியுரிமை",
+  "accountDeletion": "கணக்கு நீக்கம்",
+  "posts": "பதிவுகள்",
+  "talks": "உரையாடல்",
+  "pages": "பக்கங்கள்"
 }
