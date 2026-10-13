@@ -376,24 +376,6 @@ abstract class AppLocalizations {
   /// **'Message'**
   String get typeMessage;
 
-  /// No description provided for @joinVideo.
-  ///
-  /// In en, this message translates to:
-  /// **'Join'**
-  String get joinVideo;
-
-  /// No description provided for @videoCall.
-  ///
-  /// In en, this message translates to:
-  /// **'Video'**
-  String get videoCall;
-
-  /// No description provided for @videoNotice.
-  ///
-  /// In en, this message translates to:
-  /// **'Worky can see, create, change, and delete events on calendars you own. Worky uses that only to add one Worky event on your primary calendar, share that Meet link with the other person in this talk, and delete that event if the call is not saved. Worky deletes the stored link when the talk is closed and when the talk is next opened after two hours, does not send the link after two hours, and keeps the stored link if the talk is not opened again. Worky\'s use of information from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.'**
-  String get videoNotice;
-
   /// No description provided for @call.
   ///
   /// In en, this message translates to:

@@ -7,7 +7,7 @@ const { LANGS, coarse, geohash, ring, hashBounds, kmBetween, band, daysAgo, publ
 const { shelfId, shelfCard, packShelf, wantNeighbor, capBlocks } = require('./lib/shelf');
 const { categoryTrail } = require('./lib/categories');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, clipMp4, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
-const { DAY_MS, VIDEO_MS, pairId, pairMembers, cleanText, googleMatch, meetBody, meetUrl, viewMessage } = require('./lib/talk');
+const { DAY_MS, pairId, pairMembers, cleanText, viewMessage } = require('./lib/talk');
 const { allow, clientIp, overCap } = require('./lib/gate');
 
 admin.initializeApp({
@@ -410,7 +410,6 @@ function otherOf(members, uid) {
 
 function talkPreview(kind, text) {
   if (kind === 'voice') return 'Voice';
-  if (kind === 'video') return 'Video';
   return String(text || '').slice(0, 80);
 }
 
@@ -445,17 +444,6 @@ async function talkRows(req, ref, now, closed = false) {
   if (drops) await batch.commit();
   rows.reverse();
   return rows;
-}
-
-async function liveVideo(ref, now) {
-  const msgs = await ref.collection('msgs').orderBy('at', 'desc').limit(40).get();
-  for (const doc of msgs.docs) {
-    const data = doc.data();
-    if (data.kind === 'video' && data.meetUrl && data.expiresAt > now) {
-      return { id: doc.id, ...data };
-    }
-  }
-  return null;
 }
 
 async function markRead(ref, snap, uid) {
@@ -607,71 +595,6 @@ async function messageFrom(req, uid) {
   return { msg: { kind: 'voice', mediaId, durMs, url: media.get('url') || '' }, preview: talkPreview('voice') };
 }
 
-const OWNED_CALENDAR = 'https://www.googleapis.com/auth/calendar.events.owned';
-
-async function calendarJson(accessToken, method, path, body) {
-  const response = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
-    method,
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      'content-type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) return null;
-  const text = await response.text();
-  if (!text) return {};
-  return JSON.parse(text);
-}
-
-async function tokenInfo(accessToken) {
-  const response = await fetch('https://oauth2.googleapis.com/tokeninfo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ access_token: accessToken }).toString(),
-  });
-  if (!response.ok) return null;
-  return response.json();
-}
-
-async function createMeet(accessToken, uid) {
-  const token = await tokenInfo(accessToken);
-  if (!token) return null;
-  const scopes = String(token.scope || '').split(/\s+/);
-  if (!scopes.includes(OWNED_CALENDAR)) return null;
-  const user = await admin.auth().getUser(uid);
-  if (!googleMatch(token.sub, user.providerData)) return null;
-  const created = await calendarJson(
-    accessToken,
-    'POST',
-    '/calendars/primary/events?conferenceDataVersion=1',
-    meetBody(Date.now(), crypto.randomBytes(8).toString('hex')),
-  );
-  if (!created || !created.id) return null;
-  let url = meetUrl(created);
-  let event = created;
-  for (let i = 0; !url && i < 3; i += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    event = await calendarJson(
-      accessToken,
-      'GET',
-      `/calendars/primary/events/${encodeURIComponent(created.id)}?conferenceDataVersion=1`,
-    );
-    url = meetUrl(event);
-  }
-  if (!url) return null;
-  return { url, eventId: created.id };
-}
-
-async function deleteEvent(accessToken, eventId) {
-  if (!eventId) return;
-  await calendarJson(
-    accessToken,
-    'DELETE',
-    `/calendars/primary/events/${encodeURIComponent(eventId)}`,
-  );
-}
-
 async function talk(req, res, uid, path, bits) {
   if (req.method === 'PUT' && path === '/v1/me/push') {
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
@@ -747,10 +670,6 @@ async function talk(req, res, uid, path, bits) {
       }
       return true;
     }
-    if (req.method === 'POST' && bits[4] === 'video') {
-      await startVideo(req, res, uid, owner, post.id);
-      return true;
-    }
     send(res, 404, { error: 'try_again' });
     return true;
   }
@@ -808,78 +727,8 @@ async function talk(req, res, uid, path, bits) {
     }
     return true;
   }
-  if (req.method === 'POST' && bits[3] === 'video') {
-    const owner = otherOf(loaded.members, uid);
-    await startVideo(req, res, uid, owner, loaded.snap.get('postId') || '', bits[2]);
-    return true;
-  }
   send(res, 404, { error: 'try_again' });
   return true;
-}
-
-async function startVideo(req, res, uid, owner, postId, existingId) {
-  const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken : '';
-  if (accessToken.length < 20 || accessToken.length > 4096) {
-    send(res, 400, { error: 'try_again' });
-    return;
-  }
-  let room;
-  if (existingId) {
-    const loaded = await loadTalk(existingId, uid);
-    if (!loaded || loaded.missing || loaded.snap.get('closed') === true) {
-      send(res, 404, { error: 'try_again' });
-      return;
-    }
-    room = { id: existingId, ref: loaded.ref, snap: loaded.snap };
-  } else {
-    room = await ensurePair(uid, owner, postId);
-    if (room.status) {
-      fail(res, room.status, room.retryAfter);
-      return;
-    }
-  }
-  const now = Date.now();
-  const live = await liveVideo(room.ref, now);
-  if (live) {
-    send(res, 200, {
-      pairId: room.id,
-      message: viewMessage(live, now, ''),
-    });
-    return;
-  }
-  const burstWait = pace(`vid_${uid}`, 3, 10_000);
-  if (burstWait) {
-    tooFast(res, burstWait);
-    return;
-  }
-  const capped = await limited(`vid_${uid}`, 5, DAY_MS);
-  if (capped) {
-    tooFast(res, capped);
-    return;
-  }
-  const made = await createMeet(accessToken, uid);
-  if (!made) {
-    send(res, 400, { error: 'try_again' });
-    return;
-  }
-  const expiresAt = now + VIDEO_MS;
-  try {
-    const saved = await appendTalk(
-      room.ref,
-      uid,
-      room.snap.get('members'),
-      { kind: 'video', meetUrl: made.url, expiresAt },
-      talkPreview('video'),
-    );
-    await pingTalk(saved.other, 'Video', room.id);
-    send(res, 200, {
-      pairId: room.id,
-      message: { id: saved.id, at: saved.at, kind: 'video', from: uid, meetUrl: made.url, expiresAt },
-    });
-  } catch (err) {
-    await deleteEvent(accessToken, made.eventId);
-    send(res, err.status || 500, { error: 'try_again' });
-  }
 }
 
 async function deleteStep(uid, cursor) {

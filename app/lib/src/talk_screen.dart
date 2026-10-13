@@ -5,7 +5,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
 import 'api.dart';
@@ -237,90 +236,6 @@ class _TalkScreenState extends State<TalkScreen> {
     }
   }
 
-  TalkMessage? _liveMeet() {
-    for (var i = _messages.length - 1; i >= 0; i -= 1) {
-      final message = _messages[i];
-      if (message.liveVideo) return message;
-    }
-    return null;
-  }
-
-  Future<bool> _acceptVideoNotice() async {
-    final l10n = AppLocalizations.of(context);
-    final allow = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: SingleChildScrollView(child: Text(l10n.videoNotice)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.back),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.accept),
-          ),
-        ],
-      ),
-    );
-    return allow == true;
-  }
-
-  Future<void> _video() async {
-    if (_sending || _closed || kIsWeb) return;
-    final live = _liveMeet();
-    if (live != null) {
-      await launchUrl(
-        Uri.parse(live.meetUrl),
-        mode: LaunchMode.externalApplication,
-      );
-      return;
-    }
-    final session = SessionHost.of(context);
-    var token = await session.calendarToken();
-    if (!mounted) return;
-    if (token == null || token.isEmpty) {
-      if (!await _acceptVideoNotice() || !mounted) return;
-      try {
-        token = await session.calendarToken(prompt: true);
-      } catch (_) {
-        if (mounted) await _fail();
-        return;
-      }
-    }
-    if (!mounted) return;
-    if (token == null || token.isEmpty) {
-      await _fail();
-      return;
-    }
-    setState(() => _sending = true);
-    try {
-      final sent = await session.api.startVideo(
-        postId: widget.postId,
-        pairId: _pairId,
-        accessToken: token,
-      );
-      if (!mounted) return;
-      setState(() {
-        _keepPair(sent.pairId);
-        final known = {for (final message in _messages) message.id};
-        _messages = [
-          ..._messages,
-          for (final message in sent.messages)
-            if (!known.contains(message.id)) message,
-        ];
-      });
-      final url = sent.messages.isEmpty ? '' : sent.messages.last.meetUrl;
-      if (url.isNotEmpty) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      await _fail();
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
   Future<void> _play(TalkMessage message) async {
     if (_playing == message.id) {
       await _player.stop();
@@ -398,13 +313,14 @@ class _TalkScreenState extends State<TalkScreen> {
                         itemBuilder: (context, index) {
                           final message =
                               _messages[_messages.length - 1 - index];
+                          if (message.kind != 'text' && message.kind != 'voice') {
+                            return const SizedBox.shrink();
+                          }
                           return _Bubble(
                             message: message,
                             mine: message.from == mine,
                             playing: _playing == message.id,
                             onPlay: () => _play(message),
-                            join: l10n.joinVideo,
-                            video: l10n.videoCall,
                             voice: l10n.addAudio,
                           );
                         },
@@ -425,7 +341,6 @@ class _TalkScreenState extends State<TalkScreen> {
                   sending: _sending,
                   recording: _recording,
                   seconds: _recordMs ~/ 1000,
-                  showVideo: !kIsWeb,
                   onSend: () {
                     if (_recording) {
                       unawaited(_finishMic());
@@ -434,7 +349,6 @@ class _TalkScreenState extends State<TalkScreen> {
                     unawaited(_sendText());
                   },
                   onMic: _toggleMic,
-                  onVideo: _video,
                 ),
             ],
           ),
@@ -450,8 +364,6 @@ class _Bubble extends StatelessWidget {
     required this.mine,
     required this.playing,
     required this.onPlay,
-    required this.join,
-    required this.video,
     required this.voice,
   });
 
@@ -459,8 +371,6 @@ class _Bubble extends StatelessWidget {
   final bool mine;
   final bool playing;
   final VoidCallback onPlay;
-  final String join;
-  final String video;
   final String voice;
 
   @override
@@ -482,8 +392,7 @@ class _Bubble extends StatelessWidget {
         ),
         child: message.kind == 'text'
             ? Text(message.text, style: TextStyle(color: fg, fontSize: 16))
-            : message.kind == 'voice'
-            ? InkWell(
+            : InkWell(
                 onTap: message.url.isEmpty ? null : onPlay,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -496,26 +405,7 @@ class _Bubble extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
-            : message.liveVideo
-            ? InkWell(
-                onTap: () => launchUrl(
-                  Uri.parse(message.meetUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.videocam, color: fg),
-                    const SizedBox(width: 6),
-                    Text(
-                      join,
-                      style: TextStyle(color: fg, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              )
-            : Text(video, style: TextStyle(color: fg.withValues(alpha: 0.7))),
+              ),
       ),
     );
   }
@@ -528,10 +418,8 @@ class _Composer extends StatelessWidget {
     required this.sending,
     required this.recording,
     required this.seconds,
-    required this.showVideo,
     required this.onSend,
     required this.onMic,
-    required this.onVideo,
   });
 
   final TextEditingController controller;
@@ -539,10 +427,8 @@ class _Composer extends StatelessWidget {
   final bool sending;
   final bool recording;
   final int seconds;
-  final bool showVideo;
   final VoidCallback onSend;
   final VoidCallback onMic;
-  final VoidCallback onVideo;
 
   @override
   Widget build(BuildContext context) {
@@ -579,13 +465,6 @@ class _Composer extends StatelessWidget {
             extent: 52,
             onTap: sending ? null : onMic,
           ),
-          if (showVideo)
-            BigIcon(
-              icon: Icons.videocam,
-              compact: true,
-              extent: 52,
-              onTap: sending ? null : onVideo,
-            ),
           BigIcon(
             icon: Icons.send,
             filled: true,

@@ -292,43 +292,6 @@ class Session extends ChangeNotifier {
     );
   }
 
-  static const _calendarScopes = [
-    'https://www.googleapis.com/auth/calendar.events.owned',
-  ];
-
-  /// A calendar token for the signed-in Google account.
-  ///
-  /// [prompt] asks for the calendar permission. Sign-in runs only when no
-  /// Google account is already held.
-  Future<String?> calendarToken({bool prompt = false}) async {
-    if (kIsWeb || kUseEmulator) return null;
-    try {
-      var account = _google;
-      if (account == null) {
-        if (!prompt) return null;
-        account = await GoogleSignIn.instance
-            .attemptLightweightAuthentication();
-        if (account != null) _google = account;
-      }
-      if (account == null) {
-        account = await GoogleSignIn.instance.authenticate();
-        _google = account;
-      }
-      final existing = await account.authorizationClient.authorizationForScopes(
-        _calendarScopes,
-      );
-      if (existing != null) return existing.accessToken;
-      if (!prompt) return null;
-      final granted = await account.authorizationClient.authorizeScopes(
-        _calendarScopes,
-      );
-      return granted.accessToken;
-    } catch (_) {
-      if (!prompt) return null;
-      rethrow;
-    }
-  }
-
   Future<void> trySilent() async {
     if (kUseEmulator || kIsWeb || auth.currentUser != null) return;
     final account = await GoogleSignIn.instance

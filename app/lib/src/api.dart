@@ -314,8 +314,6 @@ class TalkMessage {
     this.text = '',
     this.url = '',
     this.durMs = 0,
-    this.meetUrl = '',
-    this.expiresAt = 0,
     this.failed = false,
   });
 
@@ -326,8 +324,6 @@ class TalkMessage {
   final String text;
   final String url;
   final int durMs;
-  final String meetUrl;
-  final int expiresAt;
   final bool failed;
 
   TalkMessage markFailed() {
@@ -339,14 +335,9 @@ class TalkMessage {
       text: text,
       url: url,
       durMs: durMs,
-      meetUrl: meetUrl,
-      expiresAt: expiresAt,
       failed: true,
     );
   }
-
-  bool get liveVideo =>
-      meetUrl.isNotEmpty && expiresAt > DateTime.now().millisecondsSinceEpoch;
 
   factory TalkMessage.fromJson(Map<String, dynamic> json) {
     return TalkMessage(
@@ -357,8 +348,6 @@ class TalkMessage {
       text: (json['text'] as String?) ?? '',
       url: (json['url'] as String?) ?? '',
       durMs: (json['durMs'] as num?)?.toInt() ?? 0,
-      meetUrl: (json['meetUrl'] as String?) ?? '',
-      expiresAt: (json['expiresAt'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -810,24 +799,6 @@ class WorkyApi {
       );
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return TalkThread(
-      pairId: (json['pairId'] as String?) ?? pairId ?? '',
-      closed: false,
-      messages: [
-        TalkMessage.fromJson(Map<String, dynamic>.from(json['message'] as Map)),
-      ],
-    );
-  }
-
-  Future<TalkThread> startVideo({
-    String? postId,
-    String? pairId,
-    required String accessToken,
-  }) async {
-    final path = (pairId == null || pairId.isEmpty)
-        ? '/v1/posts/$postId/talk/video'
-        : '/v1/talks/$pairId/video';
-    final json = (await _json('POST', path, body: {'accessToken': accessToken}))!;
     return TalkThread(
       pairId: (json['pairId'] as String?) ?? pairId ?? '',
       closed: false,
