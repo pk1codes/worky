@@ -8,8 +8,12 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 
 class ApiException implements Exception {
-  ApiException(this.status);
+  ApiException(this.status, {this.retryAfter = 0});
+
   final int status;
+  final int retryAfter;
+
+  bool get dayCap => status == 429 && retryAfter > 10;
 }
 
 class FinishException implements Exception {
@@ -312,6 +316,7 @@ class TalkMessage {
     this.durMs = 0,
     this.meetUrl = '',
     this.expiresAt = 0,
+    this.failed = false,
   });
 
   final String id;
@@ -323,6 +328,22 @@ class TalkMessage {
   final int durMs;
   final String meetUrl;
   final int expiresAt;
+  final bool failed;
+
+  TalkMessage markFailed() {
+    return TalkMessage(
+      id: id,
+      from: from,
+      at: at,
+      kind: kind,
+      text: text,
+      url: url,
+      durMs: durMs,
+      meetUrl: meetUrl,
+      expiresAt: expiresAt,
+      failed: true,
+    );
+  }
 
   bool get liveVideo =>
       meetUrl.isNotEmpty && expiresAt > DateTime.now().millisecondsSinceEpoch;
@@ -429,7 +450,12 @@ class WorkyApi {
       response = await http.delete(uri, headers: headers);
     }
     if (response.statusCode == 304) return null;
-    if (response.statusCode >= 300) throw ApiException(response.statusCode);
+    if (response.statusCode >= 300) {
+      throw ApiException(
+        response.statusCode,
+        retryAfter: int.tryParse(response.headers['retry-after'] ?? '') ?? 0,
+      );
+    }
     final etag = response.headers['etag'];
     if (cache && etag != null) _etags[path] = etag;
     if (response.body.isEmpty) return {};
@@ -753,6 +779,37 @@ class WorkyApi {
         ? '/v1/posts/$postId/talk'
         : '/v1/talks/$pairId';
     final json = (await _json('POST', path, body: body))!;
+    return TalkThread(
+      pairId: (json['pairId'] as String?) ?? pairId ?? '',
+      closed: false,
+      messages: [
+        TalkMessage.fromJson(Map<String, dynamic>.from(json['message'] as Map)),
+      ],
+    );
+  }
+
+  Future<TalkThread> sendVoice({
+    String? postId,
+    String? pairId,
+    required List<int> bytes,
+    required int durMs,
+  }) async {
+    final headers = await _headers();
+    headers['content-type'] = 'audio/mp4';
+    headers['x-dur-ms'] = '$durMs';
+    final path = (pairId == null || pairId.isEmpty)
+        ? '/v1/posts/$postId/talk'
+        : '/v1/talks/$pairId';
+    final response = await http
+        .post(Uri.parse('$kApiBase$path'), headers: headers, body: bytes)
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode >= 300) {
+      throw ApiException(
+        response.statusCode,
+        retryAfter: int.tryParse(response.headers['retry-after'] ?? '') ?? 0,
+      );
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
     return TalkThread(
       pairId: (json['pairId'] as String?) ?? pairId ?? '',
       closed: false,

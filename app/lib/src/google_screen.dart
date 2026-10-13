@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../l10n/app_localizations.dart';
 import 'chrome.dart';
 import 'session.dart';
+import 'talk_push.dart';
 
 class GoogleScreen extends StatefulWidget {
   const GoogleScreen({super.key});
@@ -88,6 +89,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                         });
                         try {
                           await session.signIn();
+                          unawaited(TalkPush.allow(session.api));
                         } catch (error) {
                           if (!mounted) return;
                           setState(() => _error = _signInError(error));

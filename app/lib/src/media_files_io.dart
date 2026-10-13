@@ -74,6 +74,8 @@ Future<String> compressCapture(String kind, String path) async {
 
 Future<int> byteLength(String path) => File(path).length();
 
+Future<List<int>> readBytes(String path) => File(path).readAsBytes();
+
 Stream<List<int>> openAt(String path, int start) => File(path).openRead(start);
 
 Future<void> releasePath(String path) async {

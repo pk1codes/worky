@@ -292,6 +292,12 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get tryAgain;
 
+  /// No description provided for @opensUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s 3 contact opens are used.'**
+  String get opensUsed;
+
   /// No description provided for @reachNote.
   ///
   /// In en, this message translates to:

@@ -1269,6 +1269,12 @@ class _ExpandedCardState extends State<ExpandedCard> {
               mode: LaunchMode.externalApplication,
             );
       if (!opened && mounted) await Speaker.say(session.lang, retry);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      final line = error.dayCap
+          ? AppLocalizations.of(context).opensUsed
+          : retry;
+      await Speaker.say(session.lang, line);
     } catch (_) {
       if (mounted) await Speaker.say(session.lang, retry);
     }

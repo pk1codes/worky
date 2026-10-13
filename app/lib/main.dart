@@ -54,6 +54,7 @@ Future<void> main() async {
   await session.boot();
   runApp(WorkyApp(session: session));
   unawaited(TalkPush.listen());
+  if (session.user != null) unawaited(TalkPush.allow(session.api));
 }
 
 class WorkyApp extends StatelessWidget {
