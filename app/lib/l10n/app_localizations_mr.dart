@@ -96,6 +96,9 @@ class AppLocalizationsMr extends AppLocalizations {
   String get tryAgain => 'पुन्हा';
 
   @override
+  String get opensUsed => 'Today\'s 3 contact opens are used.';
+
+  @override
   String get reachNote => 'Hi, I found you on Worky.';
 
   @override

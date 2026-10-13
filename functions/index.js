@@ -535,6 +535,56 @@ async function pingTalk(other, body, id) {
   }
 }
 
+function voiceUpload(req) {
+  const type = String(req.get('content-type') || '').toLowerCase();
+  return type.startsWith('audio/mp4') || type.startsWith('audio/aac');
+}
+
+async function takeVoice(req, uid) {
+  const buf = req.rawBody;
+  if (!Buffer.isBuffer(buf) || buf.length < 32 || buf.length > MAX_BYTES.voice) {
+    return { status: 400 };
+  }
+  const burstWait = pace(`send_${uid}`, 8, 10_000);
+  if (burstWait) return { status: 429, retryAfter: burstWait };
+  const capped = await limited(`voi_${uid}`, 60, DAY_MS);
+  if (capped) return { status: 429, retryAfter: capped };
+  const accepted = await acceptUpload('voice', buf);
+  if (accepted.error) return { status: 400 };
+  const id = crypto.randomBytes(12).toString('hex');
+  const objectPath = `users/${uid}/${id}.m4a`;
+  const token = crypto.randomUUID();
+  await bucket.file(objectPath).save(buf, {
+    resumable: false,
+    metadata: {
+      contentType: accepted.contentType,
+      cacheControl: 'private, max-age=3600',
+      metadata: { firebaseStorageDownloadTokens: token },
+    },
+  });
+  const url = publicUrl(bucket.name, objectPath, token);
+  await db.collection('media').doc(id).set({
+    uid,
+    kind: 'voice',
+    status: 'ready',
+    bytes: buf.length,
+    path: objectPath,
+    contentType: accepted.contentType,
+    url,
+    createdAt: Date.now(),
+  });
+  const durMs = Math.min(60_000, Math.max(0, Number(req.get('x-dur-ms')) || 0));
+  return {
+    msg: { kind: 'voice', mediaId: id, durMs, url },
+    preview: talkPreview('voice'),
+  };
+}
+
+async function incoming(req, uid) {
+  if (voiceUpload(req)) return takeVoice(req, uid);
+  return messageFrom(req, uid);
+}
+
 async function messageFrom(req, uid) {
   const text = cleanText(req.body?.text);
   const mediaId = typeof req.body?.mediaId === 'string' ? req.body.mediaId : '';
@@ -678,7 +728,7 @@ async function talk(req, res, uid, path, bits) {
       return true;
     }
     if (req.method === 'POST' && !bits[4]) {
-      const made = await messageFrom(req, uid);
+      const made = await incoming(req, uid);
       if (made.status) {
         fail(res, made.status, made.retryAfter);
         return true;
@@ -744,7 +794,7 @@ async function talk(req, res, uid, path, bits) {
     return true;
   }
   if (req.method === 'POST' && !bits[3]) {
-    const made = await messageFrom(req, uid);
+    const made = await incoming(req, uid);
     if (made.status) {
       fail(res, made.status, made.retryAfter);
       return true;

@@ -43,6 +43,7 @@ class _TalkScreenState extends State<TalkScreen> {
   void initState() {
     super.initState();
     _pairId = widget.pairId;
+    if (_pairId != null && _pairId!.isNotEmpty) TalkPush.front = _pairId;
     FirebaseAnalytics.instance.logScreenView(screenName: 'talk');
     talkPing.addListener(_onPing);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -63,6 +64,7 @@ class _TalkScreenState extends State<TalkScreen> {
   @override
   void dispose() {
     talkPing.removeListener(_onPing);
+    if (TalkPush.front == _pairId) TalkPush.front = null;
     _tick?.cancel();
     _text.dispose();
     _scroll.dispose();
@@ -79,7 +81,7 @@ class _TalkScreenState extends State<TalkScreen> {
           : await session.api.talk(_pairId!);
       if (!mounted) return;
       setState(() {
-        if (thread.pairId.isNotEmpty) _pairId = thread.pairId;
+        if (thread.pairId.isNotEmpty) _keepPair(thread.pairId);
         _closed = thread.closed;
         _messages = thread.messages;
         _loading = false;
@@ -95,22 +97,53 @@ class _TalkScreenState extends State<TalkScreen> {
     await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
   }
 
+  void _keepPair(String id) {
+    if (id.isEmpty) return;
+    _pairId = id;
+    TalkPush.front = id;
+  }
+
+  void _replaceLocal(String localId, TalkThread sent) {
+    _keepPair(sent.pairId);
+    _messages = [
+      for (final message in _messages)
+        if (message.id != localId) message,
+      ...sent.messages,
+    ];
+  }
+
   Future<void> _sendText() async {
     final text = _text.text.trim();
-    if (text.isEmpty || _sending || _closed) return;
-    setState(() => _sending = true);
+    if (text.isEmpty || _closed) return;
+    final localId = 'local-text-${DateTime.now().microsecondsSinceEpoch}';
+    final session = SessionHost.of(context);
+    _text.clear();
+    setState(() {
+      _messages = [
+        ..._messages,
+        TalkMessage(
+          id: localId,
+          from: session.user?.uid ?? '',
+          at: DateTime.now().millisecondsSinceEpoch,
+          kind: 'text',
+          text: text,
+        ),
+      ];
+    });
     try {
       final sent = await _post(text: text);
       if (!mounted) return;
-      _text.clear();
-      setState(() {
-        _pairId = sent.pairId;
-        _messages = [..._messages, ...sent.messages];
-      });
+      setState(() => _replaceLocal(localId, sent));
     } catch (_) {
+      if (mounted) {
+        setState(() {
+          _messages = [
+            for (final message in _messages)
+              if (message.id == localId) message.markFailed() else message,
+          ];
+        });
+      }
       await _fail();
-    } finally {
-      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -168,7 +201,6 @@ class _TalkScreenState extends State<TalkScreen> {
     final localId = 'local-voice-${DateTime.now().millisecondsSinceEpoch}';
     final session = SessionHost.of(context);
     setState(() {
-      _sending = true;
       _messages = [
         ..._messages,
         TalkMessage(
@@ -180,43 +212,27 @@ class _TalkScreenState extends State<TalkScreen> {
         ),
       ];
     });
-    final api = session.api;
     try {
-      final length = await files.byteLength(path);
-      final ticket = await api.openUpload(
-        kind: 'voice',
-        bytes: length,
-        contentType: 'audio/mp4',
+      final bytes = await files.readBytes(path);
+      final sent = await session.api.sendVoice(
+        postId: widget.postId,
+        pairId: _pairId,
+        bytes: bytes,
+        durMs: ms,
       );
-      await api.putStream(
-        ticket.uploadUrl,
-        length,
-        (start) => files.openAt(path, start),
-      );
-      await api.finishUpload(ticket.finishUrl);
       if (!mounted) return;
-      final sent = await _post(mediaId: ticket.mediaId, durMs: ms);
-      if (!mounted) return;
-      setState(() {
-        _pairId = sent.pairId;
-        _messages = [
-          for (final message in _messages)
-            if (message.id != localId) message,
-          ...sent.messages,
-        ];
-      });
+      setState(() => _replaceLocal(localId, sent));
     } catch (_) {
       if (mounted) {
         setState(() {
           _messages = [
             for (final message in _messages)
-              if (message.id != localId) message,
+              if (message.id == localId) message.markFailed() else message,
           ];
         });
       }
       await _fail();
     } finally {
-      if (mounted) setState(() => _sending = false);
       unawaited(files.releasePath(path));
     }
   }
@@ -286,7 +302,7 @@ class _TalkScreenState extends State<TalkScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _pairId = sent.pairId;
+        _keepPair(sent.pairId);
         final known = {for (final message in _messages) message.id};
         _messages = [
           ..._messages,
@@ -460,6 +476,9 @@ class _Bubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(18),
+          border: message.failed
+              ? Border.all(color: const Color(0xFFB42318), width: 2)
+              : null,
         ),
         child: message.kind == 'text'
             ? Text(message.text, style: TextStyle(color: fg, fontSize: 16))

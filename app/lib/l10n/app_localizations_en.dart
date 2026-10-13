@@ -96,6 +96,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryAgain => 'Try again';
 
   @override
+  String get opensUsed => 'Today\'s 3 contact opens are used.';
+
+  @override
   String get reachNote => 'Hi, I found you on Worky.';
 
   @override
