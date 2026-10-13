@@ -17,7 +17,7 @@
 <body>
   <main>
     <h1>Privacy policy</h1>
-    <p class="meta">Worky · operated by pk1code · updated 11 October 2026</p>
+    <p class="meta">Worky · operated by pk1code · updated 13 October 2026</p>
     <p>This page is the privacy policy for the Worky Android app (<span>com.lifestations.app</span>). The <a href="terms.html">terms</a> are a separate page.</p>
 
     <h2>Information we keep</h2>
@@ -31,6 +31,11 @@
     <p>From a post, a person can message you in Worky. A message is text or a short voice note. Both people in the thread can read it. Either person can block. A block closes the thread for both people.</p>
     <p>Before the video button asks Google for permission, the talk screen shows this: Worky can see, create, change, and delete events on calendars you own. Worky uses that only to add one Worky event on your primary calendar, share that Meet link with the other person in this talk, and delete that event if the call is not saved. Worky deletes the stored link when the talk is closed and when the talk is next opened after two hours, does not send the link after two hours, and keeps the stored link if the talk is not opened again. Worky's use of information from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
     <p>The permission requested is <span>https://www.googleapis.com/auth/calendar.events.owned</span>. Worky does not save the Google access token and does not record the call. The other phone gets a notification that says Video. That notification does not contain the link.</p>
+
+    <h2>How Google data is protected</h2>
+    <p>The access token is sent over HTTPS, used to create that one event, and not stored. The calendar event stays in your Google Calendar.</p>
+    <p>The Meet link is stored in Firebase, which encrypts data at rest. Firestore client access is denied. Only the two people in the talk receive the link, for up to 2 hours.</p>
+    <p>Worky does not sell Google user data and does not use it for ads.</p>
 
     <h2>Google</h2>
     <p>Google Firebase stores this for us and provides sign-in. Firebase Analytics may use a device identifier or advertising id to count how the app is used. The app does not show third-party ads. We do not sell your information.</p>

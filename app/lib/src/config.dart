@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-const bool kUseEmulator = bool.fromEnvironment('USE_EMULATOR', defaultValue: true);
+const bool kUseEmulator = kReleaseMode
+    ? false
+    : bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
 
 const String kDebugEmail = String.fromEnvironment('DEBUG_EMAIL', defaultValue: 'worker@worky.test');
 
