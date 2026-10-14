@@ -104,7 +104,8 @@ class FeedPost {
       lat: (json['lat'] as num?)?.toDouble() ?? 0,
       lng: (json['lng'] as num?)?.toDouble() ?? 0,
       categoryId: (json['categoryId'] as String?) ?? '',
-      categoryPath: ((json['categoryPath'] as List?) ?? const []).cast<String>(),
+      categoryPath: ((json['categoryPath'] as List?) ?? const [])
+          .cast<String>(),
       status: (json['status'] as String?) ?? 'active',
       mediaIds: ((json['mediaIds'] as List?) ?? const []).cast<String>(),
       contactsOpen: json['contactsOpen'] != false,
@@ -268,8 +269,9 @@ bool needsRing(FeedPage page, double lat, double lng) {
     for (final row in page.categories) {
       if (!row.isJob) continue;
       if (row.posts.length < 12) return true;
-      final distances = [for (final post in row.posts) kmBetween(lat, lng, post.lat, post.lng)]
-        ..sort();
+      final distances = [
+        for (final post in row.posts) kmBetween(lat, lng, post.lat, post.lng),
+      ]..sort();
       if (edge < distances[11]) return true;
     }
   }
@@ -353,7 +355,11 @@ class TalkMessage {
 }
 
 class TalkThread {
-  TalkThread({required this.pairId, required this.closed, required this.messages});
+  TalkThread({
+    required this.pairId,
+    required this.closed,
+    required this.messages,
+  });
 
   final String pairId;
   final bool closed;
@@ -364,7 +370,10 @@ class TalkThread {
       pairId: (json['pairId'] as String?) ?? '',
       closed: json['closed'] == true,
       messages: ((json['messages'] as List?) ?? const [])
-          .map((row) => TalkMessage.fromJson(Map<String, dynamic>.from(row as Map)))
+          .map(
+            (row) =>
+                TalkMessage.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
           .toList(),
     );
   }
@@ -411,8 +420,11 @@ class WorkyApi {
     String path, {
     Object? body,
     bool cache = false,
+    bool conditional = false,
   }) async {
-    final headers = await _headers(etag: cache ? _etags[path] : null);
+    final headers = await _headers(
+      etag: (cache && conditional) ? _etags[path] : null,
+    );
     final uri = Uri.parse('$kApiBase$path');
     late http.Response response;
     if (method == 'GET') {
@@ -482,6 +494,39 @@ class WorkyApi {
     throw ApiException(500);
   }
 
+  String _feedPath({
+    required String parentId,
+    required double lat,
+    required double lng,
+    required String lang,
+    bool headersOnly = false,
+    bool fresh = false,
+  }) {
+    final cards = headersOnly ? '&cards=0' : '';
+    final live = fresh ? '&fresh=1' : '';
+    return '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang$cards$live';
+  }
+
+  void forgetFeed({
+    required String parentId,
+    required double lat,
+    required double lng,
+    required String lang,
+    bool headersOnly = false,
+    bool fresh = false,
+  }) {
+    _etags.remove(
+      _feedPath(
+        parentId: parentId,
+        lat: lat,
+        lng: lng,
+        lang: lang,
+        headersOnly: headersOnly,
+        fresh: fresh,
+      ),
+    );
+  }
+
   Future<FeedPage?> feed({
     required String parentId,
     required double lat,
@@ -489,12 +534,22 @@ class WorkyApi {
     required String lang,
     bool headersOnly = false,
     bool fresh = false,
+    bool conditional = false,
   }) async {
-    final cards = headersOnly ? '&cards=0' : '';
-    final live = fresh ? '&fresh=1' : '';
-    final path =
-        '/v1/feed?parentId=${Uri.encodeQueryComponent(parentId)}&lat=$lat&lng=$lng&lang=$lang$cards$live';
-    final json = await _json('GET', path, cache: true);
+    final path = _feedPath(
+      parentId: parentId,
+      lat: lat,
+      lng: lng,
+      lang: lang,
+      headersOnly: headersOnly,
+      fresh: fresh,
+    );
+    final json = await _json(
+      'GET',
+      path,
+      cache: true,
+      conditional: conditional,
+    );
     if (json == null) return null;
     return FeedPage(
       categories: ((json['categories'] as List?) ?? const [])
@@ -542,7 +597,9 @@ class WorkyApi {
         .map((row) => FeedPost.fromJson(Map<String, dynamic>.from(row as Map)))
         .toList();
     final talks = ((json['talks'] as List?) ?? const [])
-        .map((row) => TalkPreview.fromJson(Map<String, dynamic>.from(row as Map)))
+        .map(
+          (row) => TalkPreview.fromJson(Map<String, dynamic>.from(row as Map)),
+        )
         .toList();
     return (posts: posts, talks: talks, cursor: json['cursor'] as String?);
   }
@@ -556,7 +613,9 @@ class WorkyApi {
     final json = (await _json('GET', path))!;
     return (
       media: ((json['media'] as List?) ?? const [])
-          .map((row) => MediaItem.fromJson(Map<String, dynamic>.from(row as Map)))
+          .map(
+            (row) => MediaItem.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
           .toList(),
       cursor: json['cursor'] as String?,
     );

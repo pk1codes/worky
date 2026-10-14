@@ -126,24 +126,54 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
     final bypass = session.feedBypass;
     session.feedBypass = false;
+    final live = force || bypass;
+    final lang = session.lang ?? 'en';
     try {
-      final fresh = await session.api.feed(
+      var page = await session.api.feed(
         parentId: parent,
         lat: lat,
         lng: lng,
-        lang: session.lang ?? 'en',
+        lang: lang,
         headersOnly: widget.picking,
-        fresh: force || bypass,
+        fresh: live,
+        conditional: session.feedCache.containsKey(key),
       );
       if (!mounted) return;
-      if (fresh == null) {
+      if (page == null && !session.feedCache.containsKey(key)) {
+        session.api.forgetFeed(
+          parentId: parent,
+          lat: lat,
+          lng: lng,
+          lang: lang,
+          headersOnly: widget.picking,
+          fresh: live,
+        );
+        page = await session.api.feed(
+          parentId: parent,
+          lat: lat,
+          lng: lng,
+          lang: lang,
+          headersOnly: widget.picking,
+          fresh: live,
+        );
+        if (!mounted) return;
+      }
+      if (page == null) {
+        if (session.feedCache.containsKey(key)) {
+          setState(() {
+            _rows = session.visible(key, lat, lng);
+            _loading = false;
+          });
+          return;
+        }
         setState(() {
-          _rows = session.visible(key, lat, lng);
           _loading = false;
+          _failed = true;
         });
+        await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
         return;
       }
-      if (!widget.picking) session.rememberFeed(key, fresh);
+      if (!widget.picking) session.rememberFeed(key, page);
       setState(() {
         _rows = session.visible(key, lat, lng);
         _loading = false;
@@ -1429,10 +1459,10 @@ class _MapPaneState extends State<_MapPane> {
   Future<bool> _hasSize(MapLibreMapController controller) async {
     try {
       final region = await controller.getVisibleRegion();
-      final latSpan =
-          (region.northeast.latitude - region.southwest.latitude).abs();
-      final lngSpan =
-          (region.northeast.longitude - region.southwest.longitude).abs();
+      final latSpan = (region.northeast.latitude - region.southwest.latitude)
+          .abs();
+      final lngSpan = (region.northeast.longitude - region.southwest.longitude)
+          .abs();
       return latSpan > 1e-6 && lngSpan > 1e-6;
     } catch (_) {
       return false;
