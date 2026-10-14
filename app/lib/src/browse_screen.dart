@@ -980,8 +980,10 @@ class _ExpandedCardState extends State<ExpandedCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final videos = _media.where((item) => item.kind == 'video').toList();
+    final audios = _media.where((item) => item.kind == 'audio').toList();
     final wide = widget.wide;
     final cacheWidth = wide ? 360 : 280;
+    final posterHeight = wide ? 220.0 : (audios.isEmpty ? 320.0 : 216.0);
     return Padding(
       padding: EdgeInsets.all(wide ? 12 : 0),
       child: Material(
@@ -1003,7 +1005,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(wide ? 16 : 0),
                     child: SizedBox(
-                      height: wide ? 220 : 320,
+                      height: posterHeight,
                       child: PageView(
                         controller: _pages,
                         children: [
@@ -1031,11 +1033,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                     ),
                   ),
                 ),
-                for (final item in _media.where((item) => item.kind == 'audio'))
-                  BigIcon(
-                    icon: Icons.graphic_eq,
-                    onTap: () => _playAudio(item.url),
-                  ),
+                if (audios.isNotEmpty) _audioRow(audios, l10n),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: wide ? 16 : 0),
                   child: Column(
@@ -1114,6 +1112,30 @@ class _ExpandedCardState extends State<ExpandedCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _audioRow(List<MediaItem> audios, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < audios.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: BigIcon(
+                icon: Icons.graphic_eq,
+                label: audios.length == 1
+                    ? l10n.addAudio
+                    : '${l10n.addAudio} ${i + 1}',
+                compact: true,
+                stretch: true,
+                onTap: () => _playAudio(audios[i].url),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

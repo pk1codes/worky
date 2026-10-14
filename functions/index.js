@@ -1528,7 +1528,9 @@ async function handle(req, res) {
     try {
       const origin = req.get('origin') || '';
       const webOrigin = origin === 'https://worky-93fbc.web.app' ||
-        origin === 'https://worky-93fbc.firebaseapp.com';
+        origin === 'https://worky-93fbc.firebaseapp.com' ||
+        origin === 'https://www.kaambazaar.org' ||
+        origin === 'https://kaambazaar.org';
       const [uri] = await bucket.file(objectPath).createResumableUpload({
         metadata: {
           contentType,
