@@ -36,7 +36,9 @@ class NetImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty) return error ?? const SizedBox.shrink();
-    final cache = cacheLogical == null ? null : imageCacheWidth(context, cacheLogical!);
+    final cache = cacheLogical == null
+        ? null
+        : imageCacheWidth(context, cacheLogical!);
     return CachedNetworkImage(
       imageUrl: url,
       width: width,
@@ -108,7 +110,7 @@ class BigIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = filled ? Colors.white : (color ?? const Color(0xFF16332C));
+    final fg = filled ? Colors.white : (color ?? const Color(0xFF14281D));
     final tight = compact || label == null;
     final side = extent;
     final iconPx = side == null ? 40.0 : side * 0.75;
@@ -125,8 +127,8 @@ class BigIcon extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 10, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: filled
-            ? (color ?? const Color(0xFF0F6E56))
-            : const Color(0xFFE7F2EE),
+            ? (color ?? const Color(0xFF3A684D))
+            : const Color(0xFFD9E6DC),
         foregroundColor: fg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
@@ -215,10 +217,10 @@ class LangTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const mint = Color(0xFFE7F2EE);
-    const ink = Color(0xFF16332C);
-    const brand = Color(0xFF0F6E56);
-    final color = uniform ? brand : Color(kLangColor[code] ?? 0xFF0F6E56);
+    const mint = Color(0xFFD9E6DC);
+    const ink = Color(0xFF14281D);
+    const brand = Color(0xFF3A684D);
+    final color = uniform ? brand : Color(kLangColor[code] ?? 0xFF3A684D);
     final side = extent ?? (compact ? 72.0 : null);
     return Semantics(
       button: true,

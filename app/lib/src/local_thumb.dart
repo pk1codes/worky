@@ -18,7 +18,7 @@ class LocalThumb extends StatelessWidget {
       width: width,
       height: height,
       child: const ColoredBox(
-        color: Color(0xFFE7F2EE),
+        color: Color(0xFFD9E6DC),
         child: Icon(Icons.image),
       ),
     );

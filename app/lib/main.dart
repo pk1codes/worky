@@ -77,11 +77,11 @@ class WorkyApp extends StatelessWidget {
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF0F6E56),
+                seedColor: const Color(0xFF3A684D),
               ),
-              scaffoldBackgroundColor: const Color(0xFFF6F4EE),
+              scaffoldBackgroundColor: const Color(0xFFFAF8F5),
               cardTheme: const CardThemeData(
-                color: Colors.white,
+                color: Color(0xFFF5F3F0),
                 elevation: 0,
                 margin: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
@@ -89,7 +89,7 @@ class WorkyApp extends StatelessWidget {
                 ),
               ),
               progressIndicatorTheme: const ProgressIndicatorThemeData(
-                color: Color(0xFF0F6E56),
+                color: Color(0xFF3A684D),
               ),
               iconTheme: const IconThemeData(size: 32),
             ),

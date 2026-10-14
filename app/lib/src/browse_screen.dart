@@ -116,7 +116,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
     final lng = session.lng!;
     _seenLat = lat;
     _seenLng = lng;
-    if (session.feedCache.containsKey(key) && mounted) {
+    if (!widget.picking && session.feedCache.containsKey(key) && mounted) {
       setState(() {
         _rows = session.visible(key, lat, lng);
         _loading = false;
@@ -175,7 +175,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
       }
       if (!widget.picking) session.rememberFeed(key, page);
       setState(() {
-        _rows = session.visible(key, lat, lng);
+        _rows = widget.picking
+            ? [for (final row in page.categories) row.copyWith(posts: const [])]
+            : session.visible(key, lat, lng);
         _loading = false;
         _failed = false;
       });
@@ -398,6 +400,21 @@ const _rowIcons = <String, IconData>{
   'loader': Icons.inventory_2,
   'oil-field-rigs': Icons.oil_barrel,
   'hospital': Icons.local_hospital,
+  'oil-refineries': Icons.factory,
+  'staff-nurse': Icons.health_and_safety,
+  'anm': Icons.child_care,
+  'ward-boy': Icons.accessible,
+  'ayah': Icons.volunteer_activism,
+  'housekeeping': Icons.sanitizer,
+  'lab-technician': Icons.biotech,
+  'pharmacist': Icons.medication,
+  'plant-helper': Icons.engineering,
+  'fitter': Icons.build,
+  'welder': Icons.whatshot,
+  'rigger': Icons.precision_manufacturing,
+  'scaffolder': Icons.view_week,
+  'electrician': Icons.electrical_services,
+  'process-operator': Icons.tune,
   'asst-driller': Icons.hardware,
   'driller': Icons.construction,
   'medic': Icons.medical_services,
@@ -466,7 +483,7 @@ class _CategoryRow extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         fontSize: 20,
-        color: Color(0xFF16332C),
+        color: Color(0xFF14281D),
         fontWeight: FontWeight.w700,
       ),
     );
@@ -491,7 +508,7 @@ class _CategoryRow extends StatelessWidget {
                     const Icon(
                       Icons.arrow_forward,
                       size: 28,
-                      color: Color(0xFF16332C),
+                      color: Color(0xFF14281D),
                     ),
                 ],
               ),
@@ -520,9 +537,9 @@ class _CategoryRow extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD5E7DF)),
+          color: Color(0xFFF5F3F0),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE4E2DF)),
         ),
         child: SizedBox(
           height: 96,
@@ -538,12 +555,12 @@ class _CategoryRow extends StatelessWidget {
                       const Positioned(
                         left: 28,
                         top: 0,
-                        child: _Peek(color: Color(0xFFD5E7DF)),
+                        child: _Peek(color: Color(0xFFE4E2DF)),
                       ),
                       const Positioned(
                         left: 14,
                         top: 6,
-                        child: _Peek(color: Color(0xFFE7F2EE)),
+                        child: _Peek(color: Color(0xFFD9E6DC)),
                       ),
                       Positioned(
                         left: 0,
@@ -569,7 +586,7 @@ class _CategoryRow extends StatelessWidget {
                           const Icon(
                             Icons.chevron_right,
                             size: 28,
-                            color: Color(0xFF16332C),
+                            color: Color(0xFF14281D),
                           ),
                         ],
                       ),
@@ -699,7 +716,7 @@ class _JobStripState extends State<_JobStrip> {
                   alignment: Alignment.topCenter,
                   widthFactor: 1,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     child: NetImage(
                       url: post.thumbUrl.isEmpty
                           ? post.posterUrl
@@ -710,7 +727,7 @@ class _JobStripState extends State<_JobStrip> {
                       error: const SizedBox(
                         width: _collapsedPoster,
                         height: 190,
-                        child: ColoredBox(color: Color(0xFFE7F2EE)),
+                        child: ColoredBox(color: Color(0xFFD9E6DC)),
                       ),
                     ),
                   ),
@@ -964,11 +981,11 @@ class _ExpandedCardState extends State<ExpandedCard> {
     return Padding(
       padding: EdgeInsets.all(wide ? 12 : 0),
       child: Material(
-        color: Colors.white,
+        color: const Color(0xFFF5F3F0),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE7F2EE)),
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFD9E6DC)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(_openInnerPad),
@@ -1027,7 +1044,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 20,
-                            color: Color(0xFF16332C),
+                            color: Color(0xFF14281D),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1035,7 +1052,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                       ],
                       DecoratedBox(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE7F2EE),
+                          color: const Color(0xFFD9E6DC),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -1165,7 +1182,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 22, color: const Color(0xFF0F6E56)),
+        Icon(icon, size: 22, color: const Color(0xFF3A684D)),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
@@ -1176,7 +1193,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
                 : TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 16,
-              color: Color(0xFF16332C),
+              color: Color(0xFF14281D),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1204,7 +1221,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final poster = widget.post.posterUrl;
     final thumb = widget.post.thumbUrl;
     if (poster.isEmpty && thumb.isEmpty) {
-      return const ColoredBox(color: Color(0xFFE7F2EE));
+      return const ColoredBox(color: Color(0xFFD9E6DC));
     }
     final showPoster = poster.isNotEmpty && poster != thumb;
     return Stack(
@@ -1763,11 +1780,10 @@ class _MapPaneState extends State<_MapPane> {
               SizedBox(
                 height: sheetHeight,
                 child: Material(
-                  color: Colors.white,
-                  elevation: 12,
-                  shadowColor: const Color(0x291C2421),
+                  color: const Color(0xFFF5F3F0),
+                  elevation: 0,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+                    top: Radius.circular(20),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -1781,7 +1797,7 @@ class _MapPaneState extends State<_MapPane> {
                               width: 48,
                               height: 6,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE5E0D5),
+                                color: const Color(0xFFE4E2DF),
                                 borderRadius: BorderRadius.circular(99),
                               ),
                             ),
@@ -1791,8 +1807,8 @@ class _MapPaneState extends State<_MapPane> {
                                 onPressed: widget.onClose,
                                 icon: const Icon(Icons.close),
                                 style: IconButton.styleFrom(
-                                  backgroundColor: const Color(0xFFF4F2EB),
-                                  foregroundColor: const Color(0xFF1C2421),
+                                  backgroundColor: const Color(0xFFF5F3F0),
+                                  foregroundColor: const Color(0xFF14281D),
                                 ),
                               ),
                             ),

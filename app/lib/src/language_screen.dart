@@ -47,7 +47,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       l10n.speakThese,
                       style: const TextStyle(
                         fontSize: 16,
-                        color: Color(0xFF16332C),
+                        color: Color(0xFF14281D),
                         fontWeight: FontWeight.w700,
                       ),
                     ),

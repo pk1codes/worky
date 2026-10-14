@@ -48,7 +48,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 32,
-                  color: Color(0xFF16332C),
+                  color: Color(0xFF14281D),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -57,7 +57,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                 child: Text(
                   'Find nearby work. Message, call, or start Worky Talk. The exact place stays hidden.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Color(0xFF16332C)),
+                  style: TextStyle(fontSize: 16, color: Color(0xFF14281D)),
                 ),
               ),
               Padding(
@@ -67,7 +67,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
-                    color: Color(0xFF16332C),
+                    color: Color(0xFF14281D),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -107,7 +107,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF16332C),
+                      color: Color(0xFF14281D),
                     ),
                   ),
                 ),

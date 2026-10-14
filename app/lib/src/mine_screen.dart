@@ -26,9 +26,9 @@ const _kWorld = 'World';
 const _kPrivacyUrl = 'https://worky-93fbc.web.app/privacy.html';
 const _kTermsUrl = 'https://worky-93fbc.web.app/terms.html';
 const _kDeleteUrl = 'https://worky-93fbc.web.app/delete.html';
-const _kInk = Color(0xFF16332C);
-const _kMint = Color(0xFFE7F2EE);
-const _kLine = Color(0xFFD5E7DF);
+const _kInk = Color(0xFF14281D);
+const _kMint = Color(0xFFD9E6DC);
+const _kLine = Color(0xFFE4E2DF);
 
 class MineScreen extends StatefulWidget {
   const MineScreen({super.key});
@@ -105,7 +105,7 @@ class _MineScreenState extends State<MineScreen> {
             const SizedBox(
               height: 180,
               width: double.infinity,
-              child: ColoredBox(color: Color(0xFFE7F2EE)),
+              child: ColoredBox(color: Color(0xFFD9E6DC)),
             ),
           if (busy) const LinearProgressIndicator(),
           if (failed)
@@ -146,9 +146,9 @@ class _MineScreenState extends State<MineScreen> {
 
   Future<void> _load({bool more = false}) async {
     try {
-      final page = await SessionHost.of(context).api.mine(
-        cursor: more ? _cursor : null,
-      );
+      final page = await SessionHost.of(
+        context,
+      ).api.mine(cursor: more ? _cursor : null);
       if (mounted) {
         setState(() {
           _posts = more ? [..._posts, ...page.posts] : page.posts;
@@ -203,8 +203,8 @@ class _MineScreenState extends State<MineScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF5F3F0),
+        borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () async {
@@ -221,13 +221,13 @@ class _MineScreenState extends State<MineScreen> {
               children: [
                 DecoratedBox(
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE7F2EE),
+                    color: Color(0xFFD9E6DC),
                     shape: BoxShape.circle,
                   ),
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(icon, color: const Color(0xFF0F6E56)),
+                    child: Icon(icon, color: const Color(0xFF3A684D)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -238,7 +238,7 @@ class _MineScreenState extends State<MineScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF16332C),
+                      color: Color(0xFF14281D),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -246,7 +246,7 @@ class _MineScreenState extends State<MineScreen> {
                 if (talk.unread > 0)
                   CircleAvatar(
                     radius: 12,
-                    backgroundColor: const Color(0xFF0F6E56),
+                    backgroundColor: const Color(0xFF3A684D),
                     child: Text(
                       '${talk.unread}',
                       style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -273,7 +273,7 @@ class _MineScreenState extends State<MineScreen> {
           label,
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF5C746D),
+            color: Color(0xFF737873),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -295,8 +295,8 @@ class _MineScreenState extends State<MineScreen> {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF5F3F0),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _kLine),
         ),
         child: Padding(
@@ -315,7 +315,7 @@ class _MineScreenState extends State<MineScreen> {
                     child: SizedBox(
                       width: 40,
                       height: 40,
-                      child: Icon(Icons.person, color: Color(0xFF0F6E56)),
+                      child: Icon(Icons.person, color: Color(0xFF3A684D)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -384,7 +384,7 @@ class _MineScreenState extends State<MineScreen> {
               child: SizedBox(
                 width: 36,
                 height: 36,
-                child: Icon(icon, color: const Color(0xFF0F6E56), size: 22),
+                child: Icon(icon, color: const Color(0xFF3A684D), size: 22),
               ),
             ),
             const SizedBox(width: 12),
@@ -398,7 +398,7 @@ class _MineScreenState extends State<MineScreen> {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFF5C746D)),
+            const Icon(Icons.chevron_right, color: Color(0xFF737873)),
           ],
         ),
       ),
@@ -409,10 +409,10 @@ class _MineScreenState extends State<MineScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: const Color(0xFFF5F3F0),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: _kLine),
         ),
         child: Column(
@@ -476,7 +476,7 @@ class _MineScreenState extends State<MineScreen> {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFE7F2EE),
+            color: const Color(0xFFD9E6DC),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Padding(
@@ -575,7 +575,7 @@ class _MineScreenState extends State<MineScreen> {
                     '${reach.number}\n${_reachWhen(context, reach.at)}',
                     style: const TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF16332C),
+                      color: Color(0xFF14281D),
                     ),
                   ),
                 ),
@@ -587,7 +587,11 @@ class _MineScreenState extends State<MineScreen> {
                   onTap: () async {
                     final blocking = !reach.blocked;
                     try {
-                      await session.api.blockNumber(post.id, reach.number, blocking);
+                      await session.api.blockNumber(
+                        post.id,
+                        reach.number,
+                        blocking,
+                      );
                       if (mounted) {
                         await Speaker.say(
                           session.lang,
@@ -758,7 +762,7 @@ class _MineScreenState extends State<MineScreen> {
                             if (_update) ...[
                               const SizedBox(width: 10),
                               Material(
-                                color: const Color(0xFF0F6E56),
+                                color: const Color(0xFF3A684D),
                                 borderRadius: BorderRadius.circular(20),
                                 child: InkWell(
                                   onTap: _updateNow,

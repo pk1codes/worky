@@ -88,7 +88,10 @@ class _SetupScreenState extends State<SetupScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     '+91 $_digits',
-                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -131,7 +134,10 @@ class _SetupScreenState extends State<SetupScreen> {
                           onTap: () {
                             if (_digits.isEmpty) return;
                             setState(
-                              () => _digits = _digits.substring(0, _digits.length - 1),
+                              () => _digits = _digits.substring(
+                                0,
+                                _digits.length - 1,
+                              ),
                             );
                           },
                         )
@@ -153,9 +159,11 @@ class _SetupScreenState extends State<SetupScreen> {
                   children: [
                     Expanded(
                       child: BigIcon(
-                        icon: _accepted ? Icons.check_circle : Icons.circle_outlined,
+                        icon: _accepted
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
                         label: l10n.accept,
-                        color: _accepted ? const Color(0xFF0F6E56) : null,
+                        color: _accepted ? const Color(0xFF3A684D) : null,
                         compact: true,
                         stretch: true,
                         onTap: () async {
@@ -199,7 +207,9 @@ class _SetupScreenState extends State<SetupScreen> {
                                           padding: const EdgeInsets.all(24),
                                           child: Text(
                                             '${l10n.termsBody} ${l10n.contactNotice}',
-                                            style: const TextStyle(fontSize: 22),
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -246,13 +256,16 @@ class _Digit extends StatelessWidget {
       button: true,
       label: digit,
       child: Material(
-        color: const Color(0xFFE7F2EE),
+        color: const Color(0xFFD9E6DC),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),
           child: Center(
-            child: Text(digit, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700)),
+            child: Text(
+              digit,
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),

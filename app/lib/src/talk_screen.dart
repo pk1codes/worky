@@ -288,7 +288,7 @@ class _TalkScreenState extends State<TalkScreen> {
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF16332C),
+                          color: Color(0xFF14281D),
                         ),
                       ),
                     ),
@@ -313,7 +313,8 @@ class _TalkScreenState extends State<TalkScreen> {
                         itemBuilder: (context, index) {
                           final message =
                               _messages[_messages.length - 1 - index];
-                          if (message.kind != 'text' && message.kind != 'voice') {
+                          if (message.kind != 'text' &&
+                              message.kind != 'voice') {
                             return const SizedBox.shrink();
                           }
                           return _Bubble(
@@ -375,8 +376,8 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = mine ? const Color(0xFF0F6E56) : const Color(0xFFE7F2EE);
-    final fg = mine ? Colors.white : const Color(0xFF16332C);
+    final bg = mine ? const Color(0xFF3A684D) : const Color(0xFFD9E6DC);
+    final fg = mine ? Colors.white : const Color(0xFF14281D);
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -385,9 +386,9 @@ class _Bubble extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 280),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: message.failed
-              ? Border.all(color: const Color(0xFFB42318), width: 2)
+              ? Border.all(color: const Color(0xFFBA1A1A), width: 2)
               : null,
         ),
         child: message.kind == 'text'
@@ -446,7 +447,7 @@ class _Composer extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: recording ? '${seconds}s' : hint,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: const Color(0xFFF5F3F0),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,

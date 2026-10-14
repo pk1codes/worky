@@ -389,8 +389,8 @@ class _PostScreenState extends State<PostScreen> {
                           Icons.circle,
                           size: 14,
                           color: i == _step
-                              ? const Color(0xFF0F6E56)
-                              : const Color(0xFFD5E5DF),
+                              ? const Color(0xFF3A684D)
+                              : const Color(0xFFE4E2DF),
                         ),
                       ),
                     if (_step < 2)
@@ -435,7 +435,7 @@ class _PostScreenState extends State<PostScreen> {
                       fit: StackFit.expand,
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        const ColoredBox(color: Color(0xFFE7F2EE)),
+                        const ColoredBox(color: Color(0xFFD9E6DC)),
                         if (_mapReady)
                           Positioned(
                             left: _step == 1 ? 0 : constraints.maxWidth,
@@ -702,7 +702,7 @@ class _PostScreenState extends State<PostScreen> {
                         width: 72,
                         height: 72,
                         child: ColoredBox(
-                          color: const Color(0xFFE7F2EE),
+                          color: const Color(0xFFD9E6DC),
                           child: Icon(
                             item.kind == 'video' ? Icons.videocam : Icons.mic,
                           ),
@@ -779,7 +779,7 @@ class _PostScreenState extends State<PostScreen> {
 
 const _pinWidth = 28.0;
 const _pinHeight = 36.0;
-const _pinGreen = Color(0xFF0F6E56);
+const _pinGreen = Color(0xFF3A684D);
 
 class _DropPin extends StatelessWidget {
   const _DropPin();

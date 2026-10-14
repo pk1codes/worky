@@ -22,7 +22,7 @@ class LocalThumb extends StatelessWidget {
       child: Image.file(
         File(path),
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFE7F2EE)),
+        errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFFD9E6DC)),
       ),
     );
   }
