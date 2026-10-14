@@ -174,10 +174,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
         return;
       }
       if (!widget.picking) session.rememberFeed(key, page);
+      final rows = widget.picking
+          ? [
+              for (final row in page.categories)
+                row.copyWith(posts: const []),
+            ]
+          : session.visible(key, lat, lng);
       setState(() {
-        _rows = widget.picking
-            ? [for (final row in page.categories) row.copyWith(posts: const [])]
-            : session.visible(key, lat, lng);
+        _rows = rows;
         _loading = false;
         _failed = false;
       });
