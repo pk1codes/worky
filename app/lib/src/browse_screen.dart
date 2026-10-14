@@ -1364,44 +1364,43 @@ class _MapPane extends StatefulWidget {
 
 class _MapPaneState extends State<_MapPane> {
   MapLibreMapController? _controller;
+  var _fitAttempted = false;
 
-  static const _zoom = 17.0;
+  static const _userZoom = 17.0;
+  static const _fitCap = 15.0;
   static const _control = 40.0;
   static const _gap = 4.0;
   static const _padClear = 12.0;
   static const _sideClear = _control * 3 + _gap * 2 + 16;
 
-  Future<void> _center() async {
+  List<LatLng> _pinPoints() => [
+    for (final post in widget.posts) LatLng(post.lat, post.lng),
+  ];
+
+  Future<void> _fitPins({bool allowRetry = true}) async {
     final controller = _controller;
     if (controller == null) return;
-    final points = <LatLng>[
-      LatLng(widget.lat, widget.lng),
-      for (final post in widget.posts) LatLng(post.lat, post.lng),
-    ];
+    final points = _pinPoints();
+    if (points.isEmpty) {
+      await _zoomToUser();
+      return;
+    }
+    if (!await _hasSize(controller)) {
+      try {
+        await _spanZoom(controller, points);
+      } catch (_) {}
+      if (allowRetry) _scheduleFit();
+      return;
+    }
+    final zoom = _zoomFor(points);
     try {
-      if (_onePlace(points)) {
-        await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(_abovePad(points.first), _zoom),
-          duration: const Duration(milliseconds: 350),
-        );
+      if (zoom >= _fitCap) {
+        await _move(controller, _abovePad(_middle(points), _fitCap), _fitCap);
         return;
-      }
-      var minLat = points.first.latitude;
-      var maxLat = minLat;
-      var minLng = points.first.longitude;
-      var maxLng = minLng;
-      for (final point in points) {
-        minLat = math.min(minLat, point.latitude);
-        maxLat = math.max(maxLat, point.latitude);
-        minLng = math.min(minLng, point.longitude);
-        maxLng = math.max(maxLng, point.longitude);
       }
       await controller.animateCamera(
         CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(minLat, minLng),
-            northeast: LatLng(maxLat, maxLng),
-          ),
+          _bounds(points),
           left: 24,
           top: 24,
           right: _sideClear,
@@ -1409,23 +1408,158 @@ class _MapPaneState extends State<_MapPane> {
         ),
         duration: const Duration(milliseconds: 350),
       );
+    } catch (_) {
+      try {
+        await _spanZoom(controller, points);
+      } catch (_) {
+        if (allowRetry) _scheduleFit();
+      }
+    }
+  }
+
+  void _scheduleFit() {
+    if (_fitAttempted) return;
+    _fitAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _fitPins(allowRetry: false);
+    });
+  }
+
+  Future<bool> _hasSize(MapLibreMapController controller) async {
+    try {
+      final region = await controller.getVisibleRegion();
+      final latSpan =
+          (region.northeast.latitude - region.southwest.latitude).abs();
+      final lngSpan =
+          (region.northeast.longitude - region.southwest.longitude).abs();
+      return latSpan > 1e-6 && lngSpan > 1e-6;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _spanZoom(
+    MapLibreMapController controller,
+    List<LatLng> points,
+  ) {
+    return _move(controller, _middle(points), _zoomFor(points));
+  }
+
+  Future<void> _move(
+    MapLibreMapController controller,
+    LatLng target,
+    double zoom,
+  ) {
+    return controller
+        .animateCamera(
+          CameraUpdate.newLatLngZoom(target, zoom),
+          duration: const Duration(milliseconds: 350),
+        )
+        .then((_) {});
+  }
+
+  Future<void> _zoomToUser() async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await _move(
+        controller,
+        _abovePad(LatLng(widget.lat, widget.lng), _userZoom),
+        _userZoom,
+      );
     } catch (_) {}
   }
 
-  bool _onePlace(List<LatLng> points) {
-    final first = points.first;
-    for (final point in points.skip(1)) {
-      if ((point.latitude - first.latitude).abs() > 0.02) return false;
-      if ((point.longitude - first.longitude).abs() > 0.02) return false;
+  Future<void> _focusPin(String id) async {
+    final controller = _controller;
+    if (controller == null) return;
+    FeedPost? post;
+    for (final item in widget.posts) {
+      if (item.id == id) post = item;
     }
-    return true;
+    if (post == null) return;
+    try {
+      await _move(
+        controller,
+        _abovePad(LatLng(post.lat, post.lng), _fitCap),
+        _fitCap,
+      );
+    } catch (_) {}
   }
 
-  LatLng _abovePad(LatLng point) {
+  LatLngBounds _bounds(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = minLat;
+    var minLng = points.first.longitude;
+    var maxLng = minLng;
+    for (final point in points.skip(1)) {
+      minLat = math.min(minLat, point.latitude);
+      maxLat = math.max(maxLat, point.latitude);
+      minLng = math.min(minLng, point.longitude);
+      maxLng = math.max(maxLng, point.longitude);
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
+  LatLng _middle(List<LatLng> points) {
+    final box = _bounds(points);
+    return LatLng(
+      (box.southwest.latitude + box.northeast.latitude) / 2,
+      (box.southwest.longitude + box.northeast.longitude) / 2,
+    );
+  }
+
+  double _zoomFor(List<LatLng> points) {
+    final box = _bounds(points);
+    const width = 240.0;
+    const height = 280.0;
+    const tile = 256.0;
+    final lngFrac = math.max(
+      (box.northeast.longitude - box.southwest.longitude).abs() / 360,
+      1e-6,
+    );
+    final latFrac = math.max(
+      (_mercator(box.southwest.latitude) - _mercator(box.northeast.latitude))
+          .abs(),
+      1e-6,
+    );
+    final zoomLng = math.log(width / tile / lngFrac) / math.ln2;
+    final zoomLat = math.log(height / tile / latFrac) / math.ln2;
+    return math.min(zoomLng, zoomLat).clamp(1.0, _fitCap);
+  }
+
+  double _mercator(double lat) {
+    final clamped = lat.clamp(-85.0, 85.0);
+    final s = math.sin(clamped * math.pi / 180);
+    return 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi);
+  }
+
+  double _openZoom() {
+    final points = _pinPoints();
+    if (points.isEmpty) return _userZoom;
+    return _zoomFor(points);
+  }
+
+  LatLng _openTarget() {
+    final points = _pinPoints();
+    if (points.isEmpty) {
+      return _abovePad(LatLng(widget.lat, widget.lng), _userZoom);
+    }
+    final zoom = _zoomFor(points);
+    final middle = _middle(points);
+    if (zoom >= _fitCap) return _abovePad(middle, _fitCap);
+    return middle;
+  }
+
+  LatLng _abovePad(LatLng point, double zoom) {
     final metersPerPixel =
         156543.03392 *
         math.cos(point.latitude * math.pi / 180) /
-        math.pow(2, _zoom);
+        math.pow(2, zoom);
     final south = (_padClear / 2) * metersPerPixel / 111320;
     return LatLng(point.latitude - south, point.longitude);
   }
@@ -1453,7 +1587,7 @@ class _MapPaneState extends State<_MapPane> {
   }
 
   void _openNearest(LatLng tap) {
-    final zoom = _controller?.cameraPosition?.zoom ?? _zoom;
+    final zoom = _controller?.cameraPosition?.zoom ?? _userZoom;
     final metersPerPixel =
         156543.03392 * math.cos(widget.lat * math.pi / 180) / math.pow(2, zoom);
     final slopKm = metersPerPixel * 40 / 1000;
@@ -1521,7 +1655,7 @@ class _MapPaneState extends State<_MapPane> {
   }
 
   Future<void> _onStyle() async {
-    await _center();
+    await _fitPins();
     await _draw();
   }
 
@@ -1530,10 +1664,13 @@ class _MapPaneState extends State<_MapPane> {
     super.didUpdateWidget(oldWidget);
     final moved = oldWidget.lat != widget.lat || oldWidget.lng != widget.lng;
     final postsChanged = !_samePosts(oldWidget.posts, widget.posts);
-    if (moved || postsChanged) {
-      _center();
-      _draw();
+    if (postsChanged) {
+      _fitAttempted = false;
+      _fitPins();
+    } else if (moved && widget.posts.isEmpty) {
+      _zoomToUser();
     }
+    if (moved || postsChanged) _draw();
     final wasOpen = _listed(oldWidget.posts, oldWidget.pinId);
     final isOpen = _listed(widget.posts, widget.pinId);
     if (wasOpen != isOpen || oldWidget.openId != widget.openId) {
@@ -1581,14 +1718,14 @@ class _MapPaneState extends State<_MapPane> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final pin = _pinPost();
-        final cell = pin == null ? const <FeedPost>[] : _cellPosts(pin);
+        final cell = pin == null ? widget.posts : _cellPosts(pin);
         final expanded =
             widget.openId != null &&
             cell.any((post) => post.id == widget.openId);
         final cap = math.max(0.0, constraints.maxHeight - _padClear);
         final wanted = 48.0 + (expanded ? 560.0 : 210.0);
         final sheetHeight = math.min(wanted, cap);
-        final showSheet = pin != null && cell.isNotEmpty && sheetHeight >= 48;
+        final showSheet = cell.isNotEmpty && sheetHeight >= 48;
         return Column(
           children: [
             Expanded(child: _map()),
@@ -1639,7 +1776,10 @@ class _MapPaneState extends State<_MapPane> {
                           nameOf: widget.nameFor,
                           openId: expanded ? widget.openId : null,
                           scrollOpen: expanded && cap < 608,
-                          onOpen: widget.onOpen,
+                          onOpen: (id) {
+                            _focusPin(id);
+                            widget.onOpen(id);
+                          },
                         ),
                       ),
                     ],
@@ -1658,8 +1798,8 @@ class _MapPaneState extends State<_MapPane> {
         MapLibreMap(
           styleString: 'https://tiles.openfreemap.org/styles/liberty',
           initialCameraPosition: CameraPosition(
-            target: _abovePad(LatLng(widget.lat, widget.lng)),
-            zoom: _zoom,
+            target: _openTarget(),
+            zoom: _openZoom(),
           ),
           onMapCreated: (controller) {
             _controller = controller;
@@ -1697,7 +1837,7 @@ class _MapPaneState extends State<_MapPane> {
             }),
             const SizedBox(width: _gap),
             _controlButton(Icons.my_location, () {
-              _center();
+              _zoomToUser();
             }, filled: true),
             const SizedBox(width: _gap),
             _controlButton(Icons.arrow_forward, () {
