@@ -96,10 +96,24 @@ class AppLocalizationsHi extends AppLocalizations {
   String get tryAgain => 'फिर से';
 
   @override
-  String get opensUsed => 'Today\'s 3 contact opens are used.';
+  String get opensUsed => 'Today\'s 25 contact opens are used.';
 
   @override
   String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
+  String reachPosted(String date) {
+    return 'Posted $date';
+  }
+
+  @override
+  String reachAway(int km) {
+    return 'About $km km away';
+  }
+
+  @override
+  String get reachAsk =>
+      'I would like to discuss if you are still interested, Thank You';
 
   @override
   String get termsBody =>

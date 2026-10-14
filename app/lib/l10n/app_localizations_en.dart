@@ -96,10 +96,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryAgain => 'Try again';
 
   @override
-  String get opensUsed => 'Today\'s 3 contact opens are used.';
+  String get opensUsed => 'Today\'s 25 contact opens are used.';
 
   @override
   String get reachNote => 'Hi, I found you on Worky.';
+
+  @override
+  String reachPosted(String date) {
+    return 'Posted $date';
+  }
+
+  @override
+  String reachAway(int km) {
+    return 'About $km km away';
+  }
+
+  @override
+  String get reachAsk =>
+      'I would like to discuss if you are still interested, Thank You';
 
   @override
   String get termsBody =>
@@ -116,7 +130,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.';
+      'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.';
 
   @override
   String get contactLine => 'People nearby can message or call this number.';

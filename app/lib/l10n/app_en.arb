@@ -29,13 +29,30 @@
   "addVideo": "Video",
   "addAudio": "Voice",
   "tryAgain": "Try again",
-  "opensUsed": "Today's 3 contact opens are used.",
+  "opensUsed": "Today's 25 contact opens are used.",
   "reachNote": "Hi, I found you on Worky.",
+  "reachPosted": "Posted {date}",
+  "@reachPosted": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "reachAway": "About {km} km away",
+  "@reachAway": {
+    "placeholders": {
+      "km": {
+        "type": "int"
+      }
+    }
+  },
+  "reachAsk": "I would like to discuss if you are still interested, Thank You",
   "termsBody": "Be kind. Post only your own photos and voice. You can delete your account any time.",
   "hide": "Hide",
   "show": "Show",
   "nameLabel": "Name",
-  "contactNotice": "People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.",
+  "contactNotice": "People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.",
   "contactLine": "People nearby can message or call this number.",
   "block": "Block",
   "blocked": "Blocked",

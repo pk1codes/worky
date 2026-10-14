@@ -1369,7 +1369,7 @@ async function handle(req, res) {
       tooFast(res, burstWait);
       return;
     }
-    const early = await alreadyOver(`rev_u_${uid}`, 3);
+    const early = await alreadyOver(`rev_u_${uid}`, 25);
     if (early) {
       tooFast(res, early);
       return;
@@ -1399,7 +1399,7 @@ async function handle(req, res) {
       send(res, 404, { error: 'try_again' });
       return;
     }
-    const capped = await limited(`rev_u_${uid}`, 3, 86400_000);
+    const capped = await limited(`rev_u_${uid}`, 25, 86400_000);
     if (capped) {
       tooFast(res, capped);
       return;

@@ -295,7 +295,7 @@ abstract class AppLocalizations {
   /// No description provided for @opensUsed.
   ///
   /// In en, this message translates to:
-  /// **'Today\'s 3 contact opens are used.'**
+  /// **'Today\'s 25 contact opens are used.'**
   String get opensUsed;
 
   /// No description provided for @reachNote.
@@ -303,6 +303,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hi, I found you on Worky.'**
   String get reachNote;
+
+  /// No description provided for @reachPosted.
+  ///
+  /// In en, this message translates to:
+  /// **'Posted {date}'**
+  String reachPosted(String date);
+
+  /// No description provided for @reachAway.
+  ///
+  /// In en, this message translates to:
+  /// **'About {km} km away'**
+  String reachAway(int km);
+
+  /// No description provided for @reachAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'I would like to discuss if you are still interested, Thank You'**
+  String get reachAsk;
 
   /// No description provided for @termsBody.
   ///
@@ -331,7 +349,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactNotice.
   ///
   /// In en, this message translates to:
-  /// **'People nearby can WhatsApp or call this number. Each person can do that only 3 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.'**
+  /// **'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.'**
   String get contactNotice;
 
   /// No description provided for @contactLine.

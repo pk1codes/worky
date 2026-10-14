@@ -1247,13 +1247,32 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
   String _composeNote() {
     final session = SessionHost.of(context);
-    final line = AppLocalizations.of(context).reachNote;
+    final l10n = AppLocalizations.of(context);
+    final lines = <String>[l10n.reachNote, ''];
+    final title = (widget.categoryName ?? '').trim();
+    if (title.isNotEmpty) lines.add('*$title*');
+    lines.add(l10n.reachPosted(_when(context)));
+    final km = widget.post.km;
+    lines.add(km == null ? _bandLabel(l10n) : l10n.reachAway(km));
+    if (widget.post.langs.isNotEmpty) {
+      lines.add(
+        '${l10n.speaks} ${widget.post.langs.map((code) => kAutonym[code] ?? code).join(' · ')}',
+      );
+    }
     final lat = session.lat;
     final lng = session.lng;
-    if (lat == null || lng == null) return line;
-    final place =
-        'https://maps.google.com/?q=${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
-    return '$line\n$place';
+    if (lat != null && lng != null) {
+      lines
+        ..add('')
+        ..add('${l10n.useMyPlace}:')
+        ..add(
+          'https://maps.google.com/?q=${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}',
+        );
+    }
+    lines
+      ..add('')
+      ..add(l10n.reachAsk);
+    return lines.join('\n');
   }
 
   Future<void> _open(String channel) async {
