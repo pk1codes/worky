@@ -1,33 +1,13 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import 'langs.dart';
 
 class Speaker {
-  static final FlutterTts _tts = FlutterTts();
-  static final AudioPlayer _clips = AudioPlayer();
+  static Future<void> say(String? lang, String text) async {}
 
-  static Future<void> say(String? lang, String text) async {
-    if (kIsWeb || lang == null || text.isEmpty) return;
-    try {
-      await _tts.stop();
-      await _tts.setLanguage(kVoice[lang] ?? 'en-IN');
-      await _tts.speak(text);
-    } catch (_) {}
-  }
-
-  static Future<void> clip(String code) async {
-    if (kIsWeb) return;
-    try {
-      await _clips.stop();
-      await _clips.play(AssetSource('lang/$code.mp3'));
-    } catch (_) {
-      await say(code, kAutonym[code] ?? code);
-    }
-  }
+  static Future<void> clip(String code) async {}
 }
 
 int imageCacheWidth(BuildContext context, double logical) {
