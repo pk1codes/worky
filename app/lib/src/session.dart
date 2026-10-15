@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:facebook_app_events/facebook_app_events.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -154,6 +155,11 @@ class Session extends ChangeNotifier {
     if (first && value.isNotEmpty) {
       try {
         await FirebaseAnalytics.instance.logSignUp(signUpMethod: 'whatsapp');
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          FacebookAppEvents()
+              .logEvent(name: FacebookAppEvents.eventNameCompletedRegistration)
+              .ignore();
+        }
       } catch (_) {}
     }
   }

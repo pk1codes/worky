@@ -1,3 +1,4 @@
+import 'package:facebook_app_events/facebook_app_events.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -46,6 +47,9 @@ Future<void> main() async {
   }
   try {
     await FirebaseAnalytics.instance.logAppOpen();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      FacebookAppEvents().activateApp().ignore();
+    }
   } catch (_) {}
   final session = Session(FirebaseAuth.instance);
   await session.boot();

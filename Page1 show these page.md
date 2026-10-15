@@ -1,60 +1,63 @@
+honor mobile is connected. load the new aab & log in as punam.kapoor. use appium, cdp, firebase or any other required mcp tool.
+plan extensive testing ( to prove consistancy of performance, persistance of saved data & get a median speed ) of the following user interactions by setting best measurable industry benchmark UX to compare against.
 
-Page1 ( show these page numbers on every page for reference during the dev )
-App will ask for google login.( try auto login is possible on abdroid & web )
-page2 
-Then the app will need a whatsapp number for communication ( no otp required )
-ask for all the permissions necessary ( location, camers etc ) in the app - in one place.
-Links to terms & condition page.
+the goal is measurable improvement in android ux.
+close the app if already started.
+restart the app. what is the ux ?
+Language select.
+Save a dummy phone number.
+view the profile cards.
+expand the cards.
+view maps. pan & zoom.
+tap pins & open cards.
+expand cards.
+post new cook profile.
+select job.
+select & save a different location.
+upload 2 pics.
+upload 2 videos of about 10 sec each
+save the profile
+open the mine edit page.
+pause & resume profiles.
+edit profile.( change each of the profile data & media )
+save edited profile.
+expand view profiles under any sub parents ( like oil field rigs )
+tap worky, 
+send a prefilled message to the cards owner,
+time elasped till other person recieves above text
+record a voice note, 
+send the voice note, 
+time elasped till other person recieves above voice.
 
-page3 
-the user will see page3 showing image cards from parent folder level1.
-Parent folder level1 contains many child profiles catagories ( profile 11,profile 12, profile 13 and so on, together with a parent sub folder level2 )
-parent subfolder level2 can have catagories profiles 21, profile 22, profile 23 and so on, together with a parent subfolder level3 )
-parent subfolder level3 can have catagories profiles 31, profile 32, profile 33 and so on, together with another parent subfolder level4 )
-the above archetecture can go on & on.
-these profiles are to be stored catagorywise in the backend firebase database.
-a profile under parent1 can have the same name as another profile under parent 2 but is distint from it & will sit & show only where it belongs.
-Above archetecture is a simple parent- child relationship setup & the database , storage will also be setup in the same simple manner. 
+tap & open whatsapp, send a prefilled whatsapp message, tap & open the phone app prefilled with the number to call.
 
-page4 
-Each profile will have below onboarding steps. any user can post multiple profiles. he can see his own profile ( without communication icons )
-1. select profile ( duplicate the ui of page 3, so the user will easily know where his profile will appear. profile12 is distint from profile21.
-2. provide his living location ( or tap to use phone location. )
-3. use camera or upload his pic.( max 5 )
-4. use camera or upload his video.( max 5 )
-5. use mic or upload his audio ( max 5 )
+show each of above comparative results against benchmarks in a tabular form.
 
-page5
-User profile page showing
-his pics, video & audio. allow editing & saving again. allow reuse of media data while posting another new profile. Allow sharing on social media.
-his live posting ( provide to pause, delete, edit )
-T&C page link.
-Contact us link.
-Delete Account icon.
+find the root causes each ux lagging behind the benchmarks.
+share & discuss with critic agent, till root causes are agreed.
 
-page6
-the maps page ( use free maps )
-when user is on page 3, he could switch to interactive maps view showing the same profiles he was viewing.
-the map profiles on tap will dispalay the cards list ( expandable )in the same format as page3.
+find industry standard solutions for each root cause to achive / exceed the industry benchmarks.
+maintaining app running costs as low as possible also is a goal.
+discuss each fix with critic agent, till agreement on each.
 
-workflow:
-when the app opens
-1. the 1st page will show cards with profiles in parent folder level 1.
-each profile is a catagory of cards ( showing 1 image of the profile ), scrolling left to right. profile11, profile 12 are catagory names.
-2. The catagories scroll vertically.
-each card on tap expands the card to show:
-all his images ( swipeable ), days ago posted, distance from the phone owner. languages spoken. His video.
-3. A whatsapp icon & a phone icon & a Gmail icon, which open users apps for communication. prefill them for convinence.
-4. if a parent folder is clicked, the page will show the child profiles on the same page. provide back navigation.
-5.the profiles a phone sees will be sorted by proximity to the the phone.
+execute the solutions, step by step.
+
+ask stitch mcp if the ui can be better ?
+
+Extensively test google login for a smooth one step ux.
+
+ship to hosting & new aab to play 100% prod.
+
+verify with each test again & prove measurable improvments in a tabular form.
+
+discuss with critic if another improvement loop is worthwhile attempting.
+report the agreed answer.
+
+repeat.
+
+Google sign in again.
+android 392 on my honor mobile ( connected ). After installing the ver 392, google login did happen in one  ( or was it 2 taps ? not sure ) tap. but this is not a smooth, snappy ux of a professional build. extensivly test this ux. discuss with sub agnt & agree about the ux measurable quality against a measurable benchmark  numnber. 
 
 
-Use a dedicated subagent to verify each of below General instructions & ittirate the design till agreement is arrived at:
-design max speed with 5000 DAU.
-design for minimum app running costs.Minimum backend costs.
-Modern UI for current generation appeal.
-Ease of use, minimum steps.
-frontend talks to backend like an API, not direct calls.
-Maximum security against all types of attacks.
 
 
