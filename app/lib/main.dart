@@ -49,6 +49,8 @@ Future<void> main() async {
     await FirebaseAnalytics.instance.logAppOpen();
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       FacebookAppEvents().activateApp().ignore();
+      FacebookAppEvents().logEvent(name: 'fb_mobile_activate_app').ignore();
+      FacebookAppEvents().flush().ignore();
     }
   } catch (_) {}
   final session = Session(FirebaseAuth.instance);
