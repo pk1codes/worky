@@ -52,14 +52,12 @@
   "hide": "Hide",
   "show": "Show",
   "nameLabel": "Name",
-  "contactNotice": "People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.",
+  "contactNotice": "People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you.",
   "contactLine": "People nearby can message or call this number.",
   "block": "Block",
   "blocked": "Blocked",
   "allowed": "Allowed",
   "speaks": "Speaks",
-  "workyTalk": "Worky",
-  "typeMessage": "Message",
   "call": "Call",
   "speakThese": "I speak these.",
   "signInGoogle": "Sign in with Google.",
@@ -70,6 +68,5 @@
   "privacy": "Privacy",
   "accountDeletion": "Account deletion",
   "posts": "Posts",
-  "talks": "Talks",
   "pages": "Pages"
 }

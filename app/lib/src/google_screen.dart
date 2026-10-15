@@ -7,7 +7,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../l10n/app_localizations.dart';
 import 'chrome.dart';
 import 'session.dart';
-import 'talk_push.dart';
 
 class GoogleScreen extends StatefulWidget {
   const GoogleScreen({super.key});
@@ -55,7 +54,7 @@ class _GoogleScreenState extends State<GoogleScreen> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
                 child: Text(
-                  'Find nearby work. Message, call, or start Worky Talk. The exact place stays hidden.',
+                  'Find nearby work. Message or call. The exact place stays hidden.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Color(0xFF14281D)),
                 ),
@@ -89,7 +88,6 @@ class _GoogleScreenState extends State<GoogleScreen> {
                         });
                         try {
                           await session.signIn();
-                          unawaited(TalkPush.allow(session.api));
                         } catch (error) {
                           if (!mounted) return;
                           setState(() => _error = _signInError(error));

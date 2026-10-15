@@ -130,7 +130,7 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'దగ్గరలో ఉన్నవారు ఈ నంబరుకు WhatsApp లేదా కాల్ చేయవచ్చు. ఒక్కొక్కరు రోజుకు 3 సార్లు మాత్రమే. వారు మిమ్మల్ని సుమారు 2 కి.మీ. దూరంలో చూస్తారు, ఖచ్చితమైన చోటు కాదు. పోస్టును ఆపవచ్చు లేదా ఖాతాను ఎప్పుడైనా తీసేయవచ్చు. మీరు ఎవరినైనా సంప్రదిస్తే, వారు మీ నంబరు చూసి మిమ్మల్ని ఆపవచ్చు. దగ్గరలో ఉన్నవారు Worky లో కూడా సందేశం పంపవచ్చు.';
+      'దగ్గరలో ఉన్నవారు ఈ నంబరుకు WhatsApp లేదా కాల్ చేయవచ్చు. ఒక్కొక్కరు రోజుకు 3 సార్లు మాత్రమే. వారు మిమ్మల్ని సుమారు 2 కి.మీ. దూరంలో చూస్తారు, ఖచ్చితమైన చోటు కాదు. పోస్టును ఆపవచ్చు లేదా ఖాతాను ఎప్పుడైనా తీసేయవచ్చు. మీరు ఎవరినైనా సంప్రదిస్తే, వారు మీ నంబరు చూసి మిమ్మల్ని ఆపవచ్చు.';
 
   @override
   String get contactLine =>
@@ -147,12 +147,6 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get speaks => 'మాట్లాడతారు';
-
-  @override
-  String get workyTalk => 'Worky';
-
-  @override
-  String get typeMessage => 'సందేశం';
 
   @override
   String get call => 'కాల్';
@@ -183,9 +177,6 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get posts => 'పోస్టులు';
-
-  @override
-  String get talks => 'మాటలు';
 
   @override
   String get pages => 'పేజీలు';

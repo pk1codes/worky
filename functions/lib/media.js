@@ -161,14 +161,12 @@ const KIND_TYPE = {
   image: new Set(['jpeg', 'png', 'webp']),
   video: new Set(['mp4']),
   audio: new Set(['mp3', 'wav', 'mp4']),
-  voice: new Set(['mp4']),
 };
 
 const SERVE_TYPE = {
   image: 'image/jpeg',
   video: 'video/mp4',
   audio: 'audio/mpeg',
-  voice: 'audio/mp4',
 };
 
 function limitsFor(kind, info) {
@@ -197,7 +195,6 @@ function extFor(kind, contentType) {
   if (kind === 'video' && contentType === 'video/mp4') return 'mp4';
   if (kind === 'audio' && (contentType === 'audio/mp4' || contentType === 'audio/aac')) return 'm4a';
   if (kind === 'audio' && contentType === 'audio/mpeg') return 'mp3';
-  if (kind === 'voice' && (contentType === 'audio/mp4' || contentType === 'audio/aac')) return 'm4a';
   return null;
 }
 

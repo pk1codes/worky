@@ -130,7 +130,7 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'ಹತ್ತಿರದವರು ಈ ಸಂಖ್ಯೆಗೆ WhatsApp ಅಥವಾ ಕರೆ ಮಾಡಬಹುದು. ಒಬ್ಬರು ದಿನಕ್ಕೆ 3 ಬಾರಿ ಮಾತ್ರ. ಅವರು ನಿಮ್ಮನ್ನು ಸುಮಾರು 2 ಕಿ.ಮೀ. ದೂರದಲ್ಲಿ ನೋಡುತ್ತಾರೆ, ನಿಖರವಾದ ಸ್ಥಳವಲ್ಲ. ಪೋಸ್ಟ್ ನಿಲ್ಲಿಸಬಹುದು ಅಥವಾ ಖಾತೆಯನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ಅಳಿಸಬಹುದು. ನೀವು ಯಾರನ್ನಾದರೂ ಸಂಪರ್ಕಿಸಿದರೆ, ಅವರು ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ನೋಡಿ ನಿಮ್ಮನ್ನು ತಡೆಯಬಹುದು. ಹತ್ತಿರದವರು Worky ನಲ್ಲಿಯೂ ಸಂದೇಶ ಕಳುಹಿಸಬಹುದು.';
+      'ಹತ್ತಿರದವರು ಈ ಸಂಖ್ಯೆಗೆ WhatsApp ಅಥವಾ ಕರೆ ಮಾಡಬಹುದು. ಒಬ್ಬರು ದಿನಕ್ಕೆ 3 ಬಾರಿ ಮಾತ್ರ. ಅವರು ನಿಮ್ಮನ್ನು ಸುಮಾರು 2 ಕಿ.ಮೀ. ದೂರದಲ್ಲಿ ನೋಡುತ್ತಾರೆ, ನಿಖರವಾದ ಸ್ಥಳವಲ್ಲ. ಪೋಸ್ಟ್ ನಿಲ್ಲಿಸಬಹುದು ಅಥವಾ ಖಾತೆಯನ್ನು ಯಾವಾಗ ಬೇಕಾದರೂ ಅಳಿಸಬಹುದು. ನೀವು ಯಾರನ್ನಾದರೂ ಸಂಪರ್ಕಿಸಿದರೆ, ಅವರು ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ನೋಡಿ ನಿಮ್ಮನ್ನು ತಡೆಯಬಹುದು.';
 
   @override
   String get contactLine => 'ಹತ್ತಿರದವರು ಈ ಸಂಖ್ಯೆಗೆ ಸಂದೇಶ ಅಥವಾ ಕರೆ ಮಾಡಬಹುದು.';
@@ -146,12 +146,6 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get speaks => 'ಮಾತನಾಡುತ್ತಾರೆ';
-
-  @override
-  String get workyTalk => 'Worky';
-
-  @override
-  String get typeMessage => 'ಸಂದೇಶ';
 
   @override
   String get call => 'ಕರೆ';
@@ -182,9 +176,6 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get posts => 'ಪೋಸ್ಟ್‌ಗಳು';
-
-  @override
-  String get talks => 'ಮಾತುಗಳು';
 
   @override
   String get pages => 'ಪುಟಗಳು';

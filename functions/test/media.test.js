@@ -8,13 +8,12 @@ test('media extensions match the upload kind', () => {
   assert.equal(extFor('video', 'video/mp4'), 'mp4');
   assert.equal(extFor('image', 'video/mp4'), null);
   assert.equal(extFor('audio', 'audio/wav'), null);
-  assert.equal(extFor('voice', 'audio/mp4'), 'm4a');
-  assert.equal(extFor('voice', 'audio/mpeg'), null);
+  assert.equal(extFor('voice', 'audio/mp4'), null);
 });
 
-test('a voice note cannot run past a minute', () => {
-  assert.equal(limitsFor('voice', { duration: 60, tracks: 1 }), null);
-  assert.equal(limitsFor('voice', { duration: 61, tracks: 1 }), 'duration');
+test('audio cannot run past a minute', () => {
+  assert.equal(limitsFor('audio', { duration: 60, tracks: 1 }), null);
+  assert.equal(limitsFor('audio', { duration: 61, tracks: 1 }), 'duration');
 });
 
 test('thumbs are only for images larger than the strip', () => {

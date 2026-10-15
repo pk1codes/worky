@@ -349,7 +349,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactNotice.
   ///
   /// In en, this message translates to:
-  /// **'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.'**
+  /// **'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you.'**
   String get contactNotice;
 
   /// No description provided for @contactLine.
@@ -381,18 +381,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Speaks'**
   String get speaks;
-
-  /// No description provided for @workyTalk.
-  ///
-  /// In en, this message translates to:
-  /// **'Worky'**
-  String get workyTalk;
-
-  /// No description provided for @typeMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Message'**
-  String get typeMessage;
 
   /// No description provided for @call.
   ///
@@ -453,12 +441,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Posts'**
   String get posts;
-
-  /// No description provided for @talks.
-  ///
-  /// In en, this message translates to:
-  /// **'Talks'**
-  String get talks;
 
   /// No description provided for @pages.
   ///

@@ -130,7 +130,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you. People nearby can also message you in Worky.';
+      'People nearby can WhatsApp or call this number. Each person can do that only 25 times a day. They see you are about 2 km away, not your exact place. You can pause your post or delete your account any time. If you contact someone, they see your number and can block you.';
 
   @override
   String get contactLine => 'People nearby can message or call this number.';
@@ -146,12 +146,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get speaks => 'Speaks';
-
-  @override
-  String get workyTalk => 'Worky';
-
-  @override
-  String get typeMessage => 'Message';
 
   @override
   String get call => 'Call';
@@ -182,9 +176,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get posts => 'Posts';
-
-  @override
-  String get talks => 'Talks';
 
   @override
   String get pages => 'Pages';

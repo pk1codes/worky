@@ -20,7 +20,6 @@ import 'local_thumb.dart' if (dart.library.io) 'local_thumb_io.dart';
 import 'media_queue.dart';
 import 'post_screen.dart';
 import 'session.dart';
-import 'talk_screen.dart';
 
 const _kWorld = 'World';
 const _kPrivacyUrl = 'https://worky-93fbc.web.app/privacy.html';
@@ -39,7 +38,6 @@ class MineScreen extends StatefulWidget {
 
 class _MineScreenState extends State<MineScreen> {
   List<FeedPost> _posts = [];
-  List<TalkPreview> _talks = [];
   var _loading = true;
   var _failed = false;
   String? _cursor;
@@ -152,7 +150,6 @@ class _MineScreenState extends State<MineScreen> {
       if (mounted) {
         setState(() {
           _posts = more ? [..._posts, ...page.posts] : page.posts;
-          if (!more) _talks = page.talks;
           _cursor = page.cursor;
           _loading = false;
           _failed = false;
@@ -185,79 +182,6 @@ class _MineScreenState extends State<MineScreen> {
     if (post.categoryPath.isEmpty) return null;
     final parents = post.categoryPath.sublist(0, post.categoryPath.length - 1);
     return [_kWorld, ...parents].join(' / ');
-  }
-
-  String _talkTitle(TalkPreview talk, AppLocalizations l10n) {
-    if (talk.kind == 'video' || talk.kind == 'voice' || talk.preview.isEmpty) {
-      return l10n.workyTalk;
-    }
-    return talk.preview;
-  }
-
-  Widget _talkRow(TalkPreview talk, AppLocalizations l10n) {
-    final icon = talk.kind == 'video'
-        ? Icons.videocam
-        : talk.kind == 'voice'
-        ? Icons.mic
-        : Icons.forum;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Material(
-        color: const Color(0xFFF5F3F0),
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => TalkScreen(pairId: talk.id),
-              ),
-            );
-            await _load();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFD9E6DC),
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: Icon(icon, color: const Color(0xFF3A684D)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _talkTitle(talk, l10n),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF14281D),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (talk.unread > 0)
-                  CircleAvatar(
-                    radius: 12,
-                    backgroundColor: const Color(0xFF3A684D),
-                    child: Text(
-                      '${talk.unread}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _openPage(Session session, String label, Uri url) async {
@@ -725,10 +649,6 @@ class _MineScreenState extends State<MineScreen> {
                         label: l10n.continueAction,
                         onTap: () => _load(more: true),
                       ),
-                    if (_talks.isNotEmpty) ...[
-                      _section(l10n.talks),
-                      for (final talk in _talks) _talkRow(talk, l10n),
-                    ],
                     _section(l10n.pages),
                     _pages(session, l10n),
                     BigIcon(

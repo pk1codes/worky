@@ -17,8 +17,6 @@ import 'langs.dart';
 import 'mine_screen.dart';
 import 'post_screen.dart';
 import 'session.dart';
-import 'talk_push.dart';
-import 'talk_screen.dart';
 
 class BrowseScreen extends StatefulWidget {
   const BrowseScreen({this.picking = false, this.onPicked, super.key});
@@ -53,7 +51,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
       final l10n = AppLocalizations.of(context);
       unawaited(Speaker.say(session.lang, l10n.near));
       unawaited(_load());
-      TalkPush.flush();
     });
   }
 
@@ -1146,23 +1143,6 @@ class _ExpandedCardState extends State<ExpandedCard> {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
-          Expanded(
-            child: BigIcon(
-              icon: Icons.forum,
-              label: l10n.workyTalk,
-              filled: true,
-              compact: true,
-              stretch: true,
-              onTap: own
-                  ? null
-                  : () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => TalkScreen(postId: widget.post.id),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: BigIcon(
               icon: Icons.chat,

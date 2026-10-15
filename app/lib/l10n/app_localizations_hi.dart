@@ -130,7 +130,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get contactNotice =>
-      'आस-पास के लोग इस नंबर पर WhatsApp या कॉल कर सकते हैं। हर व्यक्ति दिन में सिर्फ़ 3 बार। वे आपको लगभग 2 किमी दूर देखते हैं, ठीक जगह नहीं। पोस्ट रोक सकते हैं या खाता कभी भी हटा सकते हैं। अगर आप किसी से संपर्क करते हैं, तो वे आपका नंबर देखते हैं और आपको ब्लॉक कर सकते हैं। आस-पास के लोग Worky में भी संदेश भेज सकते हैं।';
+      'आस-पास के लोग इस नंबर पर WhatsApp या कॉल कर सकते हैं। हर व्यक्ति दिन में सिर्फ़ 3 बार। वे आपको लगभग 2 किमी दूर देखते हैं, ठीक जगह नहीं। पोस्ट रोक सकते हैं या खाता कभी भी हटा सकते हैं। अगर आप किसी से संपर्क करते हैं, तो वे आपका नंबर देखते हैं और आपको ब्लॉक कर सकते हैं।';
 
   @override
   String get contactLine =>
@@ -147,12 +147,6 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get speaks => 'बोलते हैं';
-
-  @override
-  String get workyTalk => 'Worky';
-
-  @override
-  String get typeMessage => 'संदेश';
 
   @override
   String get call => 'कॉल';
@@ -183,9 +177,6 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get posts => 'पोस्ट';
-
-  @override
-  String get talks => 'बातें';
 
   @override
   String get pages => 'पन्ने';

@@ -1,13 +1,8 @@
 package com.pk1codes.worky
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -27,48 +22,6 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
-    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "worky/heads")
-      .setMethodCallHandler { call, result ->
-        when (call.method) {
-          "show" -> showHeads(call.argument<String>("body") ?: "", result)
-          else -> result.notImplemented()
-        }
-      }
-  }
-
-  private fun showHeads(body: String, result: MethodChannel.Result) {
-    if (Build.VERSION.SDK_INT >= 33 &&
-      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-      PackageManager.PERMISSION_GRANTED
-    ) {
-      result.success(false)
-      return
-    }
-    val manager = getSystemService(NotificationManager::class.java)
-    if (Build.VERSION.SDK_INT >= 26) {
-      manager.createNotificationChannel(
-        NotificationChannel("worky", "Worky", NotificationManager.IMPORTANCE_HIGH),
-      )
-    }
-    val launch = packageManager.getLaunchIntentForPackage(packageName)
-    val note = NotificationCompat.Builder(this, "worky")
-      .setSmallIcon(R.drawable.ic_stat_worky)
-      .setContentTitle("Worky")
-      .setContentText(body)
-      .setPriority(NotificationCompat.PRIORITY_HIGH)
-      .setAutoCancel(true)
-    if (launch != null) {
-      note.setContentIntent(
-        PendingIntent.getActivity(
-          this,
-          0,
-          launch,
-          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        ),
-      )
-    }
-    manager.notify(70, note.build())
-    result.success(true)
   }
 
   private fun needed(): Array<String> {

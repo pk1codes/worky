@@ -7,7 +7,6 @@ const { LANGS, coarse, geohash, ring, hashBounds, kmBetween, band, daysAgo, publ
 const { shelfId, shelfCard, packShelf, wantNeighbor, capBlocks } = require('./lib/shelf');
 const { categoryTrail } = require('./lib/categories');
 const { parseMp4, parseWav, parseMp3, sniff, KIND_TYPE, SERVE_TYPE, limitsFor, extFor, clipMp4, publicUrl, THUMB_EDGE, needsThumb } = require('./lib/media');
-const { DAY_MS, pairId, pairMembers, cleanText, viewMessage } = require('./lib/talk');
 const { allow, clientIp, overCap } = require('./lib/gate');
 
 admin.initializeApp({
@@ -36,7 +35,7 @@ const fileTokenKey = defineSecret('FILE_TOKEN_KEY');
 function fileKey() {
   return process.env.FILE_TOKEN_KEY || 'worky-local-file-key';
 }
-const MAX_BYTES = { image: 8_000_000, video: 20_000_000, audio: 8_000_000, voice: 400_000 };
+const MAX_BYTES = { image: 8_000_000, video: 20_000_000, audio: 8_000_000 };
 
 const NAMES = {
   cook: { en: 'Cook' },
@@ -362,7 +361,7 @@ async function stampCover(doc) {
 
 async function acceptUpload(kind, buf) {
   const sniffed = sniff(buf);
-  if (!sniffed || !KIND_TYPE[kind].has(sniffed)) return { error: 'type' };
+  if (!sniffed || !KIND_TYPE[kind] || !KIND_TYPE[kind].has(sniffed)) return { error: 'type' };
   if (kind === 'image') {
     try {
       const img = sharp(buf, { failOn: 'error', limitInputPixels: 12_000_000 });
@@ -412,353 +411,6 @@ function card(req, doc, distanceKm) {
     status: data.status,
     ...(country ? { country } : {}),
   };
-}
-
-async function talkInbox(uid) {
-  const snap = await db.collection('chats')
-    .where('members', 'array-contains', uid)
-    .orderBy('updatedAt', 'desc')
-    .limit(30)
-    .get();
-  return snap.docs.filter((doc) => doc.get('last')).map((doc) => {
-    const last = doc.get('last') || {};
-    const unread = doc.get('unread') || {};
-    return {
-      id: doc.id,
-      kind: last.kind || 'text',
-      preview: last.text || '',
-      at: last.at || doc.get('updatedAt') || 0,
-      unread: unread[uid] || 0,
-      closed: doc.get('closed') === true,
-    };
-  });
-}
-
-function otherOf(members, uid) {
-  return members.find((id) => id !== uid) || '';
-}
-
-function talkPreview(kind, text) {
-  if (kind === 'voice') return 'Voice';
-  return String(text || '').slice(0, 80);
-}
-
-async function loadTalk(id, uid) {
-  const members = pairMembers(id, uid);
-  if (!members) return null;
-  const ref = db.collection('chats').doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) return { ref, snap, members, missing: true };
-  const stored = snap.get('members') || [];
-  if (!stored.includes(uid)) return null;
-  return { ref, snap, members: stored, missing: false };
-}
-
-async function talkRows(req, ref, now, closed = false) {
-  const msgs = await ref.collection('msgs').orderBy('at', 'desc').limit(40).get();
-  const rows = [];
-  let batch = null;
-  let drops = 0;
-  for (const doc of msgs.docs) {
-    const data = doc.data();
-    const stale = data.kind === 'video' && data.meetUrl && (closed || !(data.expiresAt > now));
-    if (stale) {
-      batch = batch || db.batch();
-      batch.update(doc.ref, { meetUrl: admin.firestore.FieldValue.delete() });
-      drops += 1;
-      delete data.meetUrl;
-    }
-    const voice = data.kind === 'voice' ? (data.url || fileUrl(req, data.mediaId)) : '';
-    rows.push(viewMessage({ id: doc.id, ...data }, now, voice));
-  }
-  if (drops) await batch.commit();
-  rows.reverse();
-  return rows;
-}
-
-async function markRead(ref, snap, uid) {
-  const unread = { ...(snap.get('unread') || {}) };
-  if (!unread[uid]) return;
-  unread[uid] = 0;
-  await ref.update({ unread });
-}
-
-async function ensurePair(uid, owner, postId) {
-  const id = pairId(uid, owner);
-  if (!id) return { status: 404 };
-  const ref = db.collection('chats').doc(id);
-  const snap = await ref.get();
-  if (snap.exists) {
-    if (snap.get('closed') === true) return { status: 404, id, ref, snap };
-    return { id, ref, snap };
-  }
-  const post = await db.collection('posts').doc(postId).get();
-  if (!post.exists || post.get('uid') !== owner || post.get('status') !== 'active') return { status: 404 };
-  if (post.get('contactsOpen') === false) return { status: 404 };
-  const burstWait = pace(`pair_${uid}`, 3, 10_000);
-  if (burstWait) return { status: 429, retryAfter: burstWait };
-  const capped = await limited(`pair_${uid}`, 3, DAY_MS);
-  if (capped) return { status: 429, retryAfter: capped };
-  try {
-    await ref.create({
-      members: [uid, owner].sort(),
-      postId,
-      updatedAt: Date.now(),
-      unread: {},
-      closed: false,
-    });
-  } catch (err) {
-    if (err.code !== 6 && err.code !== 'already-exists') throw err;
-  }
-  return { id, ref, snap: await ref.get() };
-}
-
-async function appendTalk(ref, uid, members, msg, preview) {
-  const id = crypto.randomBytes(8).toString('hex');
-  const at = Date.now();
-  const other = otherOf(members, uid);
-  await db.runTransaction(async (tx) => {
-    const chat = await tx.get(ref);
-    if (!chat.exists || chat.get('closed') === true) throw Object.assign(new Error('closed'), { status: 404 });
-    const unread = { ...(chat.get('unread') || {}) };
-    if (other) unread[other] = (unread[other] || 0) + 1;
-    tx.set(ref.collection('msgs').doc(id), { ...msg, from: uid, at });
-    tx.update(ref, {
-      updatedAt: at,
-      last: { kind: msg.kind, text: preview, from: uid, at },
-      unread,
-    });
-  });
-  return { id, at, other };
-}
-
-async function pingTalk(other, body, id) {
-  if (!other) return;
-  const user = await db.collection('users').doc(other).get();
-  const tokens = numberList(user.get('pushTokens')).slice(-3);
-  if (!tokens.length) return;
-  try {
-    const result = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: { title: 'Worky', body },
-      data: { pairId: id },
-      android: { priority: 'high' },
-    });
-    const left = tokens.filter((_, i) => result.responses[i].success);
-    if (left.length !== tokens.length) {
-      await db.collection('users').doc(other).set({ pushTokens: left }, { merge: true });
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function voiceUpload(req) {
-  const type = String(req.get('content-type') || '').toLowerCase();
-  return type.startsWith('audio/mp4') || type.startsWith('audio/aac');
-}
-
-async function takeVoice(req, uid) {
-  const buf = req.rawBody;
-  if (!Buffer.isBuffer(buf) || buf.length < 32 || buf.length > MAX_BYTES.voice) {
-    return { status: 400 };
-  }
-  const burstWait = pace(`send_${uid}`, 8, 10_000);
-  if (burstWait) return { status: 429, retryAfter: burstWait };
-  const capped = await limited(`voi_${uid}`, 60, DAY_MS);
-  if (capped) return { status: 429, retryAfter: capped };
-  const accepted = await acceptUpload('voice', buf);
-  if (accepted.error) return { status: 400 };
-  const id = crypto.randomBytes(12).toString('hex');
-  const objectPath = `users/${uid}/${id}.m4a`;
-  const token = crypto.randomUUID();
-  await bucket.file(objectPath).save(buf, {
-    resumable: false,
-    metadata: {
-      contentType: accepted.contentType,
-      cacheControl: 'private, max-age=3600',
-      metadata: { firebaseStorageDownloadTokens: token },
-    },
-  });
-  const url = publicUrl(bucket.name, objectPath, token);
-  await db.collection('media').doc(id).set({
-    uid,
-    kind: 'voice',
-    status: 'ready',
-    bytes: buf.length,
-    path: objectPath,
-    contentType: accepted.contentType,
-    url,
-    createdAt: Date.now(),
-  });
-  const durMs = Math.min(60_000, Math.max(0, Number(req.get('x-dur-ms')) || 0));
-  return {
-    msg: { kind: 'voice', mediaId: id, durMs, url },
-    preview: talkPreview('voice'),
-  };
-}
-
-async function incoming(req, uid) {
-  if (voiceUpload(req)) return takeVoice(req, uid);
-  return messageFrom(req, uid);
-}
-
-async function messageFrom(req, uid) {
-  const text = cleanText(req.body?.text);
-  const mediaId = typeof req.body?.mediaId === 'string' ? req.body.mediaId : '';
-  if (text && mediaId) return { status: 400 };
-  if (!text && !mediaId) return { status: 400 };
-  const burstWait = pace(`send_${uid}`, 8, 10_000);
-  if (burstWait) return { status: 429, retryAfter: burstWait };
-  if (text) {
-    const capped = await limited(`txt_${uid}`, 400, DAY_MS);
-    if (capped) return { status: 429, retryAfter: capped };
-    return { msg: { kind: 'text', text }, preview: talkPreview('text', text) };
-  }
-  const capped = await limited(`voi_${uid}`, 60, DAY_MS);
-  if (capped) return { status: 429, retryAfter: capped };
-  const media = await db.collection('media').doc(mediaId).get();
-  if (!media.exists || media.get('uid') !== uid || media.get('kind') !== 'voice' || media.get('status') !== 'ready') {
-    return { status: 400 };
-  }
-  const durMs = Math.min(60_000, Math.max(0, Number(req.body?.durMs) || 0));
-  return { msg: { kind: 'voice', mediaId, durMs, url: media.get('url') || '' }, preview: talkPreview('voice') };
-}
-
-async function talk(req, res, uid, path, bits) {
-  if (req.method === 'PUT' && path === '/v1/me/push') {
-    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-    if (token.length < 20 || token.length > 4096) {
-      send(res, 400, { error: 'try_again' });
-      return true;
-    }
-    const wait = pace(`push_${uid}`, 8, 10_000);
-    if (wait) {
-      tooFast(res, wait);
-      return true;
-    }
-    const user = await db.collection('users').doc(uid).get();
-    const tokens = numberList(user.get('pushTokens')).filter((item) => item !== token);
-    tokens.push(token);
-    await db.collection('users').doc(uid).set({ pushTokens: tokens.slice(-3) }, { merge: true });
-    send(res, 200, { ok: true });
-    return true;
-  }
-
-  const postTalk = bits[0] === 'v1' && bits[1] === 'posts' && bits[2] && bits[3] === 'talk';
-  const pairTalk = bits[0] === 'v1' && bits[1] === 'talks' && bits[2];
-  if (!postTalk && !pairTalk) return false;
-
-  if (postTalk) {
-    const post = await db.collection('posts').doc(bits[2]).get();
-    if (!post.exists || post.get('uid') === uid) {
-      send(res, 404, { error: 'try_again' });
-      return true;
-    }
-    const owner = post.get('uid');
-    const id = pairId(uid, owner);
-    if (!id) {
-      send(res, 404, { error: 'try_again' });
-      return true;
-    }
-    if (req.method === 'GET' && !bits[4]) {
-      const wait = pace(`talk_${uid}`, 6, 10_000);
-      if (wait) {
-        tooFast(res, wait);
-        return true;
-      }
-      const loaded = await loadTalk(id, uid);
-      if (!loaded || loaded.missing) {
-        send(res, 200, { pairId: '', closed: false, messages: [] });
-        return true;
-      }
-      await markRead(loaded.ref, loaded.snap, uid);
-      send(res, 200, {
-        pairId: id,
-        closed: loaded.snap.get('closed') === true,
-        messages: await talkRows(req, loaded.ref, Date.now(), loaded.snap.get('closed') === true),
-      });
-      return true;
-    }
-    if (req.method === 'POST' && !bits[4]) {
-      const made = await incoming(req, uid);
-      if (made.status) {
-        fail(res, made.status, made.retryAfter);
-        return true;
-      }
-      const room = await ensurePair(uid, owner, post.id);
-      if (room.status) {
-        fail(res, room.status, room.retryAfter);
-        return true;
-      }
-      try {
-        const saved = await appendTalk(room.ref, uid, room.snap.get('members'), made.msg, made.preview);
-        await pingTalk(saved.other, made.preview, room.id);
-        send(res, 200, { pairId: room.id, message: { id: saved.id, at: saved.at, ...made.msg, from: uid } });
-      } catch (err) {
-        send(res, err.status || 500, { error: 'try_again' });
-      }
-      return true;
-    }
-    send(res, 404, { error: 'try_again' });
-    return true;
-  }
-
-  if (req.method === 'GET' && !bits[3]) {
-    const wait = pace(`talk_${uid}`, 6, 10_000);
-    if (wait) {
-      tooFast(res, wait);
-      return true;
-    }
-  }
-  if (req.method === 'POST' && bits[3] === 'block') {
-    const wait = pace(`tblock_${uid}`, 8, 10_000);
-    if (wait) {
-      tooFast(res, wait);
-      return true;
-    }
-  }
-  const loaded = await loadTalk(bits[2], uid);
-  if (!loaded || loaded.missing) {
-    send(res, 404, { error: 'try_again' });
-    return true;
-  }
-  if (req.method === 'GET' && !bits[3]) {
-    await markRead(loaded.ref, loaded.snap, uid);
-    send(res, 200, {
-      pairId: bits[2],
-      closed: loaded.snap.get('closed') === true,
-      messages: await talkRows(req, loaded.ref, Date.now(), loaded.snap.get('closed') === true),
-    });
-    return true;
-  }
-  if (req.method === 'POST' && bits[3] === 'block') {
-    await loaded.ref.update({ closed: true });
-    await talkRows(req, loaded.ref, Date.now(), true);
-    send(res, 200, { closed: true });
-    return true;
-  }
-  if (loaded.snap.get('closed') === true) {
-    send(res, 404, { error: 'try_again' });
-    return true;
-  }
-  if (req.method === 'POST' && !bits[3]) {
-    const made = await incoming(req, uid);
-    if (made.status) {
-      fail(res, made.status, made.retryAfter);
-      return true;
-    }
-    try {
-      const saved = await appendTalk(loaded.ref, uid, loaded.members, made.msg, made.preview);
-      await pingTalk(saved.other, made.preview, bits[2]);
-      send(res, 200, { pairId: bits[2], message: { id: saved.id, at: saved.at, ...made.msg, from: uid } });
-    } catch (err) {
-      send(res, err.status || 500, { error: 'try_again' });
-    }
-    return true;
-  }
-  send(res, 404, { error: 'try_again' });
-  return true;
 }
 
 async function deleteStep(uid, cursor) {
@@ -1124,8 +776,6 @@ async function handle(req, res) {
     return;
   }
 
-  if (await talk(req, res, uid, path, bits)) return;
-
   if (req.method === 'GET' && path === '/v1/me') {
     const wait = pace(`me_${uid}`, 6, 10_000);
     if (wait) {
@@ -1227,12 +877,6 @@ async function handle(req, res) {
     const cats = await categoryCatalog();
     const byId = new Map(cats.map((row) => [row.id, row]));
     const lang = me.get('lang') || 'en';
-    let talks = [];
-    try {
-      talks = await talkInbox(uid);
-    } catch (err) {
-      console.error(err);
-    }
     send(res, 200, {
       posts: posts.docs.map((doc) => {
         const data = doc.data();
@@ -1256,7 +900,6 @@ async function handle(req, res) {
           reaches,
         };
       }),
-      talks: req.query.cursor ? [] : talks,
       cursor: nextCursor(posts.docs),
     });
     return;
@@ -1605,17 +1248,14 @@ async function handle(req, res) {
       send(res, 400, { error: 'try_again' });
       return;
     }
-    const voice = doc.get('kind') === 'voice';
     const token = crypto.randomUUID();
-    const cacheControl = voice
-      ? 'private, max-age=3600'
-      : 'public, max-age=31536000, immutable';
+    const cacheControl = 'public, max-age=31536000, immutable';
     const metadata = {
       contentType: accepted.contentType,
       cacheControl,
       metadata: { firebaseStorageDownloadTokens: token },
     };
-    if (!voice && accepted.rewrite) {
+    if (accepted.rewrite) {
       await file.save(accepted.buf, { resumable: false, metadata });
     } else {
       await file.setMetadata(metadata);
@@ -1623,7 +1263,7 @@ async function handle(req, res) {
     const url = publicUrl(bucket.name, objectPath, token);
     let thumbUrl = '';
     let thumbPath = '';
-    if (!voice && accepted.thumb) {
+    if (accepted.thumb) {
       const dot = objectPath.lastIndexOf('.');
       thumbPath = `${dot === -1 ? objectPath : objectPath.slice(0, dot)}_thumb.webp`;
       const thumbToken = crypto.randomUUID();
@@ -1641,7 +1281,7 @@ async function handle(req, res) {
     await doc.ref.update({
       status: 'ready',
       contentType: accepted.contentType,
-      bytes: voice || !accepted.rewrite ? bytes : accepted.buf.length,
+      bytes: accepted.rewrite ? accepted.buf.length : bytes,
       url,
       expireAt: admin.firestore.FieldValue.delete(),
       ...(thumbUrl ? { thumbUrl, thumbPath } : {}),
