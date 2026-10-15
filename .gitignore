@@ -6,6 +6,8 @@ functions/node_modules/
 functions/.secret.local
 app/.dart_tool/
 app/build/
+app/android/build/
+play-store/*.aab
 app/.flutter-plugins-dependencies
 *.iml
 .DS_Store
