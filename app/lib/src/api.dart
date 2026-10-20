@@ -206,10 +206,12 @@ class FeedPage {
 }
 
 class FeedHold {
-  FeedHold(this.page, this.at);
+  FeedHold(this.page, this.at, {this.lat, this.lng});
 
   final FeedPage page;
   final int at;
+  final double? lat;
+  final double? lng;
 }
 
 double kmBetween(double aLat, double aLng, double bLat, double bLng) {
@@ -262,6 +264,18 @@ double closestBox(double lat, double lng, FeedBox box) {
   return kmBetween(lat, lng, cLat, cLng);
 }
 
+const shelfMoveKm = 20.0;
+
+bool viewerLeftShelf(
+  double? fromLat,
+  double? fromLng,
+  double lat,
+  double lng,
+) {
+  if (fromLat == null || fromLng == null) return false;
+  return kmBetween(fromLat, fromLng, lat, lng) > shelfMoveKm;
+}
+
 bool needsRing(FeedPage page, double lat, double lng) {
   for (final box in page.ring) {
     if (box.included) continue;
@@ -305,10 +319,18 @@ class WorkyApi {
     final headers = <String, String>{'content-type': 'application/json'};
     if (token != null) headers['authorization'] = 'Bearer $token';
     if (!kUseEmulator) {
+      String? check;
       try {
-        final check = await FirebaseAppCheck.instance.getToken();
-        if (check != null) headers['x-firebase-appcheck'] = check;
+        check = await FirebaseAppCheck.instance.getToken();
       } catch (_) {}
+      if (check == null || check.isEmpty) {
+        try {
+          check = await FirebaseAppCheck.instance.getToken(true);
+        } catch (_) {}
+      }
+      if (check != null && check.isNotEmpty) {
+        headers['x-firebase-appcheck'] = check;
+      }
     }
     if (etag != null) headers['if-none-match'] = etag;
     return headers;

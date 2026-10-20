@@ -39,6 +39,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Session? _session;
   double? _seenLat;
   double? _seenLng;
+  var _pulling = false;
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   void _onSession() {
     final session = _session;
-    if (!mounted || session == null) return;
+    if (_pulling || !mounted || session == null) return;
     final lat = session.lat;
     final lng = session.lng;
     if (lat == null || lng == null) return;
@@ -97,15 +98,24 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   Future<void> _load({bool force = false}) async {
     final session = SessionHost.of(context);
-    if (session.lat == null) {
-      final ok = await session.locate();
-      if (!ok && mounted) {
+    _pulling = true;
+    try {
+      await _loadAt(session, force: force);
+    } finally {
+      _pulling = false;
+    }
+  }
+
+  Future<void> _loadAt(Session session, {required bool force}) async {
+    final ok = await session.locate();
+    if (!ok || session.lat == null || session.lng == null) {
+      if (mounted) {
         setState(() {
           _loading = false;
           _failed = true;
         });
-        return;
       }
+      return;
     }
     final parent = _parents.last;
     final key = session.cacheKey(parent);
@@ -170,7 +180,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
         await Speaker.say(session.lang, AppLocalizations.of(context).tryAgain);
         return;
       }
-      if (!widget.picking) session.rememberFeed(key, page);
+      if (!widget.picking) {
+        session.rememberFeed(key, page, lat: lat, lng: lng);
+      }
       final rows = widget.picking
           ? [
               for (final row in page.categories)

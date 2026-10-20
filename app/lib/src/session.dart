@@ -171,28 +171,53 @@ class Session extends ChangeNotifier {
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      return false;
+      return lat != null;
     }
-    late final Position position;
+    var moved = false;
     try {
-      position = await Geolocator.getCurrentPosition(
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) moved = await _applyFix(last);
+    } catch (_) {}
+    try {
+      final fresh = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          timeLimit: Duration(seconds: 10),
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
         ),
       );
-    } catch (_) {
-      return false;
-    }
-    lat = position.latitude;
-    lng = position.longitude;
-    await _prefs?.setDouble('lat', lat!);
-    await _prefs?.setDouble('lng', lng!);
-    notifyListeners();
+      moved = await _applyFix(fresh) || moved;
+    } catch (_) {}
+    if (moved) notifyListeners();
+    return lat != null;
+  }
+
+  Future<bool> _applyFix(Position position) async {
+    final nextLat = position.latitude;
+    final nextLng = position.longitude;
+    final same =
+        lat != null &&
+        lng != null &&
+        (lat! - nextLat).abs() < 0.01 &&
+        (lng! - nextLng).abs() < 0.01;
+    lat = nextLat;
+    lng = nextLng;
+    await _prefs?.setDouble('lat', nextLat);
+    await _prefs?.setDouble('lng', nextLng);
+    if (same) return false;
     unawaited(_resolveCountry());
-    if (user != null) {
-      try {
-        await api.saveMe(lang: lang, whatsapp: whatsapp, lat: lat, lng: lng);
-      } catch (_) {}
+    final hereLat = lat;
+    final hereLng = lng;
+    if (user != null && hereLat != null && hereLng != null) {
+      unawaited(() async {
+        try {
+          await api.saveMe(
+            lang: lang,
+            whatsapp: whatsapp,
+            lat: hereLat,
+            lng: hereLng,
+          );
+        } catch (_) {}
+      }());
     }
     return true;
   }
@@ -317,11 +342,17 @@ class Session extends ChangeNotifier {
         feedTtl.inMilliseconds) {
       return false;
     }
+    if (viewerLeftShelf(hold.lat, hold.lng, lat, lng)) return false;
     return !needsRing(hold.page, lat, lng);
   }
 
-  void rememberFeed(String key, FeedPage page) {
-    feedCache[key] = FeedHold(page, DateTime.now().millisecondsSinceEpoch);
+  void rememberFeed(String key, FeedPage page, {double? lat, double? lng}) {
+    feedCache[key] = FeedHold(
+      page,
+      DateTime.now().millisecondsSinceEpoch,
+      lat: lat,
+      lng: lng,
+    );
   }
 
   List<FeedCategory> visible(String key, double lat, double lng) {
