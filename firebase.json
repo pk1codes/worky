@@ -14,6 +14,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "worky-93fbc",
     "public": "app/build/web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
