@@ -141,6 +141,70 @@ void main() {
     expect(box.right, lessThanOrEqualTo(strip.right));
   });
 
+  testWidgets('a tall open strip scrolls its details above the Post button', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 400,
+            child: ListView(
+              controller: scroll,
+              padding: const EdgeInsets.only(bottom: 72),
+              children: const [
+                SizedBox(height: 80),
+                SizedBox(key: Key('strip'), height: 560),
+                SizedBox(height: 400),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final strip = tester.getRect(find.byKey(const Key('strip')));
+    final list = tester.getRect(find.byType(ListView));
+    scroll.jumpTo(
+      revealOpenOffset(
+        topInViewport: strip.top - list.top,
+        height: strip.height,
+        pixels: scroll.position.pixels,
+        viewport: scroll.position.viewportDimension,
+        maxExtent: scroll.position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+    final moved = tester.getRect(find.byKey(const Key('strip')));
+    final view = tester.getRect(find.byType(ListView));
+    expect(moved.bottom, lessThanOrEqualTo(view.bottom - 72 + 1));
+  });
+
+  test('an open strip scrolls until its details clear the Post button', () {
+    final target = revealOpenOffset(
+      topInViewport: 80,
+      height: 560,
+      pixels: 0,
+      viewport: 400,
+      maxExtent: 800,
+    );
+    expect(target, 80 + 560 - (400 - 72));
+  });
+
+  test('an open strip already clear of the Post button stays put', () {
+    expect(
+      revealOpenOffset(
+        topInViewport: 0,
+        height: 200,
+        pixels: 40,
+        viewport: 400,
+        maxExtent: 800,
+      ),
+      40,
+    );
+  });
+
   test('an open card already on screen does not scroll', () {
     expect(
       stripRevealOffset(index: 0, pixels: 0, viewport: 336, maxExtent: 308),
