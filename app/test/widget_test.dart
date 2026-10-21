@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:circle_flags/circle_flags.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worky/src/browse_screen.dart';
 import 'package:worky/src/chrome.dart';
@@ -10,6 +13,37 @@ void main() {
   test('whatsapp numbers use a real mobile check', () {
     expect(validPhone('+919876543210'), isTrue);
     expect(validPhone('+91910000101'), isFalse);
+  });
+
+  test('the wordmark keeps space between each letter', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final data = await rootBundle.load('assets/worky.png');
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final bytes = (await image.toByteData())!;
+    final gaps = <int>[];
+    var empty = 0;
+    var seenInk = false;
+    for (var x = 0; x < image.width; x++) {
+      var ink = false;
+      for (var y = 0; y < image.height; y += 2) {
+        final i = (y * image.width + x) * 4;
+        if (bytes.getUint8(i + 3) > 20) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        if (seenInk && empty > 8) gaps.add(empty);
+        seenInk = true;
+        empty = 0;
+      } else {
+        empty++;
+      }
+    }
+    expect(gaps.length, greaterThanOrEqualTo(4));
+    expect(gaps.reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(40));
   });
 
   test('a saved India number can be confirmed, and does not skip setup', () {

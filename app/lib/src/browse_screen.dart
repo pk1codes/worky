@@ -184,10 +184,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         session.rememberFeed(key, page, lat: lat, lng: lng);
       }
       final rows = widget.picking
-          ? [
-              for (final row in page.categories)
-                row.copyWith(posts: const []),
-            ]
+          ? [for (final row in page.categories) row.copyWith(posts: const [])]
           : session.visible(key, lat, lng);
       setState(() {
         _rows = rows;
@@ -272,14 +269,17 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       ),
                     ),
                     if (session.lat != null && session.country != null)
-                      Semantics(
-                        label: session.countryName ?? session.country!,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black12),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Semantics(
+                          label: session.countryName ?? session.country!,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black12),
+                            ),
+                            child: CircleFlag(session.country!, size: 16),
                           ),
-                          child: CircleFlag(session.country!, size: 16),
                         ),
                       ),
                     const Spacer(),
