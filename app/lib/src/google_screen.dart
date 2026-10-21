@@ -35,81 +35,88 @@ class _GoogleScreenState extends State<GoogleScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final session = SessionHost.of(context);
-    return Paged(
-      page: 2,
-      child: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Worky',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  color: Color(0xFF14281D),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: Text(
-                  'Find nearby work. Message or call. The exact place stays hidden.',
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(session.clearLang());
+      },
+      child: Paged(
+        page: 2,
+        child: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Worky',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Color(0xFF14281D)),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: Text(
-                  l10n.signInGoogle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: 32,
                     color: Color(0xFF14281D),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              _busy
-                  ? const SizedBox(
-                      width: 72,
-                      height: 64,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : BigIcon(
-                      icon: Icons.account_circle,
-                      filled: true,
-                      label: l10n.google,
-                      onTap: () async {
-                        setState(() {
-                          _busy = true;
-                          _error = null;
-                        });
-                        try {
-                          await session.signIn();
-                        } catch (error) {
-                          if (!mounted) return;
-                          setState(() => _error = _signInError(error));
-                          await Speaker.say(session.lang, l10n.tryAgain);
-                        } finally {
-                          if (mounted) setState(() => _busy = false);
-                        }
-                      },
-                    ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
                   child: Text(
-                    _error!,
+                    'Find nearby work. Message or call. The exact place stays hidden.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Color(0xFF14281D)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                  child: Text(
+                    l10n.signInGoogle,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 20,
                       color: Color(0xFF14281D),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-            ],
+                _busy
+                    ? const SizedBox(
+                        width: 72,
+                        height: 64,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : BigIcon(
+                        icon: Icons.account_circle,
+                        filled: true,
+                        label: l10n.google,
+                        onTap: () async {
+                          setState(() {
+                            _busy = true;
+                            _error = null;
+                          });
+                          try {
+                            await session.signIn();
+                          } catch (error) {
+                            if (!mounted) return;
+                            setState(() => _error = _signInError(error));
+                            await Speaker.say(session.lang, l10n.tryAgain);
+                          } finally {
+                            if (mounted) setState(() => _busy = false);
+                          }
+                        },
+                      ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF14281D),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

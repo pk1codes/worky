@@ -132,6 +132,12 @@ class Session extends ChangeNotifier {
     }
   }
 
+  Future<void> clearLang() async {
+    lang = null;
+    notifyListeners();
+    await _prefs?.remove('lang');
+  }
+
   Future<void> setLang(String code) async {
     lang = code;
     notifyListeners();
