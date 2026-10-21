@@ -184,10 +184,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         session.rememberFeed(key, page, lat: lat, lng: lng);
       }
       final rows = widget.picking
-          ? [
-              for (final row in page.categories)
-                row.copyWith(posts: const []),
-            ]
+          ? [for (final row in page.categories) row.copyWith(posts: const [])]
           : session.visible(key, lat, lng);
       setState(() {
         _rows = rows;
