@@ -44,6 +44,7 @@ class _MineScreenState extends State<MineScreen> {
   String? _armedDelete;
   var _armedAccount = false;
   MediaQueue? _box;
+  Session? _session;
   var _seenDrafts = 0;
   var _version = '';
   var _update = false;
@@ -54,6 +55,8 @@ class _MineScreenState extends State<MineScreen> {
     FirebaseAnalytics.instance.logScreenView(screenName: 'mine');
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final session = SessionHost.of(context);
+      _session = session;
+      session.addListener(_onSession);
       _box = session.outbox;
       _seenDrafts = _box!.drafts.length;
       _box!.addListener(_onBox);
@@ -61,6 +64,10 @@ class _MineScreenState extends State<MineScreen> {
       unawaited(_versionLine());
       await _load();
     });
+  }
+
+  void _onSession() {
+    if (mounted) setState(() {});
   }
 
   void _onBox() {
@@ -74,6 +81,7 @@ class _MineScreenState extends State<MineScreen> {
 
   @override
   void dispose() {
+    _session?.removeListener(_onSession);
     _box?.removeListener(_onBox);
     super.dispose();
   }
@@ -163,6 +171,13 @@ class _MineScreenState extends State<MineScreen> {
         });
       }
     }
+  }
+
+  FeedPost _fromHere(Session session, FeedPost post) {
+    final lat = session.lat;
+    final lng = session.lng;
+    if (lat == null || lng == null) return post;
+    return placePost(post, lat, lng);
   }
 
   String _reachWhen(BuildContext context, int at) {
@@ -635,7 +650,7 @@ class _MineScreenState extends State<MineScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: ExpandedCard(
-                          post: post,
+                          post: _fromHere(session, post),
                           categoryName: _postedJob(post),
                           categoryPath: _postedTrail(post),
                           mine: true,

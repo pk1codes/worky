@@ -4,12 +4,32 @@ import 'package:circle_flags/circle_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worky/src/api.dart';
 import 'package:worky/src/browse_screen.dart';
 import 'package:worky/src/chrome.dart';
 import 'package:worky/src/langs.dart';
 import 'package:worky/src/session.dart';
 
 void main() {
+  test('a post made in India is not 0 km from Kuwait', () {
+    final post = FeedPost(
+      id: 'p',
+      posterUrl: '',
+      daysAgo: 1,
+      band: 'near',
+      km: 0,
+      langs: const [],
+      hasVideo: false,
+      lat: 19.07,
+      lng: 72.87,
+      categoryId: 'driver',
+      status: 'active',
+      country: 'IN',
+    );
+    expect(placePost(post, 29.31, 47.97).km, greaterThan(1000));
+    expect(placePost(post, 19.07, 72.87).km, 2);
+  });
+
   test('whatsapp numbers use a real mobile check', () {
     expect(validPhone('+919876543210'), isTrue);
     expect(validPhone('+91910000101'), isFalse);
