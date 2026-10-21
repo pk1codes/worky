@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -6,6 +8,27 @@ import '../l10n/app_localizations.dart';
 import 'chrome.dart';
 import 'langs.dart';
 import 'session.dart';
+
+Set<String> toggleSpoken(Set<String> spoken, String code) {
+  final next = {...spoken};
+  if (!next.add(code)) next.remove(code);
+  return next;
+}
+
+void logLanguage(
+  String hypothesisId,
+  String message,
+  Map<String, Object?> data,
+) {
+  // #region agent log
+  try {
+    File('/home/gw/Desktop/worky/.cursor/debug-5c9114.log').writeAsStringSync(
+      '${jsonEncode({'sessionId': '5c9114', 'hypothesisId': hypothesisId, 'location': 'language_screen.dart', 'message': message, 'data': data, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'runId': 'language'})}\n',
+      mode: FileMode.append,
+    );
+  } catch (_) {}
+  // #endregion
+}
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({this.popOnPick = false, super.key});
@@ -18,14 +41,43 @@ class LanguageScreen extends StatefulWidget {
 
 class _LanguageScreenState extends State<LanguageScreen> {
   var _busy = false;
+  Set<String>? _spoken;
+
+  Set<String> _current(Session session) => _spoken ??= {...session.spoken};
 
   Future<void> _pick(Session session, String code) async {
-    if (_busy) return;
+    if (widget.popOnPick) {
+      if (_busy) return;
+      _busy = true;
+      unawaited(Speaker.clip(code));
+      await session.setSpoken({code});
+      await session.setLang(code);
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final next = toggleSpoken(_current(session), code);
+    _spoken = next;
+    if (next.contains(code)) unawaited(Speaker.clip(code));
+    logLanguage('A', 'toggled spoken language', {
+      'code': code,
+      'count': next.length,
+      'stayed': true,
+    });
+    setState(() {});
+    await session.setSpoken(next);
+  }
+
+  Future<void> _continue(Session session) async {
+    final spoken = _current(session);
+    if (_busy || spoken.isEmpty) return;
     _busy = true;
-    unawaited(Speaker.clip(code));
-    await session.setSpoken({code});
-    await session.setLang(code);
-    if (widget.popOnPick && mounted) Navigator.pop(context);
+    final lang = spoken.first;
+    logLanguage('A', 'continued with spoken languages', {
+      'lang': lang,
+      'count': spoken.length,
+    });
+    await session.setSpoken(spoken);
+    await session.setLang(lang);
   }
 
   @override
@@ -65,12 +117,28 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       LangTile(
                         code: code,
                         uniform: true,
-                        selected: session.lang == code,
+                        selected: widget.popOnPick
+                            ? session.lang == code
+                            : _current(session).contains(code),
                         onTap: () => _pick(session, code),
                       ),
                   ],
                 ),
               ),
+              if (!widget.popOnPick)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      onPressed: _current(session).isEmpty
+                          ? null
+                          : () => _continue(session),
+                      child: Text(l10n.continueAction),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

@@ -226,6 +226,7 @@ class LangTile extends StatelessWidget {
       button: true,
       label: kAutonym[code],
       selected: selected,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
