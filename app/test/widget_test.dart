@@ -205,6 +205,14 @@ void main() {
     );
   });
 
+  test('a closed card leaves most of a phone map visible', () {
+    const cap = 640.0;
+    final closed = mapSheetExtent(cardOpen: false, cap: cap);
+    final open = mapSheetExtent(cardOpen: true, cap: cap);
+    expect(cap - closed, greaterThan(closed));
+    expect(cap - open, lessThan(80));
+  });
+
   test('an open card already on screen does not scroll', () {
     expect(
       stripRevealOffset(index: 0, pixels: 0, viewport: 336, maxExtent: 308),
