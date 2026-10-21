@@ -285,7 +285,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         icon: _map ? Icons.view_agenda : Icons.map,
                         label: l10n.map,
                         compact: true,
-                        onTap: () => setState(() => _map = !_map),
+                        onTap: () => setState(() {
+                          _map = !_map;
+                          if (_map) _openId = null;
+                        }),
                       ),
                     if (!widget.picking)
                       BigIcon(
@@ -438,6 +441,12 @@ IconData _rowIcon(FeedCategory row) {
 
 (int, int) pinCell(double lat, double lng) =>
     ((lat * 50).round(), (lng * 50).round());
+
+double mapSheetExtent({required bool cardOpen, required double cap}) {
+  if (cap < 48) return 0;
+  final wanted = 48.0 + (cardOpen ? 560.0 : 210.0);
+  return math.min(wanted, cap);
+}
 
 double stripRevealOffset({
   required int index,
@@ -1785,8 +1794,7 @@ class _MapPaneState extends State<_MapPane> {
             widget.openId != null &&
             cell.any((post) => post.id == widget.openId);
         final cap = math.max(0.0, constraints.maxHeight - _padClear);
-        final wanted = 48.0 + (expanded ? 560.0 : 210.0);
-        final sheetHeight = math.min(wanted, cap);
+        final sheetHeight = mapSheetExtent(cardOpen: expanded, cap: cap);
         final showSheet = cell.isNotEmpty && sheetHeight >= 48;
         return Column(
           children: [
