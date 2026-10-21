@@ -12,6 +12,12 @@ void main() {
     expect(validPhone('+91910000101'), isFalse);
   });
 
+  test('a saved India number can be confirmed, and does not skip setup', () {
+    expect(indiaMobileDigits('+919876543210'), '9876543210');
+    expect(indiaMobileDigits('+96550000000'), isNull);
+    expect(indiaMobileDigits(null), isNull);
+  });
+
   test('third card scrolls fully into a phone-width row', () {
     const viewport = 336.0;
     const maxExtent = 308.0;

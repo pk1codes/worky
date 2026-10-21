@@ -65,43 +65,36 @@ class _GoogleScreenState extends State<GoogleScreen> {
                     style: TextStyle(fontSize: 16, color: Color(0xFF14281D)),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                  child: Text(
-                    l10n.signInGoogle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      color: Color(0xFF14281D),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
                 _busy
                     ? const SizedBox(
                         width: 72,
                         height: 64,
                         child: Center(child: CircularProgressIndicator()),
                       )
-                    : BigIcon(
-                        icon: Icons.account_circle,
-                        filled: true,
-                        label: l10n.google,
-                        onTap: () async {
-                          setState(() {
-                            _busy = true;
-                            _error = null;
-                          });
-                          try {
-                            await session.signIn();
-                          } catch (error) {
-                            if (!mounted) return;
-                            setState(() => _error = _signInError(error));
-                            await Speaker.say(session.lang, l10n.tryAgain);
-                          } finally {
-                            if (mounted) setState(() => _busy = false);
-                          }
-                        },
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: FilledButton(
+                            onPressed: () async {
+                              setState(() {
+                                _busy = true;
+                                _error = null;
+                              });
+                              try {
+                                await session.signIn();
+                              } catch (error) {
+                                if (!mounted) return;
+                                setState(() => _error = _signInError(error));
+                                await Speaker.say(session.lang, l10n.tryAgain);
+                              } finally {
+                                if (mounted) setState(() => _busy = false);
+                              }
+                            },
+                            child: Text(l10n.signInGoogle),
+                          ),
+                        ),
                       ),
                 if (_error != null)
                   Padding(
