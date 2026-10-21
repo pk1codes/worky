@@ -24,6 +24,13 @@ bool validPhone(String value) {
   }
 }
 
+String? indiaMobileDigits(String? e164) {
+  if (e164 == null || !e164.startsWith('+91') || e164.length != 13) return null;
+  final digits = e164.substring(3);
+  if (int.tryParse(digits) == null) return null;
+  return digits;
+}
+
 String? _isoCountry(String? raw) {
   if (raw == null) return null;
   final code = raw.trim().toUpperCase();
@@ -49,6 +56,7 @@ class Session extends ChangeNotifier {
   String? lang;
   Set<String> spoken = {};
   String? whatsapp;
+  String? suggestedWhatsapp;
   bool admin = false;
   User? user;
   double? lat;
@@ -106,9 +114,9 @@ class Session extends ChangeNotifier {
           admin = me['admin'] == true;
           final serverWhatsapp = me['whatsapp'] as String?;
           if ((whatsapp == null || whatsapp!.isEmpty) &&
-              serverWhatsapp != null) {
-            whatsapp = serverWhatsapp;
-            await _prefs!.setString('whatsapp', serverWhatsapp);
+              serverWhatsapp != null &&
+              serverWhatsapp.isNotEmpty) {
+            suggestedWhatsapp = serverWhatsapp;
           }
           if (lang != null) {
             await api.saveMe(lang: lang, whatsapp: whatsapp);
@@ -155,6 +163,7 @@ class Session extends ChangeNotifier {
     }
     final first = whatsapp == null || whatsapp!.isEmpty;
     whatsapp = value;
+    suggestedWhatsapp = null;
     notifyListeners();
     await _prefs?.setString('whatsapp', value);
     await api.saveMe(lang: lang, whatsapp: value);
@@ -387,6 +396,7 @@ class Session extends ChangeNotifier {
     await api.deleteMe();
     dropFeed();
     whatsapp = null;
+    suggestedWhatsapp = null;
     admin = false;
     _google = null;
     await _prefs?.remove('whatsapp');
@@ -402,6 +412,7 @@ class Session extends ChangeNotifier {
     await outbox.clear();
     dropFeed();
     whatsapp = null;
+    suggestedWhatsapp = null;
     admin = false;
     _google = null;
     await _prefs?.remove('whatsapp');

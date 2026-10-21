@@ -20,6 +20,7 @@ class _SetupScreenState extends State<SetupScreen> {
   var _accepted = false;
   var _busy = false;
   var _askedPermissions = false;
+  var _edited = false;
 
   @override
   void initState() {
@@ -66,6 +67,10 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final session = SessionHost.of(context);
+    if (!_edited && _digits.isEmpty) {
+      final seeded = indiaMobileDigits(session.suggestedWhatsapp);
+      if (seeded != null) _digits = seeded;
+    }
     return Paged(
       page: 3,
       child: Scaffold(
@@ -133,6 +138,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           label: l10n.delete,
                           onTap: () {
                             if (_digits.isEmpty) return;
+                            _edited = true;
                             setState(
                               () => _digits = _digits.substring(
                                 0,
@@ -147,6 +153,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           digit: key,
                           onTap: () {
                             if (_digits.length >= 10) return;
+                            _edited = true;
                             setState(() => _digits += key);
                           },
                         ),
@@ -169,7 +176,9 @@ class _SetupScreenState extends State<SetupScreen> {
                         onTap: () async {
                           final next = !_accepted;
                           setState(() => _accepted = next);
-                          if (next) await _askPermissions();
+                          if (next) {
+                            await _askPermissions(speak: l10n.contactNotice);
+                          }
                         },
                       ),
                     ),
