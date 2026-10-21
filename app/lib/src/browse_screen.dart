@@ -5,6 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:circle_flags/circle_flags.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -336,7 +337,12 @@ class _BrowseScreenState extends State<BrowseScreen> {
                         onRefresh: () => _load(force: true),
                         child: ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.fromLTRB(
+                            12,
+                            0,
+                            12,
+                            _postClearance,
+                          ),
                           children: [
                             for (final row in _rows)
                               _CategoryRow(
@@ -395,6 +401,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
 const _collapsedPoster = 150.0;
 const _stripGap = 12.0;
 const _stripPad = 12.0;
+const _postClearance = 72.0;
 const _openInnerWidth = 280.0;
 const _openInnerPad = 8.0;
 const _openOuterWidth = _openInnerWidth + _openInnerPad * 2;
@@ -458,6 +465,89 @@ double stripRevealOffset({
   if (target < 0) target = 0;
   if (target > maxExtent) target = maxExtent;
   return target;
+}
+
+double revealOpenOffset({
+  required double topInViewport,
+  required double height,
+  required double pixels,
+  required double viewport,
+  required double maxExtent,
+  double overlap = _postClearance,
+}) {
+  if (viewport <= 0) return pixels;
+  final bottom = topInViewport + height;
+  final limit = viewport - overlap;
+  if (bottom <= limit && topInViewport >= 0) return pixels;
+  var target = pixels + bottom - limit;
+  if (target < 0) target = 0;
+  if (target > maxExtent) target = maxExtent;
+  return target;
+}
+
+class _ShowOpenDetails extends StatefulWidget {
+  const _ShowOpenDetails({required this.openId, required this.child});
+
+  final String? openId;
+  final Widget child;
+
+  @override
+  State<_ShowOpenDetails> createState() => _ShowOpenDetailsState();
+}
+
+class _ShowOpenDetailsState extends State<_ShowOpenDetails> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openId != null) _reveal();
+  }
+
+  @override
+  void didUpdateWidget(_ShowOpenDetails oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openId != null && widget.openId != oldWidget.openId) {
+      _reveal();
+    }
+  }
+
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scrollable = Scrollable.maybeOf(context, axis: Axis.vertical);
+      final box = context.findRenderObject();
+      if (scrollable == null || box is! RenderBox || !box.hasSize) return;
+      final position = scrollable.position;
+      if (!position.hasContentDimensions) return;
+      final viewport = _verticalViewport(box);
+      if (viewport == null) return;
+      final top = viewport.getOffsetToReveal(box, 0).offset - position.pixels;
+      final target = revealOpenOffset(
+        topInViewport: top,
+        height: box.size.height,
+        pixels: position.pixels,
+        viewport: position.viewportDimension,
+        maxExtent: position.maxScrollExtent,
+      );
+      if ((target - position.pixels).abs() < 1) return;
+      position.animateTo(
+        target,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  RenderViewport? _verticalViewport(RenderObject start) {
+    RenderObject? node = start.parent;
+    while (node != null) {
+      if (node is RenderViewport && node.axis == Axis.vertical) return node;
+      node = node.parent;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _CategoryRow extends StatelessWidget {
@@ -525,16 +615,22 @@ class _CategoryRow extends StatelessWidget {
             ),
           ),
           if (!picking)
-            SizedBox(
-              height:
+            _ShowOpenDetails(
+              openId:
                   openId != null && row.posts.any((post) => post.id == openId)
-                  ? 560
-                  : 210,
-              child: _JobStrip(
-                posts: row.posts,
-                categoryName: row.name,
-                openId: openId,
-                onOpen: onOpen,
+                  ? openId
+                  : null,
+              child: SizedBox(
+                height:
+                    openId != null && row.posts.any((post) => post.id == openId)
+                    ? 560
+                    : 210,
+                child: _JobStrip(
+                  posts: row.posts,
+                  categoryName: row.name,
+                  openId: openId,
+                  onOpen: onOpen,
+                ),
               ),
             ),
         ],
@@ -714,7 +810,13 @@ class _JobStripState extends State<_JobStrip> {
                     ? SizedBox(
                         width: _openOuterWidth,
                         child: SingleChildScrollView(
-                          child: ExpandedCard(post: post, categoryName: name),
+                          padding: const EdgeInsets.only(
+                            bottom: _postClearance,
+                          ),
+                          child: _ShowOpenDetails(
+                            openId: post.id,
+                            child: ExpandedCard(post: post, categoryName: name),
+                          ),
                         ),
                       )
                     : Align(
