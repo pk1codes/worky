@@ -269,17 +269,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       ),
                     ),
                     if (session.lat != null && session.country != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Semantics(
-                          label: session.countryName ?? session.country!,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.black12),
-                            ),
-                            child: CircleFlag(session.country!, size: 16),
+                      Semantics(
+                        label: session.countryName ?? session.country!,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black12),
                           ),
+                          child: CircleFlag(session.country!, size: 16),
                         ),
                       ),
                     const Spacer(),

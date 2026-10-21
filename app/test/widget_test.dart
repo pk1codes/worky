@@ -44,6 +44,36 @@ void main() {
     }
     expect(gaps.length, greaterThanOrEqualTo(4));
     expect(gaps.reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(40));
+
+    final phone = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetHeight: 90,
+    );
+    final phoneFrame = await phone.getNextFrame();
+    final phoneImage = phoneFrame.image;
+    final phoneBytes = (await phoneImage.toByteData())!;
+    final phoneGaps = <int>[];
+    empty = 0;
+    seenInk = false;
+    for (var x = 0; x < phoneImage.width; x++) {
+      var ink = false;
+      for (var y = 0; y < phoneImage.height; y++) {
+        final i = (y * phoneImage.width + x) * 4;
+        if (phoneBytes.getUint8(i + 3) > 20) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        if (seenInk && empty > 2) phoneGaps.add(empty);
+        seenInk = true;
+        empty = 0;
+      } else {
+        empty++;
+      }
+    }
+    expect(phoneGaps.length, greaterThanOrEqualTo(4));
+    expect(phoneGaps.reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(8));
   });
 
   test('a saved India number can be confirmed, and does not skip setup', () {
