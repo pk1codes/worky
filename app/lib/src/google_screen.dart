@@ -6,7 +6,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../l10n/app_localizations.dart';
 import 'chrome.dart';
-import 'language_screen.dart';
 import 'session.dart';
 
 class GoogleScreen extends StatefulWidget {
@@ -40,9 +39,6 @@ class _GoogleScreenState extends State<GoogleScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        logLanguage('B', 'back from sign-in returns to languages', {
-          'cleared': true,
-        });
         unawaited(session.clearLang());
       },
       child: Paged(

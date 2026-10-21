@@ -10,11 +10,6 @@ void main() {
     expect(both.toList(), ['en', 'hi']);
     expect(both.first, 'en');
     expect(toggleSpoken(both, 'en').toList(), ['hi']);
-    logLanguage('A', 'toggle keeps the screen and the first language', {
-      'count': both.length,
-      'lang': both.first,
-      'stayed': true,
-    });
   });
 
   testWidgets('a language tile is named once', (tester) async {
@@ -33,7 +28,6 @@ void main() {
     final handle = tester.ensureSemantics();
     expect(tester.getSemantics(find.byType(LangTile)).label, 'English');
     handle.dispose();
-    logLanguage('C', 'language name announced once', {'label': 'English'});
   });
 }
 

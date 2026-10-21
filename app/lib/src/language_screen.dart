@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -13,21 +11,6 @@ Set<String> toggleSpoken(Set<String> spoken, String code) {
   final next = {...spoken};
   if (!next.add(code)) next.remove(code);
   return next;
-}
-
-void logLanguage(
-  String hypothesisId,
-  String message,
-  Map<String, Object?> data,
-) {
-  // #region agent log
-  try {
-    File('/home/gw/Desktop/worky/.cursor/debug-5c9114.log').writeAsStringSync(
-      '${jsonEncode({'sessionId': '5c9114', 'hypothesisId': hypothesisId, 'location': 'language_screen.dart', 'message': message, 'data': data, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'runId': 'language'})}\n',
-      mode: FileMode.append,
-    );
-  } catch (_) {}
-  // #endregion
 }
 
 class LanguageScreen extends StatefulWidget {
@@ -58,11 +41,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
     final next = toggleSpoken(_current(session), code);
     _spoken = next;
     if (next.contains(code)) unawaited(Speaker.clip(code));
-    logLanguage('A', 'toggled spoken language', {
-      'code': code,
-      'count': next.length,
-      'stayed': true,
-    });
     setState(() {});
     await session.setSpoken(next);
   }
@@ -72,10 +50,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
     if (_busy || spoken.isEmpty) return;
     _busy = true;
     final lang = spoken.first;
-    logLanguage('A', 'continued with spoken languages', {
-      'lang': lang,
-      'count': spoken.length,
-    });
     await session.setSpoken(spoken);
     await session.setLang(lang);
   }
